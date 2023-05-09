@@ -2,6 +2,7 @@
 //#include <async/async.hpp>
 #include <watch/watch.hpp>
 
+namespace ion {
 watch::watch(array<path> paths, array<str> exts, states<path::option> options, watch::fn watch_fn) : watch() {
     s.paths       = paths;
     s.watch_fn    = watch_fn;
@@ -83,4 +84,5 @@ void watch::stop() {
         s.canceling = true;
         while (!s.safe) { usleep(1); }
     }
+}
 }

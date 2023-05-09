@@ -7,6 +7,7 @@
 #include <unistd.h>
 #endif
 
+namespace ion {
 ///
 struct path_op:mx {
     struct members {
@@ -54,3 +55,4 @@ struct watch:mx {
     
     void stop();
 };
+}
