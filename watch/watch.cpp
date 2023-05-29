@@ -3,7 +3,11 @@
 #include <watch/watch.hpp>
 
 namespace ion {
-watch::watch(array<path> paths, array<str> exts, states<path::option> options, watch::fn watch_fn) : watch() {
+
+watch watch::spawn(array<path> paths, array<str> exts, states<path::option> options, watch::fn watch_fn) {
+    watch w();
+    watch::state &s = w.s;
+
     s.paths       = paths;
     s.watch_fn    = watch_fn;
     s.exts        = exts;
@@ -77,6 +81,7 @@ watch::watch(array<path> paths, array<str> exts, states<path::option> options, w
         s.safe = true;
         return null;
     }};
+    return w;
 }
 
 void watch::stop() {

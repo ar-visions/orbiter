@@ -11,9 +11,9 @@ namespace ion {
 ///
 struct path_op:mx {
     struct members {
-        path     p;
-        size_t   path_index;
-        path::op op;
+        ion::path path;
+        size_t    path_index;
+        path::op  op;
     } &data;
     
     ctr(path_op, mx, members, data);
@@ -51,7 +51,7 @@ struct watch:mx {
 
     ctr(watch, mx, state, s);
 
-    watch(array<path> paths, array<str> exts, states<path::option> options, watch::fn watch_fn);
+    static watch spawn(array<path> paths, array<str> exts, states<path::option> options, watch::fn watch_fn);
     
     void stop();
 };

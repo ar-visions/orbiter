@@ -28,8 +28,8 @@ int main(int argc, const char **argv) {
     URI         uri = "https://0.0.0.0:2200/";
     var  v_sessions = args.count("sessions") ? args["sessions"] : null;
     var       v_ion = args.count("ion")      ? args["ion"]      : null;
-    Path   sessions = v_sessions;
-    Path        ion = Path(v_ion);
+    path   sessions = v_sessions;
+    path        ion = Path(v_ion);
     str         CML = "CMakeLists.txt";
     
     /// make symlink of cmake dir of the server root, which holds session folders
@@ -42,7 +42,7 @@ int main(int argc, const char **argv) {
     /// to use: run orbiter, connect to station port 2200.
     Socket::listen(uri, [CML=CML, ion=ion, sessions=sessions](Socket sc) {
         Temp        session = Temp(sessions);
-        Path    cmake_index = ion  / CML;
+        path    cmake_index = ion  / CML;
         string this_project = null;
         string this_version = null;
         bool     auto_build = false;
@@ -66,7 +66,7 @@ int main(int argc, const char **argv) {
         auto  m_sync_inbound = [&](var &content) -> bool {
             string  rel_path = content["path"];
             string   project = content["project"];
-            Path    abs_path = session / project / rel_path;
+            path    abs_path = session / project / rel_path;
             return abs_path.remove_all();
         };
         
@@ -75,7 +75,7 @@ int main(int argc, const char **argv) {
             var        &data = content["data"];
             string  rel_path = content["path"];
             string   project = content["project"];
-            Path    abs_path = session / project / rel_path;
+            path    abs_path = session / project / rel_path;
             return abs_path.append(data);
         };
         
