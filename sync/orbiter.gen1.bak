@@ -129,7 +129,7 @@ int main(int argc, cstr argv[]) {
                     ///
                     console.test(data, "invalid packet");
                     if (data) {
-                        size_t     sz = data.size();
+                        size_t     sz = data.count();
                         auto      arr = array<uint8_t> { data.data<uint8_t>(), sz };
                         bool  written = product_path.write(arr);
                         ///
