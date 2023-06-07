@@ -9,8 +9,9 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-#include "vkengine.h"
-#include "vkvg.h"
+#include <vke/vke.h>
+#include <vkvg/vkvg.h>
+
 #include "vectors.h"
 
 #include "tessellate.h"
