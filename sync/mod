@@ -1,3 +1,1 @@
 dep(ion.core ion.ux glfw.glfw3 X11)
-
-includes("${CMAKE_BINARY_DIR}/extern/glm-0.9.9.8")
