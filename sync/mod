@@ -1,1 +1,1 @@
-dep(ion.core ion.ux glfw.glfw3 X11)
+dep(ion:core ion:ux glfw:glfw3 X11)
