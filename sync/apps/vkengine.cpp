@@ -221,21 +221,18 @@ int main (int argc, char *argv[]){
 
 		if (refresh) {
 			refresh = false;
-
 			VkvgContext ctx = vkvg_create(surf);
 			vkvg_set_source_rgb(ctx,0.1,0.1,0.1);
 			vkvg_paint(ctx);
-
 			test (ctx);
-
-			vkvg_destroy(ctx);
+			vkvg_drop(ctx);
 		}
 
 		glfwPollEvents();
 
 		if (!vkh_presenter_draw (e->renderer)){
 			vkh_presenter_get_size (e->renderer, &width, &height);
-			vkvg_surface_destroy (surf);
+			vkvg_surface_drop(surf);
 			surf = vkvg_surface_create(dev, width, height);
 			vkh_presenter_build_blit_cmd (e->renderer, vkvg_surface_get_vk_image(surf), width, height);
 			vkengine_wait_idle(e);

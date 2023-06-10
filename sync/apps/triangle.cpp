@@ -429,7 +429,7 @@ private:
         for (const auto& device : devices) {
             if (isDeviceSuitable(device)) {
                 physicalDevice = device;
-                msaaSamples = getMaxUsableSampleCount();
+                msaaSamples = vke_max_sample_count();
                 break;
             }
         }
