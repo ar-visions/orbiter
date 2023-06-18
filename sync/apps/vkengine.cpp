@@ -10,7 +10,7 @@
 #include <ctype.h>
 
 #include <vke/vke.h>
-#include <vkvg/vkvg.h>
+#include <vkg/vkg.h>
 
 #include "vectors.h"
 
@@ -68,17 +68,17 @@ void draw_arrow (VkvgContext ctx, float x, float y) {
 	vec2 p1 = {x,y};
 	vkvg_get_current_point(ctx, &p0.x, &p0.y);
 
-	vec2 dir = vec2_sub(p0,p1);
-	vec2 n = vec2_norm (dir);
-	vec2 perp = vec2_mult_s (vec2_perp(n), arrow_hwidth);
+	vec2 dir = vec2f_sub(p0,p1);
+	vec2 n = vec2f_norm (dir);
+	vec2 perp = vec2f_scale (vec2f_perp(n), arrow_hwidth);
 
 	vkvg_line_to(ctx, x, y);
 	vkvg_stroke(ctx);
 	vkvg_move_to(ctx, x, y);
-	vec2 p = vec2_add(p1, vec2_mult_s (n, arrow_size));
-	vec2 a = vec2_add(p, perp);
+	vec2 p = vec2f_add(p1, vec2f_scale (n, arrow_size));
+	vec2 a = vec2f_add(p, perp);
 	vkvg_line_to(ctx, a.x, a.y);
-	a = vec2_add(p, vec2_mult_s (perp, -1));
+	a = vec2f_add(p, vec2f_scale (perp, -1));
 	vkvg_line_to(ctx, a.x, a.y);
 	vkvg_close_path(ctx);
 	vkvg_fill(ctx);
@@ -210,12 +210,12 @@ int main (int argc, char *argv[]){
 	VkEngine e = vkengine_create (VK_PRESENT_MODE_FIFO_KHR, width, height);
 	vkengine_set_key_callback (e, key_callback);
 
-	dev = vkvg_device_create_from_vk_multisample (vkh_app_get_inst(e->app),
+	dev = vkvg_device_create_from_vk_multisample (vke_app_get_inst(e->app),
 												  vkengine_get_physical_device(e), vkengine_get_device(e), vkengine_get_queue_fam_idx(e), 0, samples, false);
 
 	VkvgSurface surf = vkvg_surface_create(dev, width, height);
 
-	vkh_presenter_build_blit_cmd (e->renderer, vkvg_surface_get_vk_image(surf), width, height);
+	vke_presenter_build_blit_cmd (e->renderer, vkvg_surface_get_vk_image(surf), width, height);
 
 	while (!vkengine_should_close (e)) {
 
@@ -225,16 +225,16 @@ int main (int argc, char *argv[]){
 			vkvg_set_source_rgb(ctx,0.1,0.1,0.1);
 			vkvg_paint(ctx);
 			test (ctx);
-			vkvg_drop(ctx);
+			io_drop(vkvg_context, ctx);
 		}
 
 		glfwPollEvents();
 
-		if (!vkh_presenter_draw (e->renderer)){
-			vkh_presenter_get_size (e->renderer, &width, &height);
+		if(!vke_presenter_draw (e->renderer)){
+			vke_presenter_get_size (e->renderer, &width, &height);
 			vkvg_surface_drop(surf);
 			surf = vkvg_surface_create(dev, width, height);
-			vkh_presenter_build_blit_cmd (e->renderer, vkvg_surface_get_vk_image(surf), width, height);
+			vke_presenter_build_blit_cmd (e->renderer, vkvg_surface_get_vk_image(surf), width, height);
 			vkengine_wait_idle(e);
 			refresh = true;
 			continue;
@@ -245,8 +245,8 @@ int main (int argc, char *argv[]){
 	vkengine_wait_idle(e);
 	
 	if (svgSurf)
-		vkvg_surface_destroy(svgSurf);
-	vkvg_surface_destroy(surf);
-	vkvg_device_destroy(dev);
+		vkvg_surface_drop(svgSurf);
+	vkvg_surface_drop(surf);
+	vkvg_device_drop(dev);
 	vkengine_destroy(e);
 }

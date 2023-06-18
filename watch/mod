@@ -1,2 +1,2 @@
-dep(ion:core ion:async)
+dep(ion:mx ion:async)
 cpp(17)

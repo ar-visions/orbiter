@@ -2,6 +2,26 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "build-io",
+            "type": "shell",
+            "command": "make io-test -j1",
+			"options": {
+                "cwd": "${workspaceFolder}/../io/build"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "group": "build0",
+                "clear": true
+            },
+			"isBackground": false,
+			"problemMatcher": ["$gcc"]
+        },
+        {
             "label": "build-orbiter",
             "type": "shell",
             "command": "make orbiter -j8",
