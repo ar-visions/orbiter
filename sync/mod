@@ -1,1 +1,1 @@
-dep(ion:mx ion:ux glfw:glfw3 X11)
+dep(ion:mx ion:ux ion:math ion:vke)

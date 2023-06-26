@@ -6,18 +6,17 @@ struct orbiter:node {
     struct props {
         int sample;
         callback handler;
-    } &m;
+        ///
+        doubly<prop> meta() {
+            return {
+                prop { "sample",  sample },
+                prop { "handler", handler}
+            };
+        }
+    };
     
     ///
-    ctr_args(orbiter, node, props, m);
-    
-    ///
-    doubly<prop> meta() {
-        return {
-            prop { m, "sample",  m.sample },
-            prop { m, "handler", m.handler}
-        };
-    }
+    component(orbiter, node, props);
     
     ///
     void mounting() {
@@ -28,12 +27,12 @@ struct orbiter:node {
     /// if there is a render the content can be used within it
     Element render() {
         return button {
-            { "content", fmt {"hello world: {0}", { m.sample }} },
+            { "content", fmt {"hello world: {0}", { state->sample }} },
             { "on-click",
                 callback([&](event e) {
                     console.log("on-click...");
-                    if (m.handler)
-                        m.handler(e);
+                    if (state->handler)
+                        state->handler(e);
                 })
             }
         };
