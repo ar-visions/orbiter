@@ -43,8 +43,7 @@ const std::vector<const char*> validationLayers = {
 
 const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    "VK_KHR_portability_subset",
-    "VK_KHR_get_physical_device_properties2"
+    "VK_KHR_portability_subset"
 };
 
 #ifdef NDEBUG
@@ -646,8 +645,8 @@ private:
     }
 
     void createGraphicsPipeline() {
-        auto vertShaderCode = readFile("shaders/vert.spv");
-        auto fragShaderCode = readFile("shaders/frag.spv");
+        auto vertShaderCode = readFile("shaders/generic.vert.spv");
+        auto fragShaderCode = readFile("shaders/generic.frag.spv");
 
         VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
         VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -1697,6 +1696,7 @@ private:
 
         std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
         extensions.push_back("VK_KHR_portability_enumeration");
+        extensions.push_back("VK_KHR_get_physical_device_properties2");
 
         if (enableValidationLayers) {
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
