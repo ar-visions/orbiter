@@ -1,1 +1,8 @@
-dep(ion:mx ion:ux ion:math ion:vke)
+dep(ion:mx ion:math glm glfw:glfw3 vulkansdk:vulkan)
+
+if(APPLE)
+    dep(IOSurface QuartzCore Metal AppKit CoreGraphics CoreFoundation Cocoa IOKit)
+else()
+    dep(X11)
+endif()
+

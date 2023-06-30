@@ -24,7 +24,7 @@
         {
             "label": "build-triangle",
             "type": "shell",
-            "command": "make triangle",
+            "command": "make triangle -j1",
 			"options": {
                 "cwd": "${workspaceFolder}/../orbiter/build"
             },

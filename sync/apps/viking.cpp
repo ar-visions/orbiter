@@ -42,7 +42,9 @@ const std::vector<const char*> validationLayers = {
 };
 
 const std::vector<const char*> deviceExtensions = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    "VK_KHR_portability_subset",
+    "VK_KHR_get_physical_device_properties2"
 };
 
 #ifdef NDEBUG
@@ -366,10 +368,10 @@ private:
 
         VkInstanceCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        createInfo.pApplicationInfo = &appInfo;
         createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        createInfo.pApplicationInfo = &appInfo;
 
-        auto extensions = getRequiredExtensions();
+        auto extensions = getRequiredInstanceExtensions();
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
         createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -430,7 +432,7 @@ private:
         for (const auto& device : devices) {
             if (isDeviceSuitable(device)) {
                 physicalDevice = device;
-                msaaSamples = VK_SAMPLE_COUNT_4_BIT;
+                msaaSamples = getMaxUsableSampleCount();
                 break;
             }
         }
@@ -644,8 +646,8 @@ private:
     }
 
     void createGraphicsPipeline() {
-        auto vertShaderCode = readFile("shaders/09_shader_base.vert.spv");
-        auto fragShaderCode = readFile("shaders/09_shader_base.frag.spv");
+        auto vertShaderCode = readFile("shaders/vert.spv");
+        auto fragShaderCode = readFile("shaders/frag.spv");
 
         VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
         VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -1688,7 +1690,7 @@ private:
         return indices;
     }
 
-    std::vector<const char*> getRequiredExtensions() {
+    std::vector<const char*> getRequiredInstanceExtensions() {
         uint32_t glfwExtensionCount = 0;
         const char** glfwExtensions;
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -1764,4 +1766,4 @@ int main() {
     }
 
     return EXIT_SUCCESS;
-}
+}        
