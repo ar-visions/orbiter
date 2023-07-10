@@ -1,6 +1,6 @@
 {
-    "name":    "orbiter",
-    "version": "0.2.2",
+    "name":   "orbiter",
+    "version":"dev",
     "import": [
         "ion"
     ]
