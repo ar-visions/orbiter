@@ -132,11 +132,7 @@ struct HelloTriangleApplication:mx {
 };
 
 int main() {
-
-    //lambda<str(size_t)> fn_null = lambda<str(size_t)>();
-    //int test2 = 0;
-    //test2++;
-
+    Asset asset1 = Asset(1);
     str raw = str_args(undefined, color, normal, material);
     array<str> abc = raw.split(", ");
 
