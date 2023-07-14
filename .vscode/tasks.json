@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+        {
+            "label": "build-agent",
+            "type": "shell",
+            "command": "make agent -j8",
+            "options": {
+                "cwd": "${workspaceFolder}/../orbiter/build"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "group": "build0",
+                "clear": true
+            },
+            "isBackground": false,
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}

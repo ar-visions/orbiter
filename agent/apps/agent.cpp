@@ -2,12 +2,10 @@
 
 using namespace ion;
 
-/// standard viking arguments
 const uint32_t WIDTH       = 800;
 const uint32_t HEIGHT      = 600;
 const symbol   MODEL_NAME  = "flower22";
 
-/// Vertex need not be an mx-based class, however it does register its meta props, type and function table (register(Vertex))
 struct Vertex {
     glm::vec3 pos;
     glm::vec3 normal;
@@ -20,7 +18,7 @@ struct Vertex {
         normal   = { v_normal[3 * n_index  + 0], v_normal[3 * n_index + 1], v_normal[3 * n_index + 2] };
     }
 
-    /// these properties can be anywhere inside the space.  its all just offset computed on a single instance when generating info.  only ran once
+    /// only run once
     doubly<prop> meta() const {
         return {
             prop { "pos",      pos      },
@@ -31,9 +29,7 @@ struct Vertex {
 
     type_register(Vertex);
 
-    bool operator==(const Vertex& b) const {
-        return pos == b.pos && normal == b.normal && uv == b.uv;
-    }
+    bool operator==(const Vertex& b) const { return pos == b.pos && normal == b.normal && uv == b.uv; }
 };
 
 /// still using std hash and std unordered_map
@@ -50,7 +46,7 @@ struct UniformBufferObject {
     alignas(16) m44f  model;
     alignas(16) m44f  view;
     alignas(16) m44f  proj;
-    alignas(16) vec3f light_dir [MAX_PBR_LIGHTS];
+    alignas(16) vec4f light_dir [MAX_PBR_LIGHTS];
     alignas(16) vec4f light_rgba[MAX_PBR_LIGHTS];
 
     void update(PipelineData &pipeline) {
@@ -66,13 +62,13 @@ struct UniformBufferObject {
         proj[1][1] *= -1;
 
         /// setup some scene lights
-        light_dir [0] = glm::normalize(vec3f(0.0f,  1.0f, -1.0f));
+        light_dir [0] = vec4f(glm::normalize(vec3f(0.0f,  1.0f, -1.0f)), 0.0f);
         light_rgba[0] = vec4f(1.0, 1.0, 1.0, 0.0);
 
-        light_dir [1] = glm::normalize(vec3f(-1.0f, 0.0f, 1.0f));
+        light_dir [1] = vec4f(glm::normalize(vec3f(-1.0f, 0.0f, 1.0f)), 0.0f);
         light_rgba[1] = vec4f(1.0, 0.2, 0.2, 0.0);
 
-        light_dir [2] = glm::normalize(vec3f(-0.5f, 1.0f, 0.3f));
+        light_dir [2] = vec4f(glm::normalize(vec3f(-0.5f, 1.0f, 0.3f)), 0.0f);
         light_rgba[2] = vec4f(0.0, 0.2, 0.6, 0.0);
     }
 };
@@ -83,7 +79,8 @@ struct HelloTriangleApplication:mx {
         vec2i     sz;          /// store current window size
         GPU       gpu;         /// GPU class, responsible for holding onto GPU, Surface and GLFWwindow
         Device    device;      /// Device created with GPU
-        
+        lambda<void()> reloading;
+
         Pipeline<UniformBufferObject, Vertex> pipeline; /// pipeline for single object scene
 
         static void resized(vec2i &sz, HelloTriangleApplication::impl* app) {
@@ -91,14 +88,16 @@ struct HelloTriangleApplication:mx {
             app->device->framebufferResized = true;
         }
 
-        /// initialize with size
         void init(vec2i &sz) {
+            reloading = []() {
+                printf("HelloTriangleApplication: reloading\n");
+            };
+
             gpu      = GPU::select(sz, ResizeFn(resized), this);
             device   = Device::create(gpu);
-            pipeline = Pipeline<UniformBufferObject, Vertex>(device, "disney", MODEL_NAME);
+            pipeline = Pipeline<UniformBufferObject, Vertex>(device, "disney", MODEL_NAME, reloading);
         }
 
-        /// run app (main loop, wait for idle)
         void run() {
             while (!glfwWindowShouldClose(gpu->window)) {
                 glfwPollEvents();
@@ -130,5 +129,11 @@ struct HelloTriangleApplication:mx {
 };
 
 int main() {
+    array<path> paths(3);
+
+    paths += path("./shaders");
+    paths += path("./textures");
+    paths += path("./models");
+
     return HelloTriangleApplication({ WIDTH, HEIGHT });
 }
