@@ -49,7 +49,7 @@ struct UniformBufferObject {
     alignas(16) vec4f light_dir [MAX_PBR_LIGHTS];
     alignas(16) vec4f light_rgba[MAX_PBR_LIGHTS];
 
-    void update(PipelineData &pipeline) {
+    void update(Pipeline::impl *pipeline) {
         VkExtent2D &ext = pipeline->device->swapChainExtent;
 
         static auto startTime   = std::chrono::high_resolution_clock::now();
@@ -73,7 +73,9 @@ struct UniformBufferObject {
     }
 };
 
-struct HelloTriangleApplication:mx {
+/// we need pipelines for the ground & perimeter
+/// Earth needs multiple pipeline
+struct GardenView:mx {
     struct impl {
         Vulkan    vk { 1, 0 }; /// this lazy loads 1.0 when GPU performs that action [singleton data]
         vec2i     sz;          /// store current window size
@@ -81,27 +83,25 @@ struct HelloTriangleApplication:mx {
         Device    device;      /// Device created with GPU
         lambda<void()> reloading;
 
-        Pipeline<UniformBufferObject, Vertex> pipeline; /// pipeline for single object scene
+        Pipeline pipeline; /// pipeline for single object scene
 
-        static void resized(vec2i &sz, HelloTriangleApplication::impl* app) {
+        static void resized(vec2i &sz, GardenView::impl* app) {
             app->sz = sz;
             app->device->framebufferResized = true;
         }
 
         void init(vec2i &sz) {
-            reloading = []() {
-                printf("HelloTriangleApplication: reloading\n");
-            };
-
             gpu      = GPU::select(sz, ResizeFn(resized), this);
             device   = Device::create(gpu);
-            pipeline = Pipeline<UniformBufferObject, Vertex>(device, "disney", MODEL_NAME, reloading);
+            pipeline = Pipeline(Graphics<UniformBufferObject, Vertex>(device, MODEL_NAME));
         }
 
         void run() {
             while (!glfwWindowShouldClose(gpu->window)) {
                 glfwPollEvents();
+                device->mtx.lock();
                 device->drawFrame(pipeline);
+                device->mtx.unlock();
             }
             vkDeviceWaitIdle(device);
         }
@@ -110,9 +110,9 @@ struct HelloTriangleApplication:mx {
         type_register(impl);
     };
     
-    mx_object(HelloTriangleApplication, mx, impl);
+    mx_object(GardenView, mx, impl);
 
-    HelloTriangleApplication(vec2i sz):HelloTriangleApplication() {
+    GardenView(vec2i sz):GardenView() {
         data->init(sz);
     }
 
@@ -129,11 +129,5 @@ struct HelloTriangleApplication:mx {
 };
 
 int main() {
-    array<path> paths(3);
-
-    paths += path("./shaders");
-    paths += path("./textures");
-    paths += path("./models");
-
-    return HelloTriangleApplication({ WIDTH, HEIGHT });
+    return GardenView({ WIDTH, HEIGHT });
 }
