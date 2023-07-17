@@ -63,13 +63,13 @@ struct UniformBufferObject {
 
         /// setup some scene lights
         light_dir [0] = vec4f(glm::normalize(vec3f(0.0f,  1.0f, -1.0f)), 0.0f);
-        light_rgba[0] = vec4f(1.0, 1.0, 1.0, 0.0);
+        light_rgba[0] = vec4f(1.0, 1.0, 1.0, 1.0);
 
         light_dir [1] = vec4f(glm::normalize(vec3f(-1.0f, 0.0f, 1.0f)), 0.0f);
-        light_rgba[1] = vec4f(1.0, 0.2, 0.2, 0.0);
+        light_rgba[1] = vec4f(1.0, 0.2, 0.2, 1.0);
 
         light_dir [2] = vec4f(glm::normalize(vec3f(-0.5f, 1.0f, 0.3f)), 0.0f);
-        light_rgba[2] = vec4f(0.0, 0.2, 0.6, 0.0);
+        light_rgba[2] = vec4f(0.0, 0.2, 0.6, 1.0);
     }
 };
 
