@@ -41,13 +41,18 @@ namespace std {
     };
 }
 
+struct Light {
+    alignas(16) vec4f pos;
+    alignas(16) vec4f color;
+};
+
 /// uniform has an update method with a pipeline arg
 struct UniformBufferObject {
     alignas(16) m44f  model;
     alignas(16) m44f  view;
     alignas(16) m44f  proj;
-    alignas(16) vec4f light_dir [MAX_PBR_LIGHTS];
-    alignas(16) vec4f light_rgba[MAX_PBR_LIGHTS];
+    alignas(16) vec3f eye;
+    alignas(16) Light lights[MAX_PBR_LIGHTS];
 
     void update(Pipeline::impl *pipeline) {
         VkExtent2D &ext = pipeline->device->swapChainExtent;
@@ -56,20 +61,25 @@ struct UniformBufferObject {
         auto        currentTime = std::chrono::high_resolution_clock::now();
         float       time        = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
         
+        eye   = vec3f(2.0f, 2.0f, 5.0f);
         model = glm::rotate(m44f(1.0f), time * glm::radians(90.0f) * 0.1f, vec3f(0.0f, 0.0f, 1.0f));
-        view  = glm::lookAt(vec3f(2.0f, 2.0f, 5.0f), vec3f(0.0f, 0.0f, 0.0f), vec3f(0.0f, 0.0f, 1.0f));
+        view  = glm::lookAt(eye, vec3f(0.0f, 0.0f, 0.0f), vec3f(0.0f, 0.0f, 1.0f));
         proj  = glm::perspective(glm::radians(22.0f), ext.width / (float) ext.height, 0.1f, 10.0f);
         proj[1][1] *= -1;
 
         /// setup some scene lights
-        light_dir [0] = vec4f(glm::normalize(vec3f(0.0f,  1.0f, -1.0f)), 0.0f);
-        light_rgba[0] = vec4f(1.0, 1.0, 1.0, 1.0);
-
-        light_dir [1] = vec4f(glm::normalize(vec3f(-1.0f, 0.0f, 1.0f)), 0.0f);
-        light_rgba[1] = vec4f(1.0, 0.2, 0.2, 1.0);
-
-        light_dir [2] = vec4f(glm::normalize(vec3f(-0.5f, 1.0f, 0.3f)), 0.0f);
-        light_rgba[2] = vec4f(0.0, 0.2, 0.6, 1.0);
+        lights[0] = {
+            vec4f(vec3f(0.0f, 0.0f, 5.0f), 100.0f),
+            vec4f(1.0, 1.0, 1.0, 1.0)
+        };
+        lights[1] = {
+            vec4f(vec3f(0.0f, 0.0f, -5.0f), 100.0f),
+            vec4f(1.0, 1.0, 1.0, 1.0)
+        };
+        lights[2] = {
+            vec4f(vec3f(0.0f, 0.0f, -5.0f), 100.0f),
+            vec4f(1.0, 1.0, 1.0, 1.0)
+        };
     }
 };
 
