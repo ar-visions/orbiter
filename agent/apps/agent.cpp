@@ -61,15 +61,15 @@ struct UniformBufferObject {
         auto        currentTime = std::chrono::high_resolution_clock::now();
         float       time        = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
         
-        eye   = vec3f(2.0f, 2.0f, 5.0f);
-        model = glm::rotate(m44f(1.0f), time * glm::radians(90.0f) * 0.1f, vec3f(0.0f, 0.0f, 1.0f));
+        eye   = vec3f(0.0f, 4.0f, 6.0f);
+        model = glm::rotate(m44f(1.0f), time * glm::radians(90.0f) * 0.5f, vec3f(0.0f, 0.0f, 1.0f));
         view  = glm::lookAt(eye, vec3f(0.0f, 0.0f, 0.0f), vec3f(0.0f, 0.0f, 1.0f));
         proj  = glm::perspective(glm::radians(22.0f), ext.width / (float) ext.height, 0.1f, 10.0f);
         proj[1][1] *= -1;
 
         /// setup some scene lights
         lights[0] = {
-            vec4f(vec3f(0.0f, 0.0f, 5.0f), 100.0f),
+            vec4f(vec3f(2.0f, 0.0f, 4.0f), 25.0f),
             vec4f(1.0, 1.0, 1.0, 1.0)
         };
         lights[1] = {
