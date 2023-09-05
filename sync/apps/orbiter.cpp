@@ -2,7 +2,7 @@
 
 using namespace ion;
 
-struct orbiter:node {
+struct orbiter:Element {
     struct props {
         int sample;
         callback handler;
@@ -16,7 +16,7 @@ struct orbiter:node {
     };
     
     ///
-    component(orbiter, node, props);
+    component(orbiter, Element, props);
     
     ///
     void mounting() {
