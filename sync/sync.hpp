@@ -8,7 +8,6 @@ namespace ion {
 
 struct station:mx {
     enums(command, none, 
-        "none, project, resource, dependency, ping, pong, repo, del, products, sync-inbound, sync-packet, sync-complete, delivery-inbound, delivery-packet, delivery-complete, auto-build, force-build, force-clean",
          none, project, resource, dependency, ping, pong, repo, del, products, sync_inbound, sync_packet, sync_complete, delivery_inbound, delivery_packet, delivery_complete, auto_build, force_build, force_clean
     );
 
