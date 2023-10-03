@@ -19,8 +19,8 @@ struct orbiter:Element {
     component(orbiter, Element, props);
     
     ///
-    void mounting() {
-        console.log("mounting");
+    void mounted() {
+        console.log("mounted");
     }
 
     /// if no render is defined, the content is used for embedding children from content (if its there)
