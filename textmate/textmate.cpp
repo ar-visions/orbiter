@@ -400,7 +400,7 @@ struct RawGrammar:mx {
 };
 
 struct IGrammarRepository {
-	virtual RawGrammar &lookup(ScopeName scopeName) = 0;
+	virtual RawGrammar lookup(ScopeName scopeName) = 0;
 	virtual array<ScopeName> injections(ScopeName scopeName) = 0;
 };
 
@@ -2531,6 +2531,8 @@ struct AttributedScopeStack:mx {
 	};
 	mx_basic(AttributedScopeStack);
 
+	AttributedScopeStack(null_t) : AttributedScopeStack() { }
+
 	static AttributedScopeStack fromExtension(AttributedScopeStack namesScopeList, array<AttributedScopeStackFrame> contentNameScopesList) {
 		AttributedScopeStack current = namesScopeList;
 		ScopeStack scopeNames = namesScopeList ?
@@ -2817,7 +2819,7 @@ struct StateStackImpl:mx {
 	utf16 toString() { /// 'toString' should probably always be to String.  not another form of it.  UTF8 out
 		array<utf16> r;
 		_writeString(r, 0);
-		return "[" + str(r.join(str(","))) + "]";
+		return fmt {"[{0}]", { str(r.join(str(","))) }};
 	}
 
 	num _writeString(array<utf16> res, num outIndex) {
@@ -2882,34 +2884,182 @@ struct StateStackImpl:mx {
 		StateStackImpl parent = data->parent.grab();
 		AttributedScopeStack scope_list = data->nameScopesList ? 
 				data->nameScopesList.getExtensionIfDefined(
-					parent ? (parent->nameScopesList ? parent->nameScopesList : null) : null) : null;
+					bool(parent) ? parent->nameScopesList : null) : null;
 		
 		return StateStackFrame::members {
 			.ruleId = ruleIdToNumber(data->ruleId),
-			.beginRuleCapturedEOL = data->beginRuleCapturedEOL,
-			.endRule = data->endRule,
-			.nameScopesList = scope_list,
-			.contentNameScopesList = data->contentNameScopesList ? 
-				data->contentNameScopesList.getExtensionIfDefined(data->nameScopesList) : {},
+			.beginRuleCapturedEOL 	= data->beginRuleCapturedEOL,
+			.endRule 				= data->endRule,
+			.nameScopesList 		= scope_list,
+			.contentNameScopesList 	= data->contentNameScopesList ? 
+				data->contentNameScopesList.getExtensionIfDefined(data->nameScopesList) : null,
 		};
 	}
 
 	static StateStackImpl pushFrame(StateStackImpl self, StateStackFrame &frame) {
-		auto namesScopeList = AttributedScopeStack::fromExtension(self ? self->nameScopesList : null, frame.nameScopesList);
+		auto namesScopeList = AttributedScopeStack::fromExtension(self ? self->nameScopesList : null, frame->nameScopesList);
 		return StateStackImpl(
-			StateStackImpl::members {
-				self,
-				ruleIdFromNumber(frame.ruleId),
-				frame.enterPos ? frame.enterPos : -1,
-				frame.anchorPos ? frame.anchorPos : -1,
-				frame.beginRuleCapturedEOL,
-				frame.endRule,
-				namesScopeList,
-				AttributedScopeStack::fromExtension(namesScopeList, frame.contentNameScopesList)
-			}
+			self,
+			
+			frame->enterPos 	? frame->enterPos : -1,
+			frame->anchorPos ? frame->anchorPos : -1,
+			frame->beginRuleCapturedEOL,
+
+			ruleIdFromNumber(frame->ruleId),
+			
+			frame->endRule,
+			namesScopeList,
+			AttributedScopeStack::fromExtension(namesScopeList, frame->contentNameScopesList)
 		);
 	}
 };
+
+
+using NameMatcher = lambda<bool(array<str>, array<str>)>;
+
+struct MatcherWithPriority:mx {
+	struct members {
+		Matcher matcher;
+		num 	priority; // -1, 0, 1
+		register(members);
+	};
+	mx_basic(MatcherWithPriority);
+	MatcherWithPriority(Matcher &matcher, num priority) : MatcherWithPriority() {
+		data->matcher  = matcher;
+		data->priority = priority;
+	}
+};
+
+struct Tokenizer:mx {
+    struct members {
+		utf16			input;
+		RegEx		  	regex;
+		array<utf16>    match;
+		utf16 next() {
+			if (!match)
+				return {};
+			utf16 prev = match[0];
+			match = regex.exec(input); /// regex has a marker for its last match stored, so one can call it again if you give it the same input.  if its a different input it will reset
+			return prev;
+		}
+    };
+
+    mx_basic(Tokenizer);
+
+    Tokenizer(utf16 input) : Tokenizer() {
+        data->regex = utf16("([LR]:|[\\w\\.:][\\w\\.:\\-]*|[\\,\\|\\-\\(\\)])");
+	    data->match = data->regex.exec(input);
+    }
+};
+
+bool isIdentifier(utf16 token) {
+	RegEx regex("[\\w\\.:]+/");
+	return token && regex.exec(token);
+}
+
+array<MatcherWithPriority> createMatchers(utf16 selector, NameMatcher matchesName) {
+	array<MatcherWithPriority> results;
+	Tokenizer tokenizer { selector };
+	utf16 token = tokenizer->next();
+
+	/// accesses tokenizer
+	lambda<Matcher()> parseInnerExpression;
+	lambda<Matcher()> &parseInnerExpressionRef = parseInnerExpression;
+	lambda<Matcher()> parseOperand;
+	lambda<Matcher()> &parseOperandRef = parseOperand; /// dont believe we can merely set after we copy the other value in; the data will change
+	parseOperand = [&token, _tokenizer=tokenizer, matchesName, parseInnerExpressionRef, parseOperandRef]() -> Matcher {
+		Tokenizer &tokenizer = (Tokenizer &)_tokenizer;
+		if (token == "-") {
+			token = tokenizer->next();
+			Matcher expressionToNegate = parseOperandRef();
+			return Matcher([expressionToNegate](mx matcherInput) -> bool {
+				return bool(expressionToNegate) && !expressionToNegate(matcherInput);
+			});
+		}
+		if (token == "(") {
+			token = tokenizer->next();
+			Matcher expressionInParents = parseInnerExpressionRef();
+			if (token == ")") {
+				token = tokenizer->next();
+			}
+			return expressionInParents;
+		}
+		if (isIdentifier(token)) {
+			array<utf16> identifiers;
+			do {
+				identifiers.push(token);
+				token = tokenizer->next();
+			} while (isIdentifier(token));
+			///
+			return Matcher([matchesName, identifiers] (mx matcherInput) -> bool {
+				return matchesName((array<utf16>&)identifiers, matcherInput);
+			});
+		}
+		return null;
+	};
+
+	/// accesses tokenizer
+	auto parseConjunction = [_tokenizer=tokenizer, parseOperand]() -> Matcher {
+		Tokenizer &tokenizer = (Tokenizer &)_tokenizer;
+		array<Matcher> matchers;
+		Matcher matcher = parseOperand();
+		while (matcher) {
+			matchers.push(matcher);
+			matcher = parseOperand();
+		}
+		return [matchers](mx matcherInput) -> bool {
+			return matchers.every([matcherInput](Matcher &matcher) -> bool {
+				return matcher(matcherInput);
+			});
+		};
+	};
+
+	/// accesses tokenizer
+	parseInnerExpression = [&token, _tokenizer=tokenizer, parseConjunction]() -> Matcher {
+		Tokenizer &tokenizer = (Tokenizer &)_tokenizer;
+		array<Matcher> matchers;
+		Matcher matcher = parseConjunction();
+		while (matcher) {
+			matchers.push(matcher);
+			if (token == "|" || token == ",") {
+				do {
+					token = tokenizer->next();
+				} while (token == "|" || token == ","); // ignore subsequent commas
+			} else {
+				break;
+			}
+			matcher = parseConjunction();
+		}
+		return Matcher([matchers](mx matcherInput) -> bool {
+			return matchers.some([matcherInput](Matcher &matcher) {
+				return matcher(matcherInput);
+			});
+		});
+	};
+
+	/// top level loop to iterate through tokens
+	while (token) {
+		num priority = 0;
+		if (token.len() == 2 && token[1] == ':') {
+			switch (token[0]) {
+				case 'R': priority =  1; break;
+				case 'L': priority = -1; break;
+				default:
+					console.log("Unknown priority {0} in scope selector", {token});
+					return {};
+			}
+			token = tokenizer->next();
+		}
+		Matcher matcher = parseConjunction();
+		MatcherWithPriority mp { matcher, priority };
+		results.push(mp);
+		if (token != ",") {
+			break;
+		}
+		token = tokenizer->next();
+	}
+	return results;
+}
 
 struct ITokenizeLineResult {
 	array<IToken> tokens;
@@ -2923,11 +3073,94 @@ struct ITokenizeLineResult2 {
 	bool stoppedEarly;
 };
 
-struct ILineTokensResult {
-	num lineLength;
-	LineTokens lineTokens;
-	StateStackImpl ruleStack;
-	bool stoppedEarly;
+struct BalancedBracketSelectors:mx {
+	struct members {
+		array<Matcher> balancedBracketScopes;
+		array<Matcher> unbalancedBracketScopes;
+		bool allowAny;
+	};
+	mx_basic(BalancedBracketSelectors)
+	
+	bool nameMatcher(array<ScopeName> identifers, array<ScopeName> scopes) {
+		if (scopes.len() < identifers.len()) {
+			return false;
+		}
+		size_t lastIndex = 0;
+		return identifers.every([&](ScopeName &identifier) -> bool {
+			for (size_t i = lastIndex; i < scopes.len(); i++) {
+				if (scopesAreMatching(scopes[i], identifier)) {
+					lastIndex = i + 1;
+					return true;
+				}
+			}
+			return false;
+		});
+	}
+
+	bool scopesAreMatching(str thisScopeName, str scopeName) {
+		if (!thisScopeName) {
+			return false;
+		}
+		if (thisScopeName == scopeName) {
+			return true;
+		}
+		size_t len = scopeName.len();
+		return thisScopeName.len() > len && thisScopeName.mid(0, len) == scopeName && thisScopeName[len] == '.';
+	}
+
+	BalancedBracketSelectors(
+		array<str> balancedBracketScopes,
+		array<str> unbalancedBracketScopes) : BalancedBracketSelectors() {
+		
+		
+		data->balancedBracketScopes = balancedBracketScopes.flat_map<Matcher>(
+			[&](str &selector) -> array<Matcher> {
+				if (selector == "*") {
+					data->allowAny = true;
+					return array<Matcher> {};
+				}
+				//createMatchers(selector, NameMatcher(this, nameMatcher))
+				array<MatcherWithPriority> p = createMatchers(utf16(selector), NameMatcher(this, &BalancedBracketSelectors::nameMatcher));
+				return p.map<Matcher>(
+					[](MatcherWithPriority &m) -> Matcher { 
+						return m->matcher;
+					});
+			}
+		);
+
+
+		data->unbalancedBracketScopes = unbalancedBracketScopes.flat_map<Matcher>(
+			[&](str &selector) -> array<Matcher> {
+				array<MatcherWithPriority> p = createMatchers(utf16(selector), NameMatcher(this, &BalancedBracketSelectors::nameMatcher));
+				return p.map<Matcher>(
+					[](MatcherWithPriority &m) -> Matcher {
+						return m->matcher;
+					});
+			}
+		);
+	}
+
+	bool matchesAlways() {
+		return data->allowAny && data->unbalancedBracketScopes.len() == 0;
+	}
+
+	bool matchesNever() {
+		return data->balancedBracketScopes.len() == 0 && !data->allowAny;
+	}
+
+	bool match(array<str> scopes) {
+		for (auto excluder: data->unbalancedBracketScopes) {
+			if (excluder(scopes)) {
+				return false;
+			}
+		}
+		for (auto includer: data->balancedBracketScopes) {
+			if (includer(scopes)) {
+				return true;
+			}
+		}
+		return data->allowAny;
+	}
 };
 
 struct LineTokens:mx {
@@ -2938,6 +3171,7 @@ struct LineTokens:mx {
 		array<num> 		_binaryTokens;
 		num 			_lastTokenEndIndex;
 		array<TokenTypeMatcher> _tokenTypeOverrides;
+		BalancedBracketSelectors balancedBracketSelectors;
 		register(members);
 	};
 	
@@ -2946,11 +3180,12 @@ struct LineTokens:mx {
 	LineTokens(
 		bool emitBinaryTokens, utf16 lineText,
 		array<TokenTypeMatcher> tokenTypeOverrides,
-		array<BalancedBracketSelectors> balancedBracketSelectors) : LineTokens()
+		BalancedBracketSelectors balancedBracketSelectors) : LineTokens()
 	{
 		data->_emitBinaryTokens = emitBinaryTokens;
 		data->_tokenTypeOverrides = tokenTypeOverrides;
-		if (DebugFlags.InDebugMode) {
+		data->balancedBracketSelectors = balancedBracketSelectors;
+		if (is_debug()) {
 			data->_lineText = lineText;
 		} else {
 			data->_lineText = null;
@@ -2958,7 +3193,7 @@ struct LineTokens:mx {
 	}
 
 	void produce(StateStackImpl stack, num endIndex) {
-		data->produceFromScopes(stack->contentNameScopesList, endIndex);
+		produceFromScopes(stack->contentNameScopesList, endIndex);
 	}
 
 	void produceFromScopes(
@@ -2971,9 +3206,12 @@ struct LineTokens:mx {
 
 		if (data->_emitBinaryTokens) {
 			auto metadata = scopesList ? scopesList->tokenAttributes : 0;
-			bool containsBalancedBrackets = (data->balancedBracketSelectors && data->balancedBracketSelectors->matchesAlways);
+			bool containsBalancedBrackets = (data->balancedBracketSelectors && data->balancedBracketSelectors.matchesAlways());
 
-			if (data->_tokenTypeOverrides.len() > 0 || (data->balancedBracketSelectors && !data->balancedBracketSelectors.matchesAlways && !data->balancedBracketSelectors.matchesNever)) {
+			if (data->_tokenTypeOverrides.len() > 0 ||
+			   (data->balancedBracketSelectors && 
+			   !data->balancedBracketSelectors.matchesAlways() && 
+			   !data->balancedBracketSelectors.matchesNever())) {
 				// Only generate scope array when required to improve performance
 				array<ScopeName> scopes = scopesList ? scopesList.getScopeNames() : array<ScopeName>();
 				for (auto &tokenType: data->_tokenTypeOverrides) {
@@ -2983,7 +3221,7 @@ struct LineTokens:mx {
 							0,
 							toOptionalTokenType(tokenType.type),
 							null,
-							FontStyle::NotSet,
+							FontStyle::_NotSet,
 							0,
 							0
 						);
@@ -2998,9 +3236,9 @@ struct LineTokens:mx {
 				metadata = EncodedTokenAttributes::set(
 					metadata,
 					0,
-					OptionalStandardTokenType.NotSet,
+					OptionalStandardTokenType::NotSet,
 					containsBalancedBrackets,
-					FontStyle::NotSet,
+					FontStyle::_NotSet,
 					0,
 					0
 				);
@@ -3012,13 +3250,13 @@ struct LineTokens:mx {
 				return;
 			}
 
-			if (DebugFlags.InDebugMode) {
+			if (is_debug()) {
 				array<str> scopes = scopesList ? scopesList.getScopeNames() : array<str>();
-				RegEx regex = RegEx(R"(\n$)");
-				utf16 txt = data->_lineText.mid(data->_lastTokenEndIndex, endIndex - data->_lastTokenEndIndex);
-				console.log('  token: |' + regex.replace(txt, "\\n") + '|');
+				RegEx      regex  = RegEx(R"(\n$)");
+				utf16      txt    = data->_lineText.mid(data->_lastTokenEndIndex, endIndex - data->_lastTokenEndIndex);
+				console.log("  token: |{0}|", { regex.replace(txt, "\\n") });
 				for (size_t k = 0; k < scopes.len(); k++) {
-					console.log('      * ' + scopes[k]);
+					console.log("      * {0}", { scopes[k] });
 				}
 			}
 
@@ -3031,22 +3269,20 @@ struct LineTokens:mx {
 
 		array<str> scopes = scopesList ? scopesList.getScopeNames() : array<str>();
 
-		if (DebugFlags.InDebugMode) {
+		if (is_debug()) {
 			RegEx regex = RegEx(R"(\n$)");
-			utf16 txt = data->_lineText!.mid(data->_lastTokenEndIndex, endIndex - data->_lastTokenEndIndex);
-			console.log('  token: |' + regex.replace(txt, "\\n") + '|');
+			utf16 txt = data->_lineText.mid(data->_lastTokenEndIndex, endIndex - data->_lastTokenEndIndex);
+			console.log("  token: |{0}|", { regex.replace(txt, "\\n") });
 			for (size_t k = 0; k < scopes.len(); k++) {
-				console.log('      * ' + scopes[k]);
+				console.log("      * {0}", { scopes[k] });
 			}
 		}
-
-		data->_tokens.push({
-			startIndex = data->_lastTokenEndIndex,
-			endIndex   = endIndex,
-			// value   = lineText.mid(lastTokenEndIndex, endIndex - lastTokenEndIndex),
-			scopes     = scopes
-		});
-
+		IToken p {
+			.startIndex = data->_lastTokenEndIndex,
+			.endIndex   = endIndex,
+			.scopes     = scopes
+		};
+		data->_tokens.push(p);
 		data->_lastTokenEndIndex = endIndex;
 	}
 
@@ -3058,7 +3294,7 @@ struct LineTokens:mx {
 
 		if (data->_tokens.len() == 0) {
 			data->_lastTokenEndIndex = -1;
-			data->produce(stack, lineLength);
+			produce(stack, lineLength);
 			data->_tokens[data->_tokens.len() - 1].startIndex = 0;
 		}
 
@@ -3074,17 +3310,25 @@ struct LineTokens:mx {
 
 		if (data->_binaryTokens.len() == 0) {
 			data->_lastTokenEndIndex = -1;
-			data->produce(stack, lineLength);
+			produce(stack, lineLength);
 			data->_binaryTokens[data->_binaryTokens.len() - 2] = 0;
 		}
 
 		auto result = Uint32Array(data->_binaryTokens.len());
 		for (size_t i = 0, len = data->_binaryTokens.len(); i < len; i++) {
-			result.push(data->_binaryTokens[i]);
+			u32 t = (u32)data->_binaryTokens[i];
+			result.push(t);
 		}
 
 		return result;
 	}
+};
+
+struct ILineTokensResult {
+	num lineLength;
+	LineTokens lineTokens;
+	StateStackImpl ruleStack;
+	bool stoppedEarly;
 };
 
 struct TokenizeStringResult {
@@ -3098,12 +3342,44 @@ TokenizeStringResult _tokenizeString(
 	bool checkWhileConditions, num timeLimit 
 );
 
+struct Injection:mx {
+	struct members {
+		str debugSelector;
+		Matcher matcher;
+		num priority; // 0 is the default. -1 for 'L' and 1 for 'R'
+		RuleId ruleId;
+		RawGrammar grammar;
+	};
+	mx_basic(Injection);
+};
+
+/// Grammar should use 'Registry' there are too many data relationships
+RawGrammar initGrammar(RawGrammar grammar, RawRule base) {
+	grammar = clone(grammar);
+
+	grammar->repository = grammar->repository ? grammar->repository : RawRepository {};
+	grammar->repository["$self"] = RawRule::members {
+		._vscodeTextmateLocation = grammar->_vscodeTextmateLocation,
+		.patterns = grammar->patterns,
+		name = grammar->scopeName
+	};
+	grammar->repository["$base"] = base ? base : grammar.repository["$self"];
+	return grammar;
+}
+
 struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
-	struct members : IGrammar, IRuleFactoryHelper, IOnigLib {
+	struct members : IRuleFactoryHelper, IOnigLib {
+		str						_rootScopeName;
 		RuleId 					_rootId = -1;
 		num 					_lastRuleId;
 		array<Rule> 			_ruleId2desc;
+		map<RawRepository>		_includedGrammars;
+		IGrammarRepository	   *_grammarRepository; // IGrammarRepository IThemeProvider
+		// IThemeProvider *_themeProvider;
 		var 					_grammar;
+		array<Injection>		_injections;
+		
+		BasicScopeAttributesProvider _basicScopeAttributesProvider;
 		array<TokenTypeMatcher> _tokenTypeMatchers;
 
 		OnigScanner createOnigScanner(array<str> sources) {
@@ -3116,18 +3392,52 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 	};
 	mx_basic(Grammar);
 
-	/// remove Repository
-	/// remove Scope/Theme
+	RawGrammar getExternalGrammar(
+		str scopeName,
+		RawRepository repository) {
+		if (data->_includedGrammars[scopeName]) {
+			return data->_includedGrammars[scopeName];
+		} else if (data->_grammarRepository) {
+			RawGrammar rawIncludedGrammar =
+				data->_grammarRepository->lookup(scopeName);
+			if (rawIncludedGrammar) {
+				// console.log('LOADED GRAMMAR ' + pattern.include);
+				data->_includedGrammars[scopeName] = initGrammar(
+					rawIncludedGrammar,
+					repository && repository.count("$base")
+				);
+				return data->_includedGrammars[scopeName];
+			}
+		}
+		return null;
+	}
+
 	Grammar(
-		var grammar,
-		ITokenTypeMap tokenTypes, // this is null for us
+		ScopeName 				 _rootScopeName,
+		var 					 grammar,
+		num 					 initialLanguage,
+		IEmbeddedLanguagesMap    embeddedLanguages,
+		ITokenTypeMap 			 tokenTypes,
 		BalancedBracketSelectors balancedBracketSelectors,
-	) {
-		data->_rootId = -1;
-		data->_lastRuleId = 0;
-		data->_ruleId2desc = array<Rule> { Rule() };
-		data->_includedGrammars = {};
-		data->_grammar = grammar;
+		IGrammarRepository 		&grammarRepository,
+		IOnigLib 			    &_onigLib
+		)
+	{
+		data->_basicScopeAttributesProvider = BasicScopeAttributesProvider(
+			initialLanguage,
+			embeddedLanguages
+		);
+		data->_rootScopeName 			= _rootScopeName;
+		data->_rootId 					= -1;
+		data->_lastRuleId 				= 0;
+		data->initialLanguage 			= initialLanguage;
+		data->_ruleId2desc 				= array<Rule> { Rule() };
+		data->_includedGrammars 		= {};
+		data->_grammar 					= grammar;
+		data->balancedBracketSelectors 	= balancedBracketSelectors;
+		data->grammarRepository 		= grammarRepository;
+		data->_onigLib 					= _onigLib;
+
 		if (tokenTypes) {
 			array<str> keys = tokenTypes.keys<str>();
 			for (str &selector: keys) {
@@ -3157,7 +3467,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			},
 			.injections = [&](str scopeName) -> array<str> {
 				return data->_grammarRepository.injections(scopeName);
-			},
+			}
 		};
 
 		array<Injection> result;
@@ -3166,13 +3476,15 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		RawGrammar grammar = grammarRepository.lookup(scopeName);
 		if (grammar) {
 			// add injections from the current grammar
-			auto rawInjections = grammar.injections;
+			map<RawRule> rawInjections = grammar->injections;
 			if (rawInjections) {
-				for (auto &expression: rawInjections) {
+				for (field<RawRule> &f: rawInjections) {
+					str expression    = f.key.grab();
+					RawRule &raw_rule = f.value.grab();
 					collectInjections(
 						result,
 						expression,
-						rawInjections[expression],
+						raw_rule,
 						this,
 						grammar
 					);
@@ -3181,9 +3493,9 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 
 			// add injection grammars contributed for the current scope
 
-			auto injectionScopeNames = data->_grammarRepository.injections(scopeName);
+			array<ScopeName> injectionScopeNames = data->_grammarRepository.injections(scopeName);
 			if (injectionScopeNames) {
-				injectionScopeNames.forEach((injectionScopeName) => {
+				for (ScopeName &injectionScopeName: injectionScopeNames) {
 					auto injectionGrammar =
 						data->getExternalGrammar(injectionScopeName);
 					if (injectionGrammar) {
@@ -3198,11 +3510,13 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 							);
 						}
 					}
-				});
+				}
 			}
 		}
 
-		result.sort((i1, i2) => i1.priority - i2.priority); // sort by priority
+		result.sort([](Injection &i1, Injection &i2) -> int {
+			return i1.priority - i2.priority;
+		}); // sort by priority
 
 		return result;
 	}
@@ -3280,7 +3594,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				data->_grammar.repository
 			);
 			// This ensures ids are deterministic, and thus equal in renderer and webworker.
-			data->getInjections();
+			getInjections();
 		}
 
 		bool isFirstLine;
@@ -3299,7 +3613,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				defaultStyle.backgroundId
 			);
 
-			auto rootScopeName = data->getRule(data->_rootId).getName(
+			auto rootScopeName = getRule(data->_rootId).getName(
 				null,
 				null
 			);
@@ -3365,7 +3679,7 @@ AttributedScopeStack AttributedScopeStack::pushAttributed(ScopePath scopePath, G
 		return *this;
 
 	if (scopePath.index_of(' ') == -1)
-		return AttributedScopeStack::_pushAttributed(this, scopePath, grammar);
+		return AttributedScopeStack::_pushAttributed(*this, scopePath, grammar);
 
 	auto scopes = scopePath.split(" ");
 	AttributedScopeStack result = *this;
@@ -3447,11 +3761,6 @@ StateStackImpl applyStateStackDiff(StateStackImpl stack, StateStackImpl diff) {
 	return curStack;
 }
 
-bool isIdentifier(utf16 token) {
-	RegEx regex("[\\w\\.:]+/");
-	return token && regex.exec(token);
-}
-
 Grammar createGrammar(
 	ScopeName scopeName,
 	RawGrammar grammar,
@@ -3475,7 +3784,7 @@ Grammar createGrammar(
 }
 
 struct SyncRegistry : mx {
-	struct members: IGrammaryRepository, IThemeProvider {
+	struct members: IGrammarRepository, IThemeProvider {
 		ion::map<Grammar> _grammars;
 		ion::map<RawGrammar> _rawGrammars; /// must be allocated and stored unless this is primary store
 		ion::map<array<ScopeName>> _injectionGrammars;
@@ -3658,7 +3967,7 @@ TokenizeStringResult _tokenizeString(
 
 	const startTime = Date.now();
 	auto scanNext = [&] () -> void {
-		if (DebugFlags.InDebugMode) {
+		if (is_debug()) {
 			console.log("");
 			//console.log(
 			//	`@@scanNext ${linePos}: |${lineText.content
@@ -3676,7 +3985,7 @@ TokenizeStringResult _tokenizeString(
 		);
 
 		if (!r) {
-			if (DebugFlags.InDebugMode) {
+			if (is_debug()) {
 				console.log("  no more matches.");
 			}
 			// No match
@@ -3925,147 +4234,6 @@ TokenizeStringResult _tokenizeString(
 	return TokenizeStringResult(stack, false);
 }
 
-
-struct Tokenizer:mx {
-    struct state {
-		utf16			  input;
-		RegEx16		  regex;
-		array<utf16>    match;
-		utf16 next() {
-			if (!match)
-				return {};
-			utf16 prev = match[0];
-			match = regex.exec(input); /// regex has a marker for its last match stored, so one can call it again if you give it the same input.  if its a different input it will reset
-			return prev;
-		}
-    };
-
-    mx_basic(Tokenizer);
-
-    Tokenizer(utf16 input) : Tokenizer() {
-        data->regex = utf16("([LR]:|[\\w\\.:][\\w\\.:\\-]*|[\\,\\|\\-\\(\\)])");
-	    data->match = data->regex.exec(input);
-    }
-};
-
-struct MatcherWithPriority:mx {
-	struct members {
-		Matcher matcher;
-		num 	priority; // -1, 0, 1
-		register(members);
-	};
-	mx_basic(MatcherWithPriority);
-	MatcherWithPriority(Matcher &matcher, num priority) : MatcherWithPriority() {
-		data->matcher  = matcher;
-		data->priority = priority;
-	}
-};
-
-using NameMatcher = lambda<bool(array<utf16>&, mx&)>;
-
-array<MatcherWithPriority> createMatchers(utf16 selector, NameMatcher matchesName) {
-	array<MatcherWithPriority> results;
-	Tokenizer tokenizer { selector };
-	utf16 token = tokenizer->next();
-
-	/// accesses tokenizer
-	lambda<Matcher()> parseInnerExpression;
-	lambda<Matcher()> &parseInnerExpressionRef = parseInnerExpression;
-	lambda<Matcher()> parseOperand;
-	lambda<Matcher()> &parseOperandRef = parseOperand; /// dont believe we can merely set after we copy the other value in; the data will change
-	parseOperand = [&token, _tokenizer=tokenizer, matchesName, parseInnerExpressionRef, parseOperandRef]() -> Matcher {
-		Tokenizer &tokenizer = (Tokenizer &)_tokenizer;
-		if (token == "-") {
-			token = tokenizer->next();
-			Matcher expressionToNegate = parseOperandRef();
-			return Matcher([expressionToNegate](mx matcherInput) -> bool {
-				return bool(expressionToNegate) && !expressionToNegate(matcherInput);
-			});
-		}
-		if (token == "(") {
-			token = tokenizer->next();
-			Matcher expressionInParents = parseInnerExpressionRef();
-			if (token == ")") {
-				token = tokenizer->next();
-			}
-			return expressionInParents;
-		}
-		if (isIdentifier(token)) {
-			array<utf16> identifiers;
-			do {
-				identifiers.push(token);
-				token = tokenizer->next();
-			} while (isIdentifier(token));
-			///
-			return Matcher([matchesName, identifiers] (mx matcherInput) -> bool {
-				return matchesName((array<utf16>&)identifiers, matcherInput);
-			});
-		}
-		return null;
-	};
-
-	/// accesses tokenizer
-	auto parseConjunction = [_tokenizer=tokenizer, parseOperand]() -> Matcher {
-		Tokenizer &tokenizer = (Tokenizer &)_tokenizer;
-		array<Matcher> matchers;
-		Matcher matcher = parseOperand();
-		while (matcher) {
-			matchers.push(matcher);
-			matcher = parseOperand();
-		}
-		return [matchers](mx matcherInput) -> bool {
-			return matchers.every([matcherInput](Matcher &matcher) -> bool {
-				return matcher(matcherInput);
-			});
-		};
-	};
-
-	/// accesses tokenizer
-	parseInnerExpression = [&token, _tokenizer=tokenizer, parseConjunction]() -> Matcher {
-		Tokenizer &tokenizer = (Tokenizer &)_tokenizer;
-		array<Matcher> matchers;
-		Matcher matcher = parseConjunction();
-		while (matcher) {
-			matchers.push(matcher);
-			if (token == "|" || token == ",") {
-				do {
-					token = tokenizer->next();
-				} while (token == "|" || token == ","); // ignore subsequent commas
-			} else {
-				break;
-			}
-			matcher = parseConjunction();
-		}
-		return Matcher([matchers](mx matcherInput) -> bool {
-			return matchers.some([matcherInput](Matcher &matcher) {
-				return matcher(matcherInput);
-			});
-		});
-	};
-
-	/// top level loop to iterate through tokens
-	while (token) {
-		num priority = 0;
-		if (token.len() == 2 && token[1] == ':') {
-			switch (token[0]) {
-				case 'R': priority =  1; break;
-				case 'L': priority = -1; break;
-				default:
-					console.log("Unknown priority {0} in scope selector", {token});
-					return {};
-			}
-			token = tokenizer->next();
-		}
-		Matcher matcher = parseConjunction();
-		results.push(MatcherWithPriority { matcher, priority });
-		if (token != ",") {
-			break;
-		}
-		token = tokenizer->next();
-	}
-	return results;
-}
-
 struct Registry:mx {
 	struct members {
 		RegistryOptions _options;
@@ -4107,7 +4275,7 @@ struct Registry:mx {
 		num initialLanguage,
 		IEmbeddedLanguagesMap &embeddedLanguages // never pass the structs
 	) {
-		return data->loadGrammarWithConfiguration(initialScopeName, initialLanguage, { embeddedLanguages });
+		return loadGrammarWithConfiguration(initialScopeName, initialLanguage, { embeddedLanguages });
 	}
 
 	/**
@@ -4119,7 +4287,7 @@ struct Registry:mx {
 		num initialLanguage,
 		IGrammarConfiguration &configuration
 	) {
-		return data->_loadGrammar(
+		return _loadGrammar(
 			initialScopeName,
 			initialLanguage,
 			configuration.embeddedLanguages,
@@ -4135,7 +4303,7 @@ struct Registry:mx {
 	 * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
 	 */
 	Grammar loadGrammar(ScopeName initialScopeName) {
-		return data->_loadGrammar(initialScopeName, 0, null, null, null);
+		return _loadGrammar(initialScopeName, 0, null, null, null);
 	}
 
 	Grammar _loadGrammar(
@@ -4147,11 +4315,11 @@ struct Registry:mx {
 	) {
 		const dependencyProcessor = ScopeDependencyProcessor(data->_syncRegistry, initialScopeName);
 		while (dependencyProcessor.Q.length > 0) {
-			await Promise.all(dependencyProcessor.Q.map((request) => data->_loadSingleGrammar(request.scopeName)));
+			await Promise.all(dependencyProcessor.Q.map((request) => _loadSingleGrammar(request.scopeName)));
 			dependencyProcessor.processQueue();
 		}
 
-		return data->_grammarForScopeName(
+		return _grammarForScopeName(
 			initialScopeName,
 			initialLanguage,
 			embeddedLanguages,
@@ -4163,7 +4331,7 @@ struct Registry:mx {
 	/// convert all async functions to sync; not a problem
 
 	Grammar _loadSingleGrammar(ScopeName scopeName) {
-		return data->_doLoadSingleGrammar(scopeName);
+		return _doLoadSingleGrammar(scopeName);
 	}
 
 	Grammar _doLoadSingleGrammar(ScopeName scopeName) {
@@ -4185,7 +4353,7 @@ struct Registry:mx {
 		IEmbeddedLanguagesMap embeddedLanguages = null)
 	{
 		data->_syncRegistry.addGrammar(rawGrammar, injections);
-		return data->_grammarForScopeName(rawGrammar.scopeName, initialLanguage, embeddedLanguages);
+		return _grammarForScopeName(rawGrammar.scopeName, initialLanguage, embeddedLanguages);
 	}
 
 	/**
