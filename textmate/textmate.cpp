@@ -3355,7 +3355,7 @@ struct Injection:mx {
 
 /// Grammar should use 'Registry' there are too many data relationships
 RawGrammar initGrammar(RawGrammar grammar, RawRule base) {
-	grammar = clone(grammar);
+	grammar = grammar.copy();
 
 	grammar->repository = grammar->repository ? grammar->repository : RawRepository {};
 	grammar->repository["$self"] = RawRule::members {
