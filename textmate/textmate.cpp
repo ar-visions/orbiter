@@ -321,9 +321,9 @@ namespace EncodedTokenAttributes {
 /**
  * A map from scope name to a language id. Please do not use language id 0.
  */
-using IEmbeddedLanguagesMap = map<num>;
+using EmbeddedLanguagesMap = map<num>;
 
-using ITokenTypeMap = map<str>;
+using TokenTypeMap = map<StandardTokenType>;
 
 struct ILocation {
 	str 			filename;
@@ -380,6 +380,7 @@ struct RawRule:mx {
 
 struct RawGrammar:mx {
 	struct members {
+		ILocation 			_vscodeTextmateLocation;
 	    RawRepository 		repository;
 		ScopeName 			scopeName;
 		array<RawRule> 		patterns;
@@ -399,9 +400,20 @@ struct RawGrammar:mx {
 	}
 };
 
-struct IGrammarRepository {
-	virtual RawGrammar lookup(ScopeName scopeName) = 0;
-	virtual array<ScopeName> injections(ScopeName scopeName) = 0;
+struct ScopeStack;
+
+struct ThemeProvider:mx {
+	lambda<StyleAttributes(ScopeStack&)> themeMatch;
+	lambda<StyleAttributes()> getDefaults;
+	mx_basic(ThemeProvider)
+};
+
+struct GrammarRepository:mx {
+	struct members {
+		lambda<RawGrammar(ScopeName)> 		lookup;
+		lambda<array<ScopeName>(ScopeName)> injections;
+	};
+	mx_basic(GrammarRepository)
 };
 
 struct RawThemeStyles:mx {
@@ -672,6 +684,28 @@ struct ColorMap:mx {
 		num 		_lastColorId;
 		array<str> 	_id2color;
 		map<mx> 	_color2id;
+
+		num getId(str color) {
+			if (!color) {
+				return 0;
+			}
+			color = color.ucase();
+			mx value = _color2id[color];
+			if (value) {
+				return num(value);
+			}
+			if (_isFrozen) {
+				console.fault("Missing color in color map - {0}", {color});
+			}
+			value = ++_lastColorId;
+			_color2id[color] = value;
+			_id2color[value] = color;
+			return num(value);
+		}
+
+		array<str> getColorMap() {
+			return _id2color.slice(0, _id2color.len());
+		}
 		register(members)
 	};
 
@@ -690,30 +724,7 @@ struct ColorMap:mx {
 			data->_isFrozen = false;
 		}
 	}
-
-	num getId(str color) {
-		if (!color) {
-			return 0;
-		}
-		color = color.ucase();
-		mx value = data->_color2id[color];
-		if (value) {
-			return num(value);
-		}
-		if (data->_isFrozen) {
-			console.fault("Missing color in color map - {0}", {color});
-		}
-		value = ++data->_lastColorId;
-		data->_color2id[color] = value;
-		data->_id2color[value] = color;
-		return num(value);
-	}
-
-	array<str> getColorMap() {
-		return data->_id2color.slice(0, data->_id2color.len());
-	}
 };
-
 
 struct ThemeTrieElementRule:mx {
 	struct members {
@@ -725,6 +736,39 @@ struct ThemeTrieElementRule:mx {
 		bool				is_null;
 		operator  bool() { return !is_null; }
 		bool operator!() { return  is_null; }
+
+		ThemeTrieElementRule clone() {
+			return members {
+				scopeDepth, parentScopes, fontStyle, foreground, background
+			};
+		}
+
+		static array<ThemeTrieElementRule> cloneArr(array<ThemeTrieElementRule> arr) {
+			array<ThemeTrieElementRule> r;
+			for (num i = 0, len = arr.len(); i < len; i++) {
+				r[i] = arr[i].clone();
+			}
+			return r;
+		}
+
+		void acceptOverwrite(num scopeDepth, FontStyle fontStyle, num foreground, num background) {
+			if (scopeDepth > scopeDepth) {
+				console.log("how did this happen?");
+			} else {
+				scopeDepth = scopeDepth;
+			}
+			// console.log("TODO -> my depth: " + scopeDepth + ", overwriting depth: " + scopeDepth);
+			if (fontStyle != FontStyle::_NotSet) {
+				fontStyle = fontStyle;
+			}
+			if (foreground != 0) {
+				foreground = foreground;
+			}
+			if (background != 0) {
+				background = background;
+			}
+		}
+		
 		register(members)
 	};
 	mx_basic(ThemeTrieElementRule);
@@ -732,39 +776,6 @@ struct ThemeTrieElementRule:mx {
 	ThemeTrieElementRule(null_t) : ThemeTrieElementRule() {
 		data->is_null = true;
 	}
-
-	ThemeTrieElementRule clone() {
-		return ThemeTrieElementRule::members {
-			data->scopeDepth, data->parentScopes, data->fontStyle, data->foreground, data->background
-		};
-	}
-
-	static array<ThemeTrieElementRule> cloneArr(array<ThemeTrieElementRule> arr) {
-		array<ThemeTrieElementRule> r;
-		for (num i = 0, len = arr.len(); i < len; i++) {
-			r[i] = arr[i].clone();
-		}
-		return r;
-	}
-
-	void acceptOverwrite(num scopeDepth, FontStyle fontStyle, num foreground, num background) {
-		if (data->scopeDepth > scopeDepth) {
-			console.log("how did this happen?");
-		} else {
-			data->scopeDepth = scopeDepth;
-		}
-		// console.log("TODO -> my depth: " + data->scopeDepth + ", overwriting depth: " + scopeDepth);
-		if (fontStyle != FontStyle::_NotSet) {
-			data->fontStyle = fontStyle;
-		}
-		if (foreground != 0) {
-			data->foreground = foreground;
-		}
-		if (background != 0) {
-			data->background = background;
-		}
-	}
-
 };
 
 
@@ -775,6 +786,84 @@ struct ThemeTrieElement:mx {
 		ThemeTrieElementRule 		_mainRule;
 		array<ThemeTrieElementRule> _rulesWithParentScopes;
 		ITrieChildrenMap 			_children;
+
+		array<ThemeTrieElementRule> default_result() {
+			array<ThemeTrieElementRule> a;
+			a.push(_mainRule);
+			for (ThemeTrieElementRule &r: _rulesWithParentScopes)
+				a.push(r);
+			return ThemeTrieElement::_sortBySpecificity(a);
+		}
+
+		array<ThemeTrieElementRule> match(ScopeName scope) {
+			if (scope == "")
+				return default_result();
+			int dotIndex = scope.index_of(".");
+			str head     = (dotIndex == -1) ? scope : scope.mid(0, dotIndex);
+			str tail     = (dotIndex == -1) ? ""    : scope.mid(dotIndex + 1);
+			if (_children(head))
+				return _children[head].match(tail);
+			return default_result();
+		}
+
+		void insert(num scopeDepth, ScopeName scope, array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
+			if (scope == "") {
+				_doInsertHere(scopeDepth, parentScopes, fontStyle, foreground, background);
+				return;
+			}
+			int dotIndex = scope.index_of(".");
+			str head = (dotIndex == -1) ? scope : scope.mid(0, dotIndex);
+			str tail = (dotIndex == -1) ? ""    : scope.mid(dotIndex + 1);
+			ThemeTrieElement child;
+			if (_children(head)) {
+				child = _children[head];
+			} else {
+				child = ThemeTrieElement(
+					_mainRule.clone(),
+					ThemeTrieElementRule::cloneArr(_rulesWithParentScopes));
+				_children[head] = child;
+			}
+
+			child.insert(scopeDepth + 1, tail, parentScopes, fontStyle, foreground, background);
+		}
+
+		void _doInsertHere(num scopeDepth, array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
+
+			if (!parentScopes) {
+				// Merge into the main rule
+				_mainRule.acceptOverwrite(scopeDepth, fontStyle, foreground, background);
+				return;
+			}
+
+			// Try to merge into existing rule
+			for (num i = 0, len = _rulesWithParentScopes.len(); i < len; i++) {
+				ThemeTrieElementRule &rule = _rulesWithParentScopes[i];
+
+				if (strArrCmp(rule->parentScopes, parentScopes) == 0) {
+					rule.acceptOverwrite(scopeDepth, fontStyle, foreground, background);
+					return;
+				}
+			}
+
+			// Must add a new rule
+
+			// Inherit from main rule
+			if (fontStyle == FontStyle::_NotSet) {
+				fontStyle = _mainRule->fontStyle;
+			}
+			if (foreground == 0) {
+				foreground = _mainRule->foreground;
+			}
+			if (background == 0) {
+				background = _mainRule->background;
+			}
+
+			ThemeTrieElementRule tt = ThemeTrieElementRule::members {
+				scopeDepth, parentScopes, fontStyle, foreground, background
+			};
+			_rulesWithParentScopes.push(tt);
+		}
+		
 		register(members)
 	};
 
@@ -815,83 +904,6 @@ struct ThemeTrieElement:mx {
 		});
 		return arr;
 	}
-
-	array<ThemeTrieElementRule> default_result() {
-		array<ThemeTrieElementRule> a;
-		a.push(data->_mainRule);
-		for (ThemeTrieElementRule &r: data->_rulesWithParentScopes)
-			a.push(r);
-		return ThemeTrieElement::_sortBySpecificity(a);
-	}
-
-	array<ThemeTrieElementRule> match(ScopeName scope) {
-		if (scope == "")
-			return default_result();
-		int dotIndex = scope.index_of(".");
-		str head     = (dotIndex == -1) ? scope : scope.mid(0, dotIndex);
-		str tail     = (dotIndex == -1) ? ""    : scope.mid(dotIndex + 1);
-		if (data->_children(head))
-			return data->_children[head].match(tail);
-		return default_result();
-	}
-
-	void insert(num scopeDepth, ScopeName scope, array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
-		if (scope == "") {
-			_doInsertHere(scopeDepth, parentScopes, fontStyle, foreground, background);
-			return;
-		}
-		int dotIndex = scope.index_of(".");
-		str head = (dotIndex == -1) ? scope : scope.mid(0, dotIndex);
-		str tail = (dotIndex == -1) ? ""    : scope.mid(dotIndex + 1);
-		ThemeTrieElement child;
-		if (data->_children(head)) {
-			child = data->_children[head];
-		} else {
-			child = ThemeTrieElement(
-				data->_mainRule.clone(),
-				ThemeTrieElementRule::cloneArr(data->_rulesWithParentScopes));
-			data->_children[head] = child;
-		}
-
-		child.insert(scopeDepth + 1, tail, parentScopes, fontStyle, foreground, background);
-	}
-
-	void _doInsertHere(num scopeDepth, array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
-
-		if (!parentScopes) {
-			// Merge into the main rule
-			data->_mainRule.acceptOverwrite(scopeDepth, fontStyle, foreground, background);
-			return;
-		}
-
-		// Try to merge into existing rule
-		for (num i = 0, len = data->_rulesWithParentScopes.len(); i < len; i++) {
-			ThemeTrieElementRule &rule = data->_rulesWithParentScopes[i];
-
-			if (strArrCmp(rule->parentScopes, parentScopes) == 0) {
-				rule.acceptOverwrite(scopeDepth, fontStyle, foreground, background);
-				return;
-			}
-		}
-
-		// Must add a new rule
-
-		// Inherit from main rule
-		if (fontStyle == FontStyle::_NotSet) {
-			fontStyle = data->_mainRule->fontStyle;
-		}
-		if (foreground == 0) {
-			foreground = data->_mainRule->foreground;
-		}
-		if (background == 0) {
-			background = data->_mainRule->background;
-		}
-
-		ThemeTrieElementRule tt = ThemeTrieElementRule::members {
-			scopeDepth, parentScopes, fontStyle, foreground, background
-		};
-		data->_rulesWithParentScopes.push(tt);
-	}
 };
 
 
@@ -901,7 +913,101 @@ struct Theme:mx {
 		StyleAttributes	 	_defaults;
 		ThemeTrieElement 	_root;
 		lambda<array<ThemeTrieElementRule>(ScopeName)> _cachedMatchRoot;
+
+		array<str> getColorMap() {
+			return _colorMap.getColorMap();
+		}
+
+		StyleAttributes getDefaults() {
+			return _defaults;
+		}
+
+		StyleAttributes match(ScopeStack scopePath) {
+			if (!scopePath) {
+				return _defaults;
+			}
+			auto scopeName = scopePath->scopeName;
+			array<ThemeTrieElementRule> matchingTrieElements = _cachedMatchRoot(scopeName);
+
+			/// select first should not return R but use R for its lambda; it should always return the model; t
+			ThemeTrieElementRule effectiveRule = matchingTrieElements.select_first<ThemeTrieElementRule>([&](ThemeTrieElementRule &v) -> ThemeTrieElementRule {
+				if (scopePath->parent && _scopePathMatchesParentScopes(scopePath->parent.grab(), v->parentScopes))
+					return v;
+				return null;
+			});
+			if (!effectiveRule) {
+				return null;
+			}
+			return StyleAttributes(
+				effectiveRule->fontStyle,
+				effectiveRule->foreground,
+				effectiveRule->background
+			);
+		}
+
 		register(members)
+
+		static Theme createFromRawTheme(
+			IRawTheme source,
+			array<str> colorMap
+		)  {
+			return createFromParsedTheme(parseTheme(source), colorMap);
+		}
+
+		static Theme createFromParsedTheme(
+			array<ParsedThemeRule> source,
+			array<str> colorMap
+		) {
+			return resolveParsedThemeRules(source, colorMap);
+		}
+
+		/**
+		 * Resolve rules (i.e. inheritance).
+		 */
+		static Theme resolveParsedThemeRules(array<ParsedThemeRule> parsedThemeRules, array<str> _colorMap) {
+
+			// Sort rules lexicographically, and then by index if necessary
+			parsedThemeRules.sort([](ParsedThemeRule &a, ParsedThemeRule &b) -> int {
+				num r = strcmp(a->scope.cs(), b->scope.cs());
+				if (r != 0) {
+					return r;
+				}
+				r = strArrCmp(a->parentScopes, b->parentScopes);
+				if (r != 0) {
+					return r;
+				}
+				return a->index - b->index;
+			});
+
+			// Determine defaults
+			states<FontStyle> defaultFontStyle;
+			//FontStyle::None;
+			str defaultForeground = "#000000";
+			str defaultBackground = "#ffffff";
+			while (parsedThemeRules.len() >= 1 && parsedThemeRules[0]->scope == "") {
+				ParsedThemeRule incomingDefaults = parsedThemeRules.shift();
+				if (!incomingDefaults->fontStyle[FontStyle::_NotSet]) {
+					defaultFontStyle = incomingDefaults->fontStyle;
+				}
+				if (incomingDefaults->foreground != null) {
+					defaultForeground = incomingDefaults->foreground;
+				}
+				if (incomingDefaults->background != null) {
+					defaultBackground = incomingDefaults->background;
+				}
+			}
+			ColorMap 		colorMap = ColorMap(_colorMap);
+			StyleAttributes defaults = StyleAttributes(defaultFontStyle, colorMap.getId(defaultForeground), colorMap.getId(defaultBackground));
+
+			ThemeTrieElement root    = ThemeTrieElement(ThemeTrieElementRule::members { 0, null, FontStyle::_NotSet, 0, 0 }, {});
+			for (num i = 0, len = parsedThemeRules.len(); i < len; i++) {
+				ParsedThemeRule rule = parsedThemeRules[i];
+				root.insert(0, rule->scope, rule->parentScopes,
+					rule->fontStyle, colorMap.getId(rule->foreground), colorMap.getId(rule->background));
+			}
+
+			return Theme::members { colorMap, defaults, root };
+		}
 
 		/// this is so you can trivially construct and still get logic to initialize from there
 		void init() {
@@ -909,99 +1015,6 @@ struct Theme:mx {
 		}
 	};
 	mx_basic(Theme);
-
-	static Theme createFromRawTheme(
-		IRawTheme source,
-		array<str> colorMap
-	)  {
-		return createFromParsedTheme(parseTheme(source), colorMap);
-	}
-
-	static Theme createFromParsedTheme(
-		array<ParsedThemeRule> source,
-		array<str> colorMap
-	) {
-		return resolveParsedThemeRules(source, colorMap);
-	}
-
-	array<str> getColorMap() {
-		return data->_colorMap.getColorMap();
-	}
-
-	StyleAttributes getDefaults() {
-		return data->_defaults;
-	}
-
-	/**
-	 * Resolve rules (i.e. inheritance).
-	 */
-	static Theme resolveParsedThemeRules(array<ParsedThemeRule> parsedThemeRules, array<str> _colorMap) {
-
-		// Sort rules lexicographically, and then by index if necessary
-		parsedThemeRules.sort([](ParsedThemeRule &a, ParsedThemeRule &b) -> int {
-			num r = strcmp(a->scope.cs(), b->scope.cs());
-			if (r != 0) {
-				return r;
-			}
-			r = strArrCmp(a->parentScopes, b->parentScopes);
-			if (r != 0) {
-				return r;
-			}
-			return a->index - b->index;
-		});
-
-		// Determine defaults
-		states<FontStyle> defaultFontStyle;
-		//FontStyle::None;
-		str defaultForeground = "#000000";
-		str defaultBackground = "#ffffff";
-		while (parsedThemeRules.len() >= 1 && parsedThemeRules[0]->scope == "") {
-			ParsedThemeRule incomingDefaults = parsedThemeRules.shift();
-			if (!incomingDefaults->fontStyle[FontStyle::_NotSet]) {
-				defaultFontStyle = incomingDefaults->fontStyle;
-			}
-			if (incomingDefaults->foreground != null) {
-				defaultForeground = incomingDefaults->foreground;
-			}
-			if (incomingDefaults->background != null) {
-				defaultBackground = incomingDefaults->background;
-			}
-		}
-		ColorMap 		colorMap = ColorMap(_colorMap);
-		StyleAttributes defaults = StyleAttributes(defaultFontStyle, colorMap.getId(defaultForeground), colorMap.getId(defaultBackground));
-
-		ThemeTrieElement root    = ThemeTrieElement(ThemeTrieElementRule::members { 0, null, FontStyle::_NotSet, 0, 0 }, {});
-		for (num i = 0, len = parsedThemeRules.len(); i < len; i++) {
-			ParsedThemeRule rule = parsedThemeRules[i];
-			root.insert(0, rule->scope, rule->parentScopes,
-				rule->fontStyle, colorMap.getId(rule->foreground), colorMap.getId(rule->background));
-		}
-
-		return Theme::members { colorMap, defaults, root };
-	}
-
-	StyleAttributes match(ScopeStack scopePath) {
-		if (!scopePath) {
-			return data->_defaults;
-		}
-		auto scopeName = scopePath->scopeName;
-		array<ThemeTrieElementRule> matchingTrieElements = data->_cachedMatchRoot(scopeName);
-
-		/// select first should not return R but use R for its lambda; it should always return the model; t
-		ThemeTrieElementRule effectiveRule = matchingTrieElements.select_first<ThemeTrieElementRule>([&](ThemeTrieElementRule &v) -> ThemeTrieElementRule {
-			if (scopePath->parent && _scopePathMatchesParentScopes(scopePath->parent.grab(), v->parentScopes))
-				return v;
-			return null;
-		});
-		if (!effectiveRule) {
-			return null;
-		}
-		return StyleAttributes(
-			effectiveRule->fontStyle,
-			effectiveRule->foreground,
-			effectiveRule->background
-		);
-	}
 };
 
 
@@ -1245,10 +1258,10 @@ void collectExternalReferencesInTopLevelRule(RawGrammar &baseGrammar, RawGrammar
 void collectReferencesOfReference(
 	TopLevelRuleReference 		reference,
 	ScopeName 					baseGrammarScopeName,
-	IGrammarRepository 		   &repo,
+	GrammarRepository 		    grammar_repo,
 	ExternalReferenceCollector 	result)
 {
-	RawGrammar selfGrammar = repo.lookup(reference->scopeName);
+	RawGrammar selfGrammar = grammar_repo->lookup(reference->scopeName);
 	if (!selfGrammar) {
 		if (reference->scopeName == baseGrammarScopeName) {
 			console.fault("No grammar provided for <{0}>", {baseGrammarScopeName});
@@ -1256,7 +1269,7 @@ void collectReferencesOfReference(
 		return;
 	}
 
-	RawGrammar baseGrammar = repo.lookup(baseGrammarScopeName);
+	RawGrammar baseGrammar = grammar_repo->lookup(baseGrammarScopeName);
 
 	if (reference.type() == typeof(TopLevelRuleReference)) {
 		collectExternalReferencesInTopLevelRule(baseGrammar, selfGrammar, result);
@@ -1268,7 +1281,7 @@ void collectReferencesOfReference(
 		);
 	}
 
-	auto injections = repo.injections(reference->scopeName);
+	auto injections = grammar_repo->injections(reference->scopeName);
 	if (injections) {
 		for (ScopeName &scopeName: injections) {
 			result.add(TopLevelRuleReference(scopeName));
@@ -1308,62 +1321,60 @@ void collectExternalReferencesInTopLevelRepositoryRule(
 
 struct ScopeDependencyProcessor:mx {
 	struct members {
-		IGrammarRepository *repo;
+		GrammarRepository grammar_repo;
 		ScopeName initialScopeName;
 		array<ScopeName> seenFullScopeRequests;
 		array<str> seenPartialScopeRequests;
 		array<TopLevelRuleReference> Q;
+
+		void processQueue() {
+			auto q = Q;
+			Q = array<TopLevelRuleReference> {};
+
+			ExternalReferenceCollector deps;
+			for (TopLevelRuleReference &dep: q) {
+				collectReferencesOfReference(dep, initialScopeName, grammar_repo, deps);
+			}
+
+			for (TopLevelRuleReference &dep: deps->references) {
+				if (dep.type() == typeof(TopLevelRuleReference)) {
+					if (seenFullScopeRequests.has(dep->scopeName)) {
+						// already processed
+						continue;
+					}
+					seenFullScopeRequests.push(dep->scopeName);
+					Q.push(dep);
+				} else {
+					if (seenFullScopeRequests.has(dep->scopeName)) {
+						// already processed in full
+						continue;
+					}
+					if (seenPartialScopeRequests.has(dep.toKey())) {
+						// already processed
+						continue;
+					}
+					str k = dep.toKey();
+					seenPartialScopeRequests.push(k);
+					Q.push(dep);
+				}
+			}
+		}
 		register(members)
 	};
 
 	mx_basic(ScopeDependencyProcessor);
 
 	ScopeDependencyProcessor(
-		IGrammarRepository &repo,
+		GrammarRepository grammar_repo,
 		ScopeName initialScopeName
 	) : ScopeDependencyProcessor() {
-		data->repo = &repo;
+		data->grammar_repo = grammar_repo;
 		data->seenFullScopeRequests.push(data->initialScopeName);
 		data->Q = array<TopLevelRuleReference> { TopLevelRuleReference(data->initialScopeName) };
 	}
-
-	void processQueue() {
-		auto q = data->Q;
-		data->Q = {};
-
-		ExternalReferenceCollector deps;
-		for (TopLevelRuleReference &dep: q) {
-			collectReferencesOfReference(dep, data->initialScopeName, *data->repo, deps);
-		}
-
-		for (TopLevelRuleReference &dep: deps->references) {
-			if (dep.type() == typeof(TopLevelRuleReference)) {
-				if (data->seenFullScopeRequests.has(dep->scopeName)) {
-					// already processed
-					continue;
-				}
-				data->seenFullScopeRequests.push(dep->scopeName);
-				data->Q.push(dep);
-			} else {
-				if (data->seenFullScopeRequests.has(dep->scopeName)) {
-					// already processed in full
-					continue;
-				}
-				if (data->seenPartialScopeRequests.has(dep.toKey())) {
-					// already processed
-					continue;
-				}
-				str k = dep.toKey();
-				data->seenPartialScopeRequests.push(k);
-				data->Q.push(dep);
-			}
-		}
-	}
 };
 
-struct OnigString {
-	str content;
-};
+using OnigString = str;
 
 struct IOnigMatch {
 	num index = -1;
@@ -1381,6 +1392,25 @@ struct OnigScanner:mx {
 	struct members {
 		RegEx regex;
 		register(members)
+
+		IOnigMatch findNextMatchSync(str string, num startPosition, states<FindOption> options) {
+			regex.set_cursor(startPosition);
+			array<indexed<utf16>> matches = regex.exec(string);
+			if (matches) {
+				IOnigMatch result {
+					.index = regex.pattern_index(),
+					.captureIndices = { matches.len() }
+				};
+				for (indexed<utf16> &m: matches) {
+					IOnigCaptureIndex capture_index = {
+						m.index, m.index + m.length, m.length
+					};
+					result.captureIndices.push(capture_index);
+				}
+				return result;
+			}
+			return {};
+		}
 	};
 
 	mx_basic(OnigScanner)
@@ -1388,29 +1418,14 @@ struct OnigScanner:mx {
 	OnigScanner(array<utf16> scan) : OnigScanner() {
 		data->regex = RegEx(scan); /// needs to set the scan mode here
 	}
-	IOnigMatch findNextMatchSync(str string, num startPosition, states<FindOption> options) {
-		data->regex.set_cursor(startPosition);
-		array<indexed<utf16>> matches = data->regex.exec(string);
-		if (matches) {
-			IOnigMatch result {
-				.index = data->regex.pattern_index(),
-				.captureIndices = { matches.len() }
-			};
-			for (indexed<utf16> &m: matches) {
-				IOnigCaptureIndex capture_index = {
-					m.index, m.index + m.length, m.length
-				};
-				result.captureIndices.push(capture_index);
-			}
-			return result;
-		}
-		return {};
-	}
 };
 
-struct IOnigLib {
-	virtual OnigScanner createOnigScanner(array<str> sources) = 0;
-	virtual OnigString  createOnigString(str string) = 0;
+struct OnigLib:mx {
+	struct members {
+		lambda<OnigScanner(array<str>)> createOnigScanner;
+		lambda<OnigString(str)> 		createOnigString;
+	};
+	mx_basic(OnigLib)
 };
 
 // This is a special constant to indicate that the end regexp matched.
@@ -1442,42 +1457,43 @@ struct CompiledRule:mx {
 		array<RuleId> rules;
 		operator  bool() { return regExps.len() >  0; }
 		bool operator!() { return regExps.len() == 0; }
-		register(members);
+
+		register(members)
+
+		utf16 toString() {
+			array<utf16> r;
+			for (num i = 0, len = rules.len(); i < len; i++) {
+				utf16 vstr = fmt { "   - {0}: {1}", { rules[i] , str(regExps[i]) }};
+				r.push(vstr);
+			}
+			return utf16::join(r, utf16("\n"));
+		}
+
+		IFindNextMatchResult findNextMatchSync(
+			utf16 string,
+			num startPosition,
+			states<FindOption> options
+		) {
+			IOnigMatch result = scanner.findNextMatchSync(string, startPosition, options);
+			if (!result) {
+				return {};
+			}
+
+			return {
+				.ruleId = rules[result.index],
+				.captureIndices = result.captureIndices,
+			};
+		}
 	};
 
 	mx_basic(CompiledRule)
 
 	CompiledRule(null_t) : CompiledRule() { }
 
-	CompiledRule(IOnigLib &onigLib, array<utf16> regExps, array<RuleId> rules) : CompiledRule() {
-		data->scanner = onigLib.createOnigScanner(regExps);
+	CompiledRule(OnigLib oni_lib, array<utf16> regExps, array<RuleId> rules) : CompiledRule() {
+		data->scanner = oni_lib->createOnigScanner(regExps);
 		data->regExps = regExps;
 		data->rules   = rules;
-	}
-
-	utf16 toString() {
-		array<utf16> r;
-		for (num i = 0, len = data->rules.len(); i < len; i++) {
-			utf16 vstr = fmt { "   - {0}: {1}", { data->rules[i] , str(data->regExps[i]) }};
-			r.push(vstr);
-		}
-		return utf16::join(r, utf16("\n"));
-	}
-
-	IFindNextMatchResult findNextMatchSync(
-		utf16 string,
-		num startPosition,
-		states<FindOption> options
-	) {
-		IOnigMatch result = data->scanner.findNextMatchSync(string, startPosition, options);
-		if (!result) {
-			return {};
-		}
-
-		return {
-			.ruleId = data->rules[result.index],
-			.captureIndices = result.captureIndices,
-		};
 	}
 };
 
@@ -1501,6 +1517,107 @@ struct RegExpSource:mx {
 		bool 		hasBackReferences;
 		IRegExpSourceAnchorCache _anchorCache;
 		register(members)
+
+		RegExpSource clone() {
+			return RegExpSource(source, ruleId);
+		}
+
+		void setSource(utf16 newSource) {
+			if (source == newSource) {
+				return;
+			}
+			source = newSource;
+
+			if (hasAnchor) {
+				_anchorCache = _buildAnchorCache();
+			}
+		}
+
+		/// todo: test me
+		utf16 resolveBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+			array<utf16> capturedValues = captureIndices.map<utf16>(
+				[&](IOnigCaptureIndex &capture) -> utf16 {
+					return lineText.mid(capture.start, capture.length);
+				});
+			BACK_REFERENCING_END.reset(); // support this! (was last_index = 0)
+
+			/// todo: needs var arg support, or an array arg for this purpose (preferred fallback case for > 2 args)
+			return BACK_REFERENCING_END.replace(source,
+				lambda<utf16(utf16, utf16)>([capturedValues] (utf16 match, utf16 g1) -> utf16 {
+					num k = str(g1).integer_value();
+					return RegEx::escape(capturedValues.len() > k ? capturedValues[k] : utf16(str("")));
+				}));
+		}
+
+		IRegExpSourceAnchorCache _buildAnchorCache() {
+			array<utf16> A0_G0_result;
+			array<utf16> A0_G1_result;
+			array<utf16> A1_G0_result;
+			array<utf16> A1_G1_result;
+
+			num pos = 0;
+			num len = 0;
+			utf16::char_t ch;
+			utf16::char_t nextCh;
+
+			for (pos = 0, len = source.len(); pos < len; pos++) {
+				ch = source[pos];
+				A0_G0_result[pos] = ch;
+				A0_G1_result[pos] = ch;
+				A1_G0_result[pos] = ch;
+				A1_G1_result[pos] = ch;
+
+				if (ch == '\\') {
+					if (pos + 1 < len) {
+						nextCh = source[pos + 1];
+						if (nextCh == 'A') {
+							A0_G0_result[pos + 1] = (wchar)0xFFFF;
+							A0_G1_result[pos + 1] = (wchar)0xFFFF;
+							A1_G0_result[pos + 1] = str("A");
+							A1_G1_result[pos + 1] = str("A");
+						} else if (nextCh == 'G') {
+							A0_G0_result[pos + 1] = (wchar)0xFFFF;
+							A0_G1_result[pos + 1] = str("G");
+							A1_G0_result[pos + 1] = (wchar)0xFFFF;
+							A1_G1_result[pos + 1] = str("G");
+						} else {
+							A0_G0_result[pos + 1] = nextCh;
+							A0_G1_result[pos + 1] = nextCh;
+							A1_G0_result[pos + 1] = nextCh;
+							A1_G1_result[pos + 1] = nextCh;
+						}
+						pos++;
+					}
+				}
+			}
+
+			return IRegExpSourceAnchorCache {
+				.A0_G0 = A0_G0_result.join(),
+				.A0_G1 = A0_G1_result.join(),
+				.A1_G0 = A1_G0_result.join(),
+				.A1_G1 = A1_G1_result.join(),
+				.is_null = false
+			};
+		}
+
+		utf16 resolveAnchors(bool allowA, bool allowG) {
+			if (!hasAnchor || !_anchorCache)
+				return source;
+
+			if (allowA) {
+				if (allowG) {
+					return _anchorCache.A1_G1;
+				} else {
+					return _anchorCache.A1_G0;
+				}
+			} else {
+				if (allowG) {
+					return _anchorCache.A0_G1;
+				} else {
+					return _anchorCache.A0_G0;
+				}
+			}
+		}
 	};
 
 	mx_basic(RegExpSource)
@@ -1555,107 +1672,6 @@ struct RegExpSource:mx {
 
 		// console.log('input: ' + regExpSource + ' => ' + data->source + ', ' + data->hasAnchor);
 	}
-
-	RegExpSource clone() {
-		return RegExpSource(data->source, data->ruleId);
-	}
-
-	void setSource(utf16 newSource) {
-		if (data->source == newSource) {
-			return;
-		}
-		data->source = newSource;
-
-		if (data->hasAnchor) {
-			data->_anchorCache = _buildAnchorCache();
-		}
-	}
-
-	/// todo: test me
-	utf16 resolveBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-		array<utf16> capturedValues = captureIndices.map<utf16>(
-			[&](IOnigCaptureIndex &capture) -> utf16 {
-				return lineText.mid(capture.start, capture.length);
-			});
-		BACK_REFERENCING_END.reset(); // support this! (was last_index = 0)
-
-		/// todo: needs var arg support, or an array arg for this purpose (preferred fallback case for > 2 args)
-		return BACK_REFERENCING_END.replace(data->source,
-			lambda<utf16(utf16, utf16)>([capturedValues] (utf16 match, utf16 g1) -> utf16 {
-				num k = str(g1).integer_value();
-				return RegEx::escape(capturedValues.len() > k ? capturedValues[k] : utf16(str("")));
-			}));
-	}
-
-	IRegExpSourceAnchorCache _buildAnchorCache() {
-		array<utf16> A0_G0_result;
-		array<utf16> A0_G1_result;
-		array<utf16> A1_G0_result;
-		array<utf16> A1_G1_result;
-
-		num pos = 0;
-		num len = 0;
-		utf16::char_t ch;
-		utf16::char_t nextCh;
-
-		for (pos = 0, len = data->source.len(); pos < len; pos++) {
-			ch = data->source[pos];
-			A0_G0_result[pos] = ch;
-			A0_G1_result[pos] = ch;
-			A1_G0_result[pos] = ch;
-			A1_G1_result[pos] = ch;
-
-			if (ch == '\\') {
-				if (pos + 1 < len) {
-					nextCh = data->source[pos + 1];
-					if (nextCh == 'A') {
-						A0_G0_result[pos + 1] = (wchar)0xFFFF;
-						A0_G1_result[pos + 1] = (wchar)0xFFFF;
-						A1_G0_result[pos + 1] = str("A");
-						A1_G1_result[pos + 1] = str("A");
-					} else if (nextCh == 'G') {
-						A0_G0_result[pos + 1] = (wchar)0xFFFF;
-						A0_G1_result[pos + 1] = str("G");
-						A1_G0_result[pos + 1] = (wchar)0xFFFF;
-						A1_G1_result[pos + 1] = str("G");
-					} else {
-						A0_G0_result[pos + 1] = nextCh;
-						A0_G1_result[pos + 1] = nextCh;
-						A1_G0_result[pos + 1] = nextCh;
-						A1_G1_result[pos + 1] = nextCh;
-					}
-					pos++;
-				}
-			}
-		}
-
-		return IRegExpSourceAnchorCache {
-			.A0_G0 = A0_G0_result.join(),
-			.A0_G1 = A0_G1_result.join(),
-			.A1_G0 = A1_G0_result.join(),
-			.A1_G1 = A1_G1_result.join(),
-			.is_null = false
-		};
-	}
-
-	utf16 resolveAnchors(bool allowA, bool allowG) {
-		if (!data->hasAnchor || !data->_anchorCache)
-			return data->source;
-
-		if (allowA) {
-			if (allowG) {
-				return data->_anchorCache.A1_G1;
-			} else {
-				return data->_anchorCache.A1_G0;
-			}
-		} else {
-			if (allowG) {
-				return data->_anchorCache.A0_G1;
-			} else {
-				return data->_anchorCache.A0_G0;
-			}
-		}
-	}
 };
 
 struct IRegExpSourceListAnchorCache {
@@ -1672,54 +1688,64 @@ struct RegExpSourceList:mx {
 		bool 							_hasAnchors;
 		CompiledRule 					_cached;
 		IRegExpSourceListAnchorCache 	_anchorCache;
-		register(members);
+		register(members)
+
+		void dispose() {
+			_disposeCaches();
+		}
+
+		void _disposeCaches() {
+			if (_cached)
+				_cached = null;
+			_anchorCache.A0_G0 = null;
+			_anchorCache.A0_G1 = null;
+			_anchorCache.A1_G0 = null;
+			_anchorCache.A1_G1 = null;
+		}
+
+		void push(RegExpSource item) {
+			_items.push(item);
+			_hasAnchors = _hasAnchors || item->hasAnchor;
+		}
+
+		void unshift(RegExpSource item) {
+			_items = _items.unshift(item);
+			_hasAnchors = _hasAnchors || item->hasAnchor;
+		}
+
+		num length() {
+			return _items.len();
+		}
+
+		void setSource(num index, utf16 newSource) {
+			if (_items[index]->source != newSource) {
+				// bust the cache
+				_disposeCaches();
+				_items[index].setSource(newSource);
+			}
+		}
+
+		CompiledRule _resolveAnchors(OnigLib oni_lib, bool allowA, bool allowG) {
+			array<utf16> regExps = _items.map<utf16>([&](RegExpSource e) -> utf16 {
+				return e.resolveAnchors(allowA, allowG);
+			});
+			return CompiledRule(oni_lib, regExps, _items.map<RuleId>([](RegExpSource &e) -> RuleId {
+				return e->ruleId;
+			}));
+		}
 	};
 
 	mx_basic(RegExpSourceList)
 
-	void dispose() {
-		_disposeCaches();
-	}
 
-	void _disposeCaches() {
-		if (data->_cached)
-			data->_cached = null;
-		data->_anchorCache.A0_G0 = null;
-		data->_anchorCache.A0_G1 = null;
-		data->_anchorCache.A1_G0 = null;
-		data->_anchorCache.A1_G1 = null;
-	}
-
-	void push(RegExpSource item) {
-		data->_items.push(item);
-		data->_hasAnchors = data->_hasAnchors || item->hasAnchor;
-	}
-
-	void unshift(RegExpSource item) {
-		data->_items = data->_items.unshift(item);
-		data->_hasAnchors = data->_hasAnchors || item->hasAnchor;
-	}
-
-	num length() {
-		return data->_items.len();
-	}
-
-	void setSource(num index, utf16 newSource) {
-		if (data->_items[index]->source != newSource) {
-			// bust the cache
-			_disposeCaches();
-			data->_items[index].setSource(newSource);
-		}
-	}
-
-	CompiledRule compile(IOnigLib &onigLib) {
+	CompiledRule compile(OnigLib oni_lib) {
 		if (!data->_cached) {
 			array<utf16> regExps = data->_items.map<utf16>(
 				[](RegExpSource e) -> utf16 {
 					return e->source;
 				}
 			);
-			data->_cached = CompiledRule(onigLib, regExps, data->_items.map<RuleId>(
+			data->_cached = CompiledRule(oni_lib, regExps, data->_items.map<RuleId>(
 				[](RegExpSource e) -> RuleId {
 					return e->ruleId;
 				}
@@ -1728,31 +1754,31 @@ struct RegExpSourceList:mx {
 		return data->_cached;
 	}
 
-	CompiledRule compileAG(IOnigLib &onigLib, bool allowA, bool allowG) {
+	CompiledRule compileAG(OnigLib oni_lib, bool allowA, bool allowG) {
 		if (!data->_hasAnchors) {
-			return compile(onigLib);
+			return compile(oni_lib);
 		} else {
 			if (allowA) {
 				if (allowG) {
 					if (!data->_anchorCache.A1_G1) {
-						data->_anchorCache.A1_G1 = _resolveAnchors(onigLib, allowA, allowG);
+						data->_anchorCache.A1_G1 = _resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return data->_anchorCache.A1_G1;
 				} else {
 					if (!data->_anchorCache.A1_G0) {
-						data->_anchorCache.A1_G0 = _resolveAnchors(onigLib, allowA, allowG);
+						data->_anchorCache.A1_G0 = _resolveAnchors(oni_lib, allowA, allowG);
 					}
-					return data->_anchorCache.A1_G0;
+					return _data->anchorCache.A1_G0;
 				}
 			} else {
 				if (allowG) {
 					if (!data->_anchorCache.A0_G1) {
-						data->_anchorCache.A0_G1 = _resolveAnchors(onigLib, allowA, allowG);
+						data->_anchorCache.A0_G1 = _resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return data->_anchorCache.A0_G1;
 				} else {
 					if (!data->_anchorCache.A0_G0) {
-						data->_anchorCache.A0_G0 = _resolveAnchors(onigLib, allowA, allowG);
+						data->_anchorCache.A0_G0 = _resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return data->_anchorCache.A0_G0;
 				}
@@ -1760,17 +1786,9 @@ struct RegExpSourceList:mx {
 		}
 	}
 
-	CompiledRule _resolveAnchors(IOnigLib &onigLib, bool allowA, bool allowG) {
-		array<utf16> regExps = data->_items.map<utf16>([&](RegExpSource e) -> utf16 {
-			return e.resolveAnchors(allowA, allowG);
-		});
-		return CompiledRule(onigLib, regExps, data->_items.map<RuleId>([](RegExpSource &e) -> RuleId {
-			return e->ruleId;
-		}));
-	}
 };
 
-struct IRuleRegistry;
+struct RuleRegistry;
 
 struct Rule:mx {
 	struct members {
@@ -1783,6 +1801,30 @@ struct Rule:mx {
 		array<RuleId>	patterns;
 		bool 	  		hasMissingPatterns; /// there was duck typing in ts for this one
 		register(members)
+
+
+		utf16 debugName() {
+			if (_location)
+				return fmt {"{0}:{1}", { basename(_location->filename), _location->line }};
+			return str("unknown");
+		}
+
+		utf16 getName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+			if (!_nameIsCapturing || !_name || !lineText || !captureIndices) {
+				return _name;
+			}
+			/// not used in cpp.json
+			return RegexSource::replaceCaptures(_name, lineText, captureIndices);
+		}
+
+		utf16 getContentName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+			if (!_contentNameIsCapturing || !_contentName) {
+				return _contentName;
+			}
+			/// not used in cpp.json
+			return RegexSource::replaceCaptures(_contentName, lineText, captureIndices);
+		}
+
 	};
 
 	mx_basic(Rule);
@@ -1800,43 +1842,33 @@ struct Rule:mx {
 		init(_location, id, name, contentName);
 	}
 
-	utf16 debugName() {
-		if (data->_location)
-			return fmt {"{0}:{1}", { basename(data->_location->filename), data->_location->line }};
-		return str("unknown");
-	}
-
-	utf16 getName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-		if (!data->_nameIsCapturing || !data->_name || !lineText || !captureIndices) {
-			return data->_name;
-		}
-		/// not used in cpp.json
-		return RegexSource::replaceCaptures(data->_name, lineText, captureIndices);
-	}
-
-	utf16 getContentName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-		if (!data->_contentNameIsCapturing || !data->_contentName) {
-			return data->_contentName;
-		}
-		/// not used in cpp.json
-		return RegexSource::replaceCaptures(data->_contentName, lineText, captureIndices);
-	}
-
-	virtual void collectPatterns(IRuleRegistry &grammar, RegExpSourceList &out) { };
-	virtual CompiledRule compile(IRuleRegistry &grammar, utf16 endRegexSource) { };
-	virtual CompiledRule compileAG(IRuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) { };
+	virtual void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) { };
+	virtual CompiledRule compile(RuleRegistry &grammar, utf16 endRegexSource) { };
+	virtual CompiledRule compileAG(RuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) { };
 };
 
-struct IRuleRegistry {
-	virtual Rule getRule(RuleId ruleId) = 0;
-	virtual Rule registerRule(lambda<Rule(RuleId)> factory) = 0;
+struct RuleRegistry:mx {
+	struct members {
+		lambda<Rule(RuleId)> getRule;
+		lambda<Rule(lambda<Rule(RuleId)>)> registerRule;
+	};
+	mx_basic(RuleRegistry)
 };
 
-struct IGrammarRegistry {
-	RawGrammar getExternalGrammar(str scopeName, RawRepository repository);
+struct GrammarRegistry:mx {
+	struct members {
+		lambda<RawGrammar(str, RawRepository)> getExternalGrammar;
+	};
+	mx_basic(GrammarRegistry)
 };
 
-struct IRuleFactoryHelper : IRuleRegistry, IGrammarRegistry { };
+struct RuleFactoryHelper:mx {
+	struct members {
+		RuleRegistry 	rule_reg;
+		GrammarRegistry grammar_reg;
+	};
+	mx_basic(RuleFactoryHelper)
+};
 
 struct ICompilePatternsResult {
 	array<RuleId> patterns;
@@ -1862,15 +1894,15 @@ struct CaptureRule : Rule {
 		// nothing to dispose
 	}
 
-	void collectPatterns(IRuleRegistry &grammar, RegExpSourceList &out) {
+	void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) {
 		console.fault("Not supported!");
 	}
 
-	CompiledRule compile(IRuleRegistry &grammar, utf16 endRegexSource) {
+	CompiledRule compile(RuleRegistry &grammar, utf16 endRegexSource) {
 		console.fault("Not supported!");
 	}
 
-	CompiledRule compileAG(IRuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+	CompiledRule compileAG(RuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) {
 		console.fault("Not supported!");
 	}
 };
@@ -1881,6 +1913,25 @@ struct MatchRule:Rule {
 		array<CaptureRule> 	captures;
 		RegExpSourceList 	_cachedCompiledPatterns;
 		register(members)
+
+		void dispose() {
+			if (_cachedCompiledPatterns) {
+				_cachedCompiledPatterns.dispose();
+				_cachedCompiledPatterns = null;
+			}
+		}
+
+		utf16 debugMatchRegExp() {
+			return _match->source;
+		}
+
+		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar) {
+			if (!_cachedCompiledPatterns) {
+				_cachedCompiledPatterns = RegExpSourceList();
+				collectPatterns(grammar, _cachedCompiledPatterns);
+			}
+			return _cachedCompiledPatterns;
+		}
 	};
 
 	mx_object(MatchRule, Rule, members);
@@ -1892,41 +1943,38 @@ struct MatchRule:Rule {
 		data->_cachedCompiledPatterns = null;
 	}
 
-	void dispose() {
-		if (data->_cachedCompiledPatterns) {
-			data->_cachedCompiledPatterns.dispose();
-			data->_cachedCompiledPatterns = null;
-		}
-	}
-
-	utf16 debugMatchRegExp() {
-		return data->_match->source;
-	}
-
-	void collectPatterns(IRuleRegistry &grammar, RegExpSourceList out) {
+	void collectPatterns(RuleRegistry &grammar, RegExpSourceList out) {
 		out.push(data->_match);
 	}
 
-	CompiledRule compile(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource) {
-		return _getCachedCompiledPatterns(grammar).compile(onigLib);
+	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
+		return data->_getCachedCompiledPatterns(grammar).compile(oni_lib);
 	}
 
-	CompiledRule compileAG(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return _getCachedCompiledPatterns(grammar).compileAG(onigLib, allowA, allowG);
-	}
-
-	RegExpSourceList _getCachedCompiledPatterns(IRuleRegistry &grammar) {
-		if (!data->_cachedCompiledPatterns) {
-			data->_cachedCompiledPatterns = RegExpSourceList();
-			collectPatterns(grammar, data->_cachedCompiledPatterns);
-		}
-		return data->_cachedCompiledPatterns;
+	CompiledRule compileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+		return data->_getCachedCompiledPatterns(grammar).compileAG(oni_lib, allowA, allowG);
 	}
 };
 
 struct IncludeOnlyRule:Rule {
 	struct members {
 		RegExpSourceList _cachedCompiledPatterns;
+		register(members)
+		
+		void dispose() {
+			if (_cachedCompiledPatterns) {
+				_cachedCompiledPatterns.dispose();
+				_cachedCompiledPatterns = null;
+			}
+		}
+
+		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar) {
+			if (!_cachedCompiledPatterns) {
+				_cachedCompiledPatterns = RegExpSourceList();
+				collectPatterns(grammar, _cachedCompiledPatterns);
+			}
+			return _cachedCompiledPatterns;
+		}
 	};
 
 	mx_object(IncludeOnlyRule, Rule, members)
@@ -1938,34 +1986,19 @@ struct IncludeOnlyRule:Rule {
 		data->_cachedCompiledPatterns = null;
 	}
 
-	void dispose() {
-		if (data->_cachedCompiledPatterns) {
-			data->_cachedCompiledPatterns.dispose();
-			data->_cachedCompiledPatterns = null;
-		}
-	}
-
-	void collectPatterns(IRuleRegistry &grammar, RegExpSourceList &out) {
+	void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) {
 		for (RuleId &pattern: Rule::data->patterns) {
-			auto rule = grammar.getRule(pattern);
+			auto rule = grammar->getRule(pattern);
 			rule.collectPatterns(grammar, out);
 		}
 	}
 
-	CompiledRule compile(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource) {
-		return _getCachedCompiledPatterns(grammar).compile(onigLib);
+	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
+		return data->_getCachedCompiledPatterns(grammar).compile(oni_lib);
 	}
 
-	CompiledRule compileAG(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return _getCachedCompiledPatterns(grammar).compileAG(onigLib, allowA, allowG);
-	}
-
-	RegExpSourceList _getCachedCompiledPatterns(IRuleRegistry &grammar) {
-		if (!data->_cachedCompiledPatterns) {
-			data->_cachedCompiledPatterns = RegExpSourceList();
-			collectPatterns(grammar, data->_cachedCompiledPatterns);
-		}
-		return data->_cachedCompiledPatterns;
+	CompiledRule compileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+		return data->_getCachedCompiledPatterns(grammar).compileAG(oni_lib, allowA, allowG);
 	}
 };
 
@@ -1979,6 +2012,51 @@ struct BeginEndRule:Rule {
 		bool 			applyEndPatternLast;
 		array<RuleId>	patterns;
 		RegExpSourceList _cachedCompiledPatterns;
+		register(members)
+
+		void dispose() {
+			if (_cachedCompiledPatterns) {
+				_cachedCompiledPatterns.dispose();
+				_cachedCompiledPatterns = null;
+			}
+		}
+
+		utf16 debugBeginRegExp() {
+			return _begin->source;
+		}
+
+		utf16 debugEndRegExp() {
+			return _end->source;
+		}
+
+		utf16 getEndWithResolvedBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+			return _end.resolveBackReferences(lineText, captureIndices);
+		}
+
+		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar, utf16 endRegexSource) {
+			if (!_cachedCompiledPatterns) {
+				_cachedCompiledPatterns = RegExpSourceList();
+
+				for (RuleId &pattern: Rule::patterns) {
+					auto rule = grammar->getRule(pattern);
+					rule.collectPatterns(grammar, _cachedCompiledPatterns);
+				}
+
+				if (applyEndPatternLast) {
+					_cachedCompiledPatterns.push(_end->hasBackReferences ? _end.clone() : _end);
+				} else {
+					_cachedCompiledPatterns.unshift(_end->hasBackReferences ? _end.clone() : _end);
+				}
+			}
+			if (_end->hasBackReferences) {
+				if (applyEndPatternLast) {
+					_cachedCompiledPatterns.setSource(_cachedCompiledPatterns.length() - 1, endRegexSource);
+				} else {
+					_cachedCompiledPatterns.setSource(0, endRegexSource);
+				}
+			}
+			return _cachedCompiledPatterns;
+		}
 	};
 
 	mx_object(BeginEndRule, Rule, members);
@@ -1998,60 +2076,16 @@ struct BeginEndRule:Rule {
 		data->_cachedCompiledPatterns = null;
 	}
 
-	void dispose() {
-		if (data->_cachedCompiledPatterns) {
-			data->_cachedCompiledPatterns.dispose();
-			data->_cachedCompiledPatterns = null;
-		}
-	}
-
-	utf16 debugBeginRegExp() {
-		return data->_begin->source;
-	}
-
-	utf16 debugEndRegExp() {
-		return data->_end->source;
-	}
-
-	utf16 getEndWithResolvedBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-		return data->_end.resolveBackReferences(lineText, captureIndices);
-	}
-
-	void collectPatterns(IRuleRegistry &grammar, RegExpSourceList out) {
+	void collectPatterns(RuleRegistry &grammar, RegExpSourceList out) {
 		out.push(data->_begin);
 	}
 
-	CompiledRule compile(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource) {
-		return _getCachedCompiledPatterns(grammar, endRegexSource).compile(onigLib);
+	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
+		return _getCachedCompiledPatterns(grammar, endRegexSource).compile(oni_lib);
 	}
 
-	CompiledRule compileAG(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return _getCachedCompiledPatterns(grammar, endRegexSource).compileAG(onigLib, allowA, allowG);
-	}
-
-	RegExpSourceList _getCachedCompiledPatterns(IRuleRegistry &grammar, utf16 endRegexSource) {
-		if (!data->_cachedCompiledPatterns) {
-			data->_cachedCompiledPatterns = RegExpSourceList();
-
-			for (RuleId &pattern: Rule::data->patterns) {
-				auto rule = grammar.getRule(pattern);
-				rule.collectPatterns(grammar, data->_cachedCompiledPatterns);
-			}
-
-			if (data->applyEndPatternLast) {
-				data->_cachedCompiledPatterns.push(data->_end->hasBackReferences ? data->_end.clone() : data->_end);
-			} else {
-				data->_cachedCompiledPatterns.unshift(data->_end->hasBackReferences ? data->_end.clone() : data->_end);
-			}
-		}
-		if (data->_end->hasBackReferences) {
-			if (data->applyEndPatternLast) {
-				data->_cachedCompiledPatterns.setSource(data->_cachedCompiledPatterns.length() - 1, endRegexSource);
-			} else {
-				data->_cachedCompiledPatterns.setSource(0, endRegexSource);
-			}
-		}
-		return data->_cachedCompiledPatterns;
+	CompiledRule compileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+		return _getCachedCompiledPatterns(grammar, endRegexSource).compileAG(oni_lib, allowA, allowG);
 	}
 };
 
@@ -2065,6 +2099,62 @@ struct BeginWhileRule : Rule {
 		array<RuleId> 		patterns;
 		RegExpSourceList 	_cachedCompiledPatterns;
 		RegExpSourceList 	_cachedCompiledWhilePatterns;
+
+		register(members)
+
+		void dispose() {
+			if (_cachedCompiledPatterns) {
+				_cachedCompiledPatterns.dispose();
+				_cachedCompiledPatterns = null;
+			}
+			if (_cachedCompiledWhilePatterns) {
+				_cachedCompiledWhilePatterns.dispose();
+				_cachedCompiledWhilePatterns = null;
+			}
+		}
+
+		utf16 debugBeginRegExp() {
+			return _begin->source;
+		}
+
+		utf16 debugWhileRegExp() {
+			return _while->source;
+		}
+
+		utf16 getWhileWithResolvedBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+			return _while.resolveBackReferences(lineText, captureIndices);
+		}
+
+		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar) {
+			if (!_cachedCompiledPatterns) {
+				_cachedCompiledPatterns = RegExpSourceList();
+
+				for (RuleId &pattern: Rule::patterns) {
+					auto rule = grammar->getRule(pattern);
+					rule.collectPatterns(grammar, _cachedCompiledPatterns);
+				}
+			}
+			return _cachedCompiledPatterns;
+		}
+
+		CompiledRule compileWhile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
+			return _getCachedCompiledWhilePatterns(oni_lib, endRegexSource).compile(oni_lib);
+		}
+
+		CompiledRule compileWhileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+			return _getCachedCompiledWhilePatterns(oni_lib, endRegexSource).compileAG(oni_lib, allowA, allowG);
+		}
+
+		RegExpSourceList _getCachedCompiledWhilePatterns(OnigLib oni_lib, utf16 endRegexSource) {
+			if (!_cachedCompiledWhilePatterns) {
+				_cachedCompiledWhilePatterns = RegExpSourceList();
+				_cachedCompiledWhilePatterns.push(_while->hasBackReferences ? _while.clone() : _while);
+			}
+			if (_while->hasBackReferences) {
+				_cachedCompiledWhilePatterns.setSource(0, endRegexSource ? endRegexSource : utf16((unsigned short)0xFFFF));
+			}
+			return _cachedCompiledWhilePatterns;
+		}
 	};
 
 	mx_object(BeginWhileRule, Rule, members);
@@ -2086,84 +2176,30 @@ struct BeginWhileRule : Rule {
 		data->_cachedCompiledWhilePatterns = null;
 	}
 
-	void dispose() {
-		if (data->_cachedCompiledPatterns) {
-			data->_cachedCompiledPatterns.dispose();
-			data->_cachedCompiledPatterns = null;
-		}
-		if (data->_cachedCompiledWhilePatterns) {
-			data->_cachedCompiledWhilePatterns.dispose();
-			data->_cachedCompiledWhilePatterns = null;
-		}
-	}
-
-	utf16 debugBeginRegExp() {
-		return data->_begin->source;
-	}
-
-	utf16 debugWhileRegExp() {
-		return data->_while->source;
-	}
-
-	utf16 getWhileWithResolvedBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-		return data->_while.resolveBackReferences(lineText, captureIndices);
-	}
-
-	void collectPatterns(IRuleRegistry &grammar, RegExpSourceList &out) {
+	void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) {
 		out.push(data->_begin);
 	}
 
-	CompiledRule compile(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource) {
-		return _getCachedCompiledPatterns(grammar).compile(onigLib);
+	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
+		return data->_getCachedCompiledPatterns(grammar).compile(oni_lib);
 	}
 
-	CompiledRule compileAG(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return _getCachedCompiledPatterns(grammar).compileAG(onigLib, allowA, allowG);
-	}
-
-	RegExpSourceList _getCachedCompiledPatterns(IRuleRegistry &grammar) {
-		if (!data->_cachedCompiledPatterns) {
-			data->_cachedCompiledPatterns = RegExpSourceList();
-
-			for (RuleId &pattern: Rule::data->patterns) {
-				auto rule = grammar.getRule(pattern);
-				rule.collectPatterns(grammar, data->_cachedCompiledPatterns);
-			}
-		}
-		return data->_cachedCompiledPatterns;
-	}
-
-	CompiledRule compileWhile(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource) {
-		return _getCachedCompiledWhilePatterns(onigLib, endRegexSource).compile(onigLib);
-	}
-
-	CompiledRule compileWhileAG(IOnigLib &onigLib, IRuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return _getCachedCompiledWhilePatterns(onigLib, endRegexSource).compileAG(onigLib, allowA, allowG);
-	}
-
-	RegExpSourceList _getCachedCompiledWhilePatterns(IOnigLib &onigLib, utf16 endRegexSource) {
-		if (!data->_cachedCompiledWhilePatterns) {
-			data->_cachedCompiledWhilePatterns = RegExpSourceList();
-			data->_cachedCompiledWhilePatterns.push(data->_while->hasBackReferences ? data->_while.clone() : data->_while);
-		}
-		if (data->_while->hasBackReferences) {
-			data->_cachedCompiledWhilePatterns.setSource(0, endRegexSource ? endRegexSource : utf16((unsigned short)0xFFFF));
-		}
-		return data->_cachedCompiledWhilePatterns;
+	CompiledRule compileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+		return data->_getCachedCompiledPatterns(grammar).compileAG(oni_lib, allowA, allowG);
 	}
 };
 
 struct RuleFactory {
 
-	static CaptureRule createCaptureRule(IRuleFactoryHelper &helper, ILocation &_location, utf16 name, utf16 contentName, RuleId retokenizeCapturedWithRuleId) {
-		return helper.registerRule([&](RuleId id) -> Rule {
+	static CaptureRule createCaptureRule(RuleFactoryHelper helper, ILocation &_location, utf16 name, utf16 contentName, RuleId retokenizeCapturedWithRuleId) {
+		return helper->rule_reg->registerRule([&](RuleId id) -> Rule {
 			return CaptureRule(_location, id, name, contentName, retokenizeCapturedWithRuleId);
 		});
 	}
 
-	static RuleId getCompiledRuleId(RawRule desc, IRuleFactoryHelper &helper, RawRepository repository) {
+	static RuleId getCompiledRuleId(RawRule desc, RuleFactoryHelper helper, RawRepository repository) {
 		if (!desc->id) {
-			helper.registerRule([&](RuleId id) -> Rule {
+			helper->rule_reg->registerRule([&](RuleId id) -> Rule {
 				desc->id = id;
 
 				if (desc->match) {
@@ -2233,7 +2269,7 @@ struct RuleFactory {
 		return desc->id;
 	}
 
-	static array<CaptureRule> _compileCaptures(RawCaptures captures, IRuleFactoryHelper &helper, RawRepository repository) {
+	static array<CaptureRule> _compileCaptures(RawCaptures captures, RuleFactoryHelper helper, RawRepository repository) {
 		array<CaptureRule> r;
 
 		if (captures) {
@@ -2277,7 +2313,7 @@ struct RuleFactory {
 		return r;
 	}
 
-	static ICompilePatternsResult _compilePatterns(array<RawRule> patterns, IRuleFactoryHelper &helper, RawRepository repository) {
+	static ICompilePatternsResult _compilePatterns(array<RawRule> patterns, RuleFactoryHelper helper, RawRepository repository) {
 		array<RuleId> r;
 
 		if (patterns) {
@@ -2315,7 +2351,7 @@ struct RuleFactory {
 									: null;
 
 							// External include
-							auto externalGrammar = helper.getExternalGrammar(externalGrammarName, repository);
+							auto externalGrammar = helper->grammar_reg->getExternalGrammar(externalGrammarName, repository);
 
 							if (externalGrammar) {
 								if (externalGrammarInclude) {
@@ -2339,7 +2375,7 @@ struct RuleFactory {
 				}
 
 				if (ruleId != -1) {
-					auto rule = helper.getRule(ruleId);
+					auto rule = helper->rule_reg->getRule(ruleId);
 
 					bool skipRule = false;
 
@@ -2411,12 +2447,26 @@ struct BasicScopeAttributes:mx {
 
 struct ScopeMatcher:mx {
 	struct members {
-		IEmbeddedLanguagesMap values;
+		EmbeddedLanguagesMap values;
 		RegEx scopesRegExp;
+
+		register(members)
+
+		mx match(ScopeName scope) {
+			if (!scopesRegExp) {
+				return {};
+			}
+			array<str> m = scopesRegExp.exec(scope);
+			if (!m) {
+				// no scopes matched
+				return {};
+			}
+			return values[m[1]];
+		}
 	};
 	mx_basic(ScopeMatcher);
 
-	ScopeMatcher(IEmbeddedLanguagesMap &values) : ScopeMatcher() { /// todo: this was designed to be an array of arrays; convert its input from the users of it
+	ScopeMatcher(EmbeddedLanguagesMap &values) : ScopeMatcher() { /// todo: this was designed to be an array of arrays; convert its input from the users of it
 		if (!values) {
 			data->values = null;
 			data->scopesRegExp = null;
@@ -2446,38 +2496,57 @@ struct ScopeMatcher:mx {
 			);
 		}
 	}
-
-	mx match(ScopeName scope) {
-		if (!data->scopesRegExp) {
-			return {};
-		}
-		array<str> m = data->scopesRegExp.exec(scope);
-		if (!m) {
-			// no scopes matched
-			return {};
-		}
-		return data->values[m[1]];
-	}
 };
 
 struct BasicScopeAttributesProvider:mx {
 	struct members {
 		BasicScopeAttributes _defaultAttributes;
 		ScopeMatcher _embeddedLanguagesMatcher;
+
+		static BasicScopeAttributes _getBasicScopeAttributes(ScopeMatcher &scope_matcher, ScopeName scopeName) {
+			num languageId = _scopeToLanguage(scope_matcher, scopeName);
+			OptionalStandardTokenType standardTokenType = _toStandardTokenType(scopeName);
+			return BasicScopeAttributes(BasicScopeAttributes::members { languageId, standardTokenType });
+		};
+
+		inline static BasicScopeAttributes _NULL_SCOPE_METADATA = BasicScopeAttributes();
+		inline static RegEx STANDARD_TOKEN_TYPE_REGEXP = R"(\b(comment|string|regex|meta\.embedded)\b)";
+
+		BasicScopeAttributes getDefaultAttributes() {
+			return _defaultAttributes;
+		}
+
+		BasicScopeAttributes getBasicScopeAttributes(ScopeName scopeName) {
+			if (!scopeName) {
+				return BasicScopeAttributesProvider::_NULL_SCOPE_METADATA;
+			}
+			return _getBasicScopeAttributes(_embeddedLanguagesMatcher, scopeName);
+		}
+
+		/**
+		 * Given a produced TM scope, return the language that token describes or null if unknown.
+		 * e.g. source.html => html, source.css.embedded.html => css, punctuation.definition.tag.html => null
+		 */
+		static num _scopeToLanguage(ScopeMatcher &scope_matcher, ScopeName scope) {
+			return scope_matcher.match(scope) || 0;
+		}
+
+		static OptionalStandardTokenType _toStandardTokenType(ScopeName scopeName) { /// shouldnt need utf16 here
+			array<str> m = BasicScopeAttributesProvider::STANDARD_TOKEN_TYPE_REGEXP.exec(scopeName);
+			if (!m)
+				return OptionalStandardTokenType::NotSet;
+			
+			str m1 = m[1];
+			if (m1 == "comment") return OptionalStandardTokenType::_Comment;
+			if (m1 == "string")  return OptionalStandardTokenType::_String;
+			if (m1 == "regex")   return OptionalStandardTokenType::__RegEx;
+			///
+			if (m1 == "meta.embedded") return OptionalStandardTokenType::_Other;
+			throw new str("Unexpected match for standard token type!");
+		}
 	};
 
-	static BasicScopeAttributes _getBasicScopeAttributes(ScopeMatcher &scope_matcher, ScopeName scopeName) {
-		num languageId = _scopeToLanguage(scope_matcher, scopeName);
-		OptionalStandardTokenType standardTokenType = _toStandardTokenType(scopeName);
-		return BasicScopeAttributes(BasicScopeAttributes::members { languageId, standardTokenType });
-	};
-	
-	mx_basic(BasicScopeAttributesProvider)
-
-	inline static BasicScopeAttributes _NULL_SCOPE_METADATA = BasicScopeAttributes();
-	inline static RegEx STANDARD_TOKEN_TYPE_REGEXP = R"(\b(comment|string|regex|meta\.embedded)\b)";
-
-	BasicScopeAttributesProvider(num initialLanguageId, IEmbeddedLanguagesMap embeddedLanguages) {
+	BasicScopeAttributesProvider(num initialLanguageId, EmbeddedLanguagesMap embeddedLanguages) : BasicScopeAttributesProvider() {
 		data->_defaultAttributes = BasicScopeAttributes(
 			BasicScopeAttributes::members {
 				initialLanguageId, OptionalStandardTokenType::NotSet
@@ -2486,38 +2555,7 @@ struct BasicScopeAttributesProvider:mx {
 		data->_embeddedLanguagesMatcher = ScopeMatcher(embeddedLanguages);
 	}
 
-	BasicScopeAttributes getDefaultAttributes() {
-		return data->_defaultAttributes;
-	}
-
-	BasicScopeAttributes getBasicScopeAttributes(ScopeName scopeName) {
-		if (!scopeName) {
-			return BasicScopeAttributesProvider::_NULL_SCOPE_METADATA;
-		}
-		return _getBasicScopeAttributes(data->_embeddedLanguagesMatcher, scopeName);
-	}
-
-	/**
-	 * Given a produced TM scope, return the language that token describes or null if unknown.
-	 * e.g. source.html => html, source.css.embedded.html => css, punctuation.definition.tag.html => null
-	 */
-	static num _scopeToLanguage(ScopeMatcher &scope_matcher, ScopeName scope) {
-		return scope_matcher.match(scope) || 0;
-	}
-
-	static OptionalStandardTokenType _toStandardTokenType(ScopeName scopeName) { /// shouldnt need utf16 here
-		array<str> m = BasicScopeAttributesProvider::STANDARD_TOKEN_TYPE_REGEXP.exec(scopeName);
-		if (!m)
-			return OptionalStandardTokenType::NotSet;
-		
-		str m1 = m[1];
-		if (m1 == "comment") return OptionalStandardTokenType::_Comment;
-		if (m1 == "string")  return OptionalStandardTokenType::_String;
-		if (m1 == "regex")   return OptionalStandardTokenType::__RegEx;
-		///
-		if (m1 == "meta.embedded") return OptionalStandardTokenType::_Other;
-		throw new str("Unexpected match for standard token type!");
-	}
+	mx_basic(BasicScopeAttributesProvider)
 };
 
 struct Grammar;
@@ -2527,138 +2565,138 @@ struct AttributedScopeStack:mx {
 		mx parent; /// use mx instead of pointer; use this for management of typed access; dependency order quirks as well.
 		ScopeStack scopePath;
 		EncodedTokenAttr tokenAttributes;
-		register(members);
+		register(members)
+
+		static AttributedScopeStack fromExtension(AttributedScopeStack namesScopeList, array<AttributedScopeStackFrame> contentNameScopesList) {
+			AttributedScopeStack current = namesScopeList;
+			ScopeStack scopeNames = namesScopeList ?
+				namesScopeList->scopePath : ScopeStack {};
+			for (AttributedScopeStackFrame &frame: contentNameScopesList) {
+				scopeNames = ScopeStack::push(scopeNames, frame.scopeNames);
+				current = AttributedScopeStack(AttributedScopeStack::members {
+					current, scopeNames, frame.encodedTokenAttributes
+				});
+			}
+			return current;
+		}
+
+		static AttributedScopeStack createRoot(ScopeName scopeName, EncodedTokenAttr tokenAttributes) {
+			return AttributedScopeStack(
+				AttributedScopeStack::members {
+					null, ScopeStack({}, scopeName), tokenAttributes
+				});
+		}
+
+		static AttributedScopeStack createRootAndLookUpScopeName(ScopeName scopeName, EncodedTokenAttr tokenAttributes, Grammar &grammar);
+
+		ScopeName scopeName() { return scopePath->scopeName; }
+
+		str toString() {
+			return getScopeNames().join(" ");
+		}
+
+		bool equals(AttributedScopeStack other) {
+			return AttributedScopeStack::memebers::equals(*this, other);
+		}
+
+		static bool equals(
+			AttributedScopeStack a,
+			AttributedScopeStack b
+		) {
+			do {
+				if (a == b) {
+					return true;
+				}
+
+				if (!a && !b) {
+					// End of list reached for both
+					return true;
+				}
+
+				if (!a || !b) {
+					// End of list reached only for one
+					return false;
+				}
+
+				if (a->scopePath->scopeName != b->scopePath->scopeName || 
+					a->tokenAttributes != b->tokenAttributes) {
+					return false;
+				}
+
+				// Go to previous pair
+				a = a->parent.grab();
+				b = b->parent.grab();
+			} while (true);
+		}
+
+		static EncodedTokenAttr mergeAttributes(
+			EncodedTokenAttr 		existingTokenAttributes,
+			BasicScopeAttributes 	basicScopeAttributes,
+			StyleAttributes 		styleAttributes
+		) {
+			FontStyle fontStyle  = FontStyle::_NotSet;
+			num 	  foreground = 0;
+			num 	  background = 0;
+
+			if (styleAttributes) {
+				fontStyle  = styleAttributes->fontStyle;
+				foreground = styleAttributes->foregroundId;
+				background = styleAttributes->backgroundId;
+			}
+
+			return EncodedTokenAttributes::set(
+				existingTokenAttributes,
+				basicScopeAttributes->languageId,
+				basicScopeAttributes->tokenType,
+				null,
+				fontStyle,
+				foreground,
+				background
+			);
+		}
+
+		AttributedScopeStack pushAttributed(ScopePath scopePath, Grammar &grammar);
+
+		static AttributedScopeStack _pushAttributed(
+			AttributedScopeStack target,
+			ScopeName scopeName,
+			Grammar &grammar
+		);
+
+		array<str> getScopeNames() {
+			return scopePath.getSegments();
+		}
+
+		array<AttributedScopeStackFrame> getExtensionIfDefined(AttributedScopeStack base) {
+			array<AttributedScopeStackFrame> result;
+			AttributedScopeStack self = *this;
+
+			while (self && self != base) {
+				if (self->parent) {
+					AttributedScopeStack parent = self->parent.grab();
+					AttributedScopeStackFrame f {
+						.encodedTokenAttributes = self->tokenAttributes,
+						.scopeNames = self->scopePath.getExtensionIfDefined(
+							parent->scopePath)
+					};
+					result.push(f);
+					self = parent;
+				} else {
+					AttributedScopeStackFrame f {
+						.encodedTokenAttributes = self->tokenAttributes,
+						.scopeNames = self->scopePath.getExtensionIfDefined(
+							AttributedScopeStack {}) /// this is a null item
+					};
+					result.push(f);
+					break;
+				}
+			}
+			return self == base ? result.reverse() : array<AttributedScopeStackFrame> {};
+		}
 	};
 	mx_basic(AttributedScopeStack);
 
 	AttributedScopeStack(null_t) : AttributedScopeStack() { }
-
-	static AttributedScopeStack fromExtension(AttributedScopeStack namesScopeList, array<AttributedScopeStackFrame> contentNameScopesList) {
-		AttributedScopeStack current = namesScopeList;
-		ScopeStack scopeNames = namesScopeList ?
-			namesScopeList->scopePath : ScopeStack {};
-		for (AttributedScopeStackFrame &frame: contentNameScopesList) {
-			scopeNames = ScopeStack::push(scopeNames, frame.scopeNames);
-			current = AttributedScopeStack(AttributedScopeStack::members {
-				current, scopeNames, frame.encodedTokenAttributes
-			});
-		}
-		return current;
-	}
-
-	static AttributedScopeStack createRoot(ScopeName scopeName, EncodedTokenAttr tokenAttributes) {
-		return AttributedScopeStack(
-			AttributedScopeStack::members {
-				null, ScopeStack({}, scopeName), tokenAttributes
-			});
-	}
-
-	static AttributedScopeStack createRootAndLookUpScopeName(ScopeName scopeName, EncodedTokenAttr tokenAttributes, Grammar &grammar);
-
-	ScopeName scopeName() { return data->scopePath->scopeName; }
-
-	str toString() {
-		return getScopeNames().join(" ");
-	}
-
-	bool equals(AttributedScopeStack other) {
-		return AttributedScopeStack::equals(*this, other);
-	}
-
-	static bool equals(
-		AttributedScopeStack a,
-		AttributedScopeStack b
-	) {
-		do {
-			if (a == b) {
-				return true;
-			}
-
-			if (!a && !b) {
-				// End of list reached for both
-				return true;
-			}
-
-			if (!a || !b) {
-				// End of list reached only for one
-				return false;
-			}
-
-			if (a->scopePath->scopeName != b->scopePath->scopeName || 
-			    a->tokenAttributes != b->tokenAttributes) {
-				return false;
-			}
-
-			// Go to previous pair
-			a = a->parent.grab();
-			b = b->parent.grab();
-		} while (true);
-	}
-
-	static EncodedTokenAttr mergeAttributes(
-		EncodedTokenAttr 		existingTokenAttributes,
-		BasicScopeAttributes 	basicScopeAttributes,
-		StyleAttributes 		styleAttributes
-	) {
-		FontStyle fontStyle  = FontStyle::_NotSet;
-		num 	  foreground = 0;
-		num 	  background = 0;
-
-		if (styleAttributes) {
-			fontStyle  = styleAttributes->fontStyle;
-			foreground = styleAttributes->foregroundId;
-			background = styleAttributes->backgroundId;
-		}
-
-		return EncodedTokenAttributes::set(
-			existingTokenAttributes,
-			basicScopeAttributes->languageId,
-			basicScopeAttributes->tokenType,
-			null,
-			fontStyle,
-			foreground,
-			background
-		);
-	}
-
-	AttributedScopeStack pushAttributed(ScopePath scopePath, Grammar &grammar);
-
-	static AttributedScopeStack _pushAttributed(
-		AttributedScopeStack target,
-		ScopeName scopeName,
-		Grammar &grammar
-	);
-
-	array<str> getScopeNames() {
-		return data->scopePath.getSegments();
-	}
-
-	array<AttributedScopeStackFrame> getExtensionIfDefined(AttributedScopeStack base) {
-		array<AttributedScopeStackFrame> result;
-		AttributedScopeStack self = *this;
-
-		while (self && self != base) {
-			if (self->parent) {
-				AttributedScopeStack parent = self->parent.grab();
-				AttributedScopeStackFrame f {
-					.encodedTokenAttributes = self->tokenAttributes,
-					.scopeNames = self->scopePath.getExtensionIfDefined(
-						parent->scopePath)
-				};
-				result.push(f);
-				self = parent;
-			} else {
-				AttributedScopeStackFrame f {
-					.encodedTokenAttributes = self->tokenAttributes,
-					.scopeNames = self->scopePath.getExtensionIfDefined(
-						AttributedScopeStack {}) /// this is a null item
-				};
-				result.push(f);
-				break;
-			}
-		}
-		return self == base ? result.reverse() : array<AttributedScopeStackFrame> {};
-	}
 };
 
 struct StateStackImpl:mx {
@@ -2725,7 +2763,7 @@ struct StateStackImpl:mx {
 		if (!_structuralEquals(a, b)) {
 			return false;
 		}
-		return AttributedScopeStack::equals(a->contentNameScopesList, b->contentNameScopesList);
+		return AttributedScopeStack::members::equals(a->contentNameScopesList, b->contentNameScopesList);
 	}
 
 	operator bool() {
@@ -2812,8 +2850,8 @@ struct StateStackImpl:mx {
 		return data->_anchorPos;
 	}
 
-	Rule getRule(IRuleRegistry &grammar) {
-		return grammar.getRule(data->ruleId);
+	Rule getRule(RuleRegistry grammar) {
+		return grammar->getRule(data->ruleId);
 	}
 
 	utf16 toString() { /// 'toString' should probably always be to String.  not another form of it.  UTF8 out
@@ -2897,7 +2935,7 @@ struct StateStackImpl:mx {
 	}
 
 	static StateStackImpl pushFrame(StateStackImpl self, StateStackFrame &frame) {
-		auto namesScopeList = AttributedScopeStack::fromExtension(self ? self->nameScopesList : null, frame->nameScopesList);
+		auto namesScopeList = AttributedScopeStack::members::fromExtension(self ? self->nameScopesList : null, frame->nameScopesList);
 		return StateStackImpl(
 			self,
 			
@@ -2909,7 +2947,7 @@ struct StateStackImpl:mx {
 			
 			frame->endRule,
 			namesScopeList,
-			AttributedScopeStack::fromExtension(namesScopeList, frame->contentNameScopesList)
+			AttributedScopeStack::members::fromExtension(namesScopeList, frame->contentNameScopesList)
 		);
 	}
 };
@@ -3072,6 +3110,17 @@ struct ITokenizeLineResult2 {
 	StateStackImpl ruleStack;
 	bool stoppedEarly;
 };
+
+bool scopesAreMatching(str thisScopeName, str scopeName) {
+	if (!thisScopeName) {
+		return false;
+	}
+	if (thisScopeName == scopeName) {
+		return true;
+	}
+	auto len = scopeName.len();
+	return thisScopeName.len() > len && thisScopeName.mid(0, len) == scopeName && thisScopeName[len] == '.';
+}
 
 struct BalancedBracketSelectors:mx {
 	struct members {
@@ -3356,71 +3405,327 @@ struct Injection:mx {
 /// Grammar should use 'Registry' there are too many data relationships
 RawGrammar initGrammar(RawGrammar grammar, RawRule base) {
 	grammar = grammar.copy();
-
-	grammar->repository = grammar->repository ? grammar->repository : RawRepository {};
-	grammar->repository["$self"] = RawRule::members {
+	//grammar->repository = grammar->repository ? grammar->repository : RawRepository {};
+	grammar->repository->props["$self"] = RawRule(RawRule::members {
 		._vscodeTextmateLocation = grammar->_vscodeTextmateLocation,
-		.patterns = grammar->patterns,
-		name = grammar->scopeName
-	};
-	grammar->repository["$base"] = base ? base : grammar.repository["$self"];
+		.name 					 = grammar->scopeName,
+		.patterns 				 = grammar->patterns
+	});
+	grammar->repository->props["$base"] = base ? base : grammar->repository->props["$self"];
 	return grammar;
 }
 
 struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
-	struct members : IRuleFactoryHelper, IOnigLib {
+	struct members {
 		str						_rootScopeName;
 		RuleId 					_rootId = -1;
 		num 					_lastRuleId;
 		array<Rule> 			_ruleId2desc;
 		map<RawRepository>		_includedGrammars;
-		IGrammarRepository	   *_grammarRepository; // IGrammarRepository IThemeProvider
-		// IThemeProvider *_themeProvider;
+		num						initialLanguage;
+		BalancedBracketSelectors balancedBracketSelectors;
+		RuleFactoryHelper		 helper;
+		GrammarRepository	     grammar_repo; // IGrammarRepository IThemeProvider
+		ThemeProvider 			 theme_provider;
 		var 					_grammar;
 		array<Injection>		_injections;
+		OnigLib					oni_lib;
 		
 		BasicScopeAttributesProvider _basicScopeAttributesProvider;
-		array<TokenTypeMatcher> _tokenTypeMatchers;
+		array<TokenTypeMatcher> 	 _tokenTypeMatchers;
 
-		OnigScanner createOnigScanner(array<str> sources) {
-			return OnigScanner(sources);
+
+		BasicScopeAttributes getMetadataForScope(str scope) {
+			return _basicScopeAttributesProvider.getBasicScopeAttributes(scope);
 		}
-		OnigString  createOnigString(str string) = 0;
 
+		bool nameMatcher(array<ScopeName> identifers, array<ScopeName> scopes) {
+			if (scopes.len() < identifers.len()) {
+				return false;
+			}
+			size_t lastIndex = 0;
+			return identifers.every([&](ScopeName &identifier) -> bool {
+				for (size_t i = lastIndex; i < scopes.len(); i++) {
+					if (scopesAreMatching(scopes[i], identifier)) {
+						lastIndex = i + 1;
+						return true;
+					}
+				}
+				return false;
+			});
+		}
+
+		void collectInjections(array<Injection> result, str selector, RawRule rule, RuleFactoryHelper ruleFactoryHelper, RawGrammar grammar) {
+			array<MatcherWithPriority> matchers = createMatchers(selector, NameMatcher(this, &members::nameMatcher));
+			RuleId ruleId = RuleFactory::getCompiledRuleId(rule, ruleFactoryHelper, grammar->repository);
+			for (MatcherWithPriority &matcher: matchers) {
+				result.push({
+					.debugSelector = selector,
+					.matcher = matcher->matcher,
+					.ruleId = ruleId,
+					.grammar = grammar,
+					.priority = matcher->priority
+				});
+			}
+		}
+
+		array<Injection> _collectInjections() {
+			GrammarRepository grammar_repo = GrammarRepository::members {
+				.lookup = [&](str scopeName) -> RawGrammar {
+					if (scopeName == _rootScopeName) {
+						return _grammar;
+					}
+					return helper->grammar_reg->getExternalGrammar(scopeName, RawRepository {});
+				},
+				.injections = [&](str scopeName) -> array<str> {
+					return grammar_repo->injections(scopeName);
+				}
+			};
+
+			array<Injection> result;
+			str scopeName = _rootScopeName;
+
+			RawGrammar grammar = grammar_repo->lookup(scopeName);
+			if (grammar) {
+				// add injections from the current grammar
+				map<RawRule> rawInjections = grammar->injections;
+				if (rawInjections) {
+					for (field<RawRule> &f: rawInjections) {
+						str expression    = f.key.grab();
+						RawRule raw_rule  = f.value.grab();
+						collectInjections(
+							result,
+							expression,
+							raw_rule,
+							*this,
+							grammar
+						);
+					}
+				}
+
+				// add injection grammars contributed for the current scope
+
+				array<ScopeName> injectionScopeNames = grammar_repo->injections(scopeName);
+				if (injectionScopeNames) {
+					for (ScopeName &injectionScopeName: injectionScopeNames) {
+						auto injectionGrammar =
+							helper->grammar_reg->getExternalGrammar(injectionScopeName, RawRepository {});
+						if (injectionGrammar) {
+							auto selector = injectionGrammar.injectionSelector;
+							if (selector) {
+								collectInjections(
+									result,
+									selector,
+									injectionGrammar,
+									this,
+									injectionGrammar
+								);
+							}
+						}
+					}
+				}
+			}
+
+			result.sort([](Injection &i1, Injection &i2) -> int {
+				return i1.priority - i2.priority;
+			}); // sort by priority
+
+			return result;
+		}
+
+		array<Injection> getInjections() {
+			if (!_injections) {
+				_injections = _collectInjections();
+
+				if (DebugFlags.InDebugMode && _injections.length > 0) {
+					console.log(
+						"Grammar {0} contains the following injections:"
+					, { _rootScopeName });
+					for (Injection &injection: _injections) {
+						console.log("  - {0}", { injection.debugSelector });
+					}
+				}
+			}
+			return _injections;
+		}
+
+
+		void dispose() {
+			for (auto &rule: _ruleId2desc) {
+				if (rule) {
+					rule.dispose();
+				}
+			}
+		}
+
+		ITokenizeLineResult tokenizeLine(
+				utf16 lineText,
+				StateStackImpl prevState,
+				num timeLimit = 0) {
+			auto r = _tokenize(lineText, prevState, false, timeLimit);
+			return {
+				tokens = 		r.lineTokens.getResult(r.ruleStack, r.lineLength),
+				ruleStack = 	r.ruleStack,
+				stoppedEarly = 	r.stoppedEarly,
+			};
+		}
+
+		ITokenizeLineResult2 tokenizeLine2(
+				utf16 			lineText,
+				StateStackImpl 	prevState,
+				num 			timeLimit = 0) {
+			auto r = _tokenize(lineText, prevState, true, timeLimit);
+			return {
+				tokens = 		r.lineTokens.getBinaryResult(r.ruleStack, r.lineLength),
+				ruleStack = 	r.ruleStack,
+				stoppedEarly = 	r.stoppedEarly,
+			};
+		}
+
+		ILineTokensResult _tokenize(
+			utf16 lineText,
+			StateStackImpl prevState,
+			bool emitBinaryTokens,
+			num timeLimit
+		) {
+			if (_rootId == -1) {
+				_rootId = RuleFactory::getCompiledRuleId(
+					_grammar.repository.$self,
+					this,
+					_grammar.repository
+				);
+				// This ensures ids are deterministic, and thus equal in renderer and webworker.
+				getInjections();
+			}
+
+			bool isFirstLine;
+			if (!prevState || prevState == StateStackImpl.NULL) {
+				isFirstLine = true;
+				//const rawDefaultMetadata =
+				//	_basicScopeAttributesProvider.getDefaultAttributes();
+				auto defaultStyle = theme_provider->getDefaults();
+				auto defaultMetadata = EncodedTokenAttributes::set(
+					0,
+					0, // null rawDefaultMetadata.languageId,
+					null, // rawDefaultMetadata.tokenType
+					null,
+					defaultStyle.fontStyle,
+					defaultStyle.foregroundId,
+					defaultStyle.backgroundId
+				);
+
+				auto rootScopeName = getRule(_rootId).getName(
+					null,
+					null
+				);
+
+				AttributedScopeStack scopeList;
+				if (rootScopeName) {
+					scopeList = AttributedScopeStack::members::createRootAndLookUpScopeName(
+						rootScopeName,
+						defaultMetadata,
+						this
+					);
+				} else {
+					scopeList = AttributedScopeStack::members::createRoot(
+						"unknown",
+						defaultMetadata
+					);
+				}
+
+				prevState = StateStackImpl(
+					null,
+					_rootId,
+					-1,
+					-1,
+					false,
+					null,
+					scopeList,
+					scopeList
+				);
+			} else {
+				isFirstLine = false;
+				prevState.reset();
+			}
+
+			lineText += "\n";
+			num   lineLength = lineText.len()
+			auto lineTokens = LineTokens(
+				emitBinaryTokens,
+				lineText,
+				_tokenTypeMatchers,
+				balancedBracketSelectors
+			);
+			auto r = _tokenizeString(
+				this,
+				onigLineText,
+				isFirstLine,
+				0,
+				prevState,
+				lineTokens,
+				true,
+				timeLimit
+			);
+			return ILineTokensResult {
+				lineLength	 = lineLength,
+				lineTokens	 = lineTokens,
+				ruleStack	 = r.stack,
+				stoppedEarly = r.stoppedEarly,
+			};
+		}
+
+		void init() {
+			oni_lib->createOnigScanner = [](array<str> sources) -> OnigScanner {
+				return OnigScanner(sources);
+			};
+			oni_lib->createOnigString = [](str string) -> OnigString {
+				return string;
+			};
+
+			helper->grammar_reg->getExternalGrammar = [&](str scopeName, RawRepository repository) -> RawGrammar {
+				if (_includedGrammars[scopeName]) {
+					return _includedGrammars[scopeName];
+				} else if (grammar_repo) {
+					RawGrammar rawIncludedGrammar =
+						grammar_repo->lookup(scopeName);
+					if (rawIncludedGrammar) {
+						// console.log('LOADED GRAMMAR ' + pattern.include);
+						_includedGrammars[scopeName] = initGrammar(
+							rawIncludedGrammar,
+							(repository->props->count("$base")) ? repository->props["$base"] : RawRule());
+						return _includedGrammars[scopeName];
+					}
+				}
+				return null;
+			};
+
+			helper->rule_reg->registerRule = [&](lambda<Rule(RuleId)> factory) -> Rule {
+				auto id = ++_lastRuleId;
+				auto result = factory(ruleIdFromNumber(id));
+				_ruleId2desc[id] = result; /// this cant be set this way
+				return result;
+			};
+
+			helper->rule_reg->getRule = [&](RuleId ruleId) -> Rule {
+				return _ruleId2desc[int(ruleId)];
+			};
+		}
+
+		register(members)
 
 		//BasicScopeAttributesProvider _basicScopeAttributesProvider;
 	};
 	mx_basic(Grammar);
 
-	RawGrammar getExternalGrammar(
-		str scopeName,
-		RawRepository repository) {
-		if (data->_includedGrammars[scopeName]) {
-			return data->_includedGrammars[scopeName];
-		} else if (data->_grammarRepository) {
-			RawGrammar rawIncludedGrammar =
-				data->_grammarRepository->lookup(scopeName);
-			if (rawIncludedGrammar) {
-				// console.log('LOADED GRAMMAR ' + pattern.include);
-				data->_includedGrammars[scopeName] = initGrammar(
-					rawIncludedGrammar,
-					repository && repository.count("$base")
-				);
-				return data->_includedGrammars[scopeName];
-			}
-		}
-		return null;
-	}
-
 	Grammar(
 		ScopeName 				 _rootScopeName,
 		var 					 grammar,
 		num 					 initialLanguage,
-		IEmbeddedLanguagesMap    embeddedLanguages,
-		ITokenTypeMap 			 tokenTypes,
+		EmbeddedLanguagesMap     embeddedLanguages,
+		TokenTypeMap 			 tokenTypes,
 		BalancedBracketSelectors balancedBracketSelectors,
-		IGrammarRepository 		&grammarRepository,
-		IOnigLib 			    &_onigLib
+		GrammarRepository 		 grammar_repo,
+		OnigLib 			     oni_lib
 		)
 	{
 		data->_basicScopeAttributesProvider = BasicScopeAttributesProvider(
@@ -3435,284 +3740,68 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		data->_includedGrammars 		= {};
 		data->_grammar 					= grammar;
 		data->balancedBracketSelectors 	= balancedBracketSelectors;
-		data->grammarRepository 		= grammarRepository;
-		data->_onigLib 					= _onigLib;
+		data->grammar_repo 				= grammar_repo; /// this needs to be mx with SyncRegistry
+		data->oni_lib 					= oni_lib;
 
 		if (tokenTypes) {
 			array<str> keys = tokenTypes.keys<str>();
 			for (str &selector: keys) {
-				array<Matcher> matchers = createMatchers(selector, nameMatcher);
+				array<Matcher> matchers = createMatchers(selector, NameMatcher(this, &Grammar::nameMatcher));
 				for (Matcher &matcher: matchers) {
-					data->_tokenTypeMatchers.push({
-						matcher = matcher.matcher,
-						type = tokenTypes[selector],
-					});
+					TokenTypeMatcher t {
+						.matcher = matcher,
+						.type    = tokenTypes[selector],
+					};
+					data->_tokenTypeMatchers.push(t);
 				}
 			}
 		}
-	}
-
-	BasicScopeAttributes getMetadataForScope(str scope) {
-		return data->_basicScopeAttributesProvider.getBasicScopeAttributes(scope);
-	}
-
-
-	array<Injection> _collectInjections() {
-		IGrammarRepository grammarRepository = {
-			.lookup = [&](str scopeName) -> RawGrammar {
-				if (scopeName == data->_rootScopeName) {
-					return data->_grammar;
-				}
-				return data->getExternalGrammar(scopeName);
-			},
-			.injections = [&](str scopeName) -> array<str> {
-				return data->_grammarRepository.injections(scopeName);
-			}
-		};
-
-		array<Injection> result;
-		str scopeName = data->_rootScopeName;
-
-		RawGrammar grammar = grammarRepository.lookup(scopeName);
-		if (grammar) {
-			// add injections from the current grammar
-			map<RawRule> rawInjections = grammar->injections;
-			if (rawInjections) {
-				for (field<RawRule> &f: rawInjections) {
-					str expression    = f.key.grab();
-					RawRule &raw_rule = f.value.grab();
-					collectInjections(
-						result,
-						expression,
-						raw_rule,
-						this,
-						grammar
-					);
-				}
-			}
-
-			// add injection grammars contributed for the current scope
-
-			array<ScopeName> injectionScopeNames = data->_grammarRepository.injections(scopeName);
-			if (injectionScopeNames) {
-				for (ScopeName &injectionScopeName: injectionScopeNames) {
-					auto injectionGrammar =
-						data->getExternalGrammar(injectionScopeName);
-					if (injectionGrammar) {
-						auto selector = injectionGrammar.injectionSelector;
-						if (selector) {
-							collectInjections(
-								result,
-								selector,
-								injectionGrammar,
-								this,
-								injectionGrammar
-							);
-						}
-					}
-				}
-			}
-		}
-
-		result.sort([](Injection &i1, Injection &i2) -> int {
-			return i1.priority - i2.priority;
-		}); // sort by priority
-
-		return result;
-	}
-
-	array<Injection> getInjections() {
-		if (!data->_injections) {
-			data->_injections = data->_collectInjections();
-
-			if (DebugFlags.InDebugMode && data->_injections.length > 0) {
-				console.log(
-					"Grammar {0} contains the following injections:"
-				, { data->_rootScopeName });
-				for (Injection &injection: data->_injections) {
-					console.log("  - {0}", { injection.debugSelector });
-				}
-			}
-		}
-		return data->_injections;
-	}
-
-
-	void dispose() {
-		for (auto &rule: data->_ruleId2desc) {
-			if (rule) {
-				rule.dispose();
-			}
-		}
-	}
-
-	Rule registerRule(lambda<Rule(RuleId)> factory) {
-		auto id = ++data->_lastRuleId;
-		auto result = factory(ruleIdFromNumber(id));
-		data->_ruleId2desc[id] = result; /// this cant be set this way
-		return result;
-	}
-
-	Rule getRule(RuleId ruleId) {
-		return data->_ruleId2desc[int(ruleId)];
-	}
-
-	ITokenizeLineResult tokenizeLine(
-			utf16 lineText,
-			StateStackImpl prevState,
-			num timeLimit = 0) {
-		auto r = data->_tokenize(lineText, prevState, false, timeLimit);
-		return {
-			tokens = 		r.lineTokens.getResult(r.ruleStack, r.lineLength),
-			ruleStack = 	r.ruleStack,
-			stoppedEarly = 	r.stoppedEarly,
-		};
-	}
-
-	ITokenizeLineResult2 tokenizeLine2(
-			utf16 			lineText,
-			StateStackImpl 	prevState,
-			num 			timeLimit = 0) {
-		auto r = data->_tokenize(lineText, prevState, true, timeLimit);
-		return {
-			tokens = 		r.lineTokens.getBinaryResult(r.ruleStack, r.lineLength),
-			ruleStack = 	r.ruleStack,
-			stoppedEarly = 	r.stoppedEarly,
-		};
-	}
-
-	ILineTokensResult _tokenize(
-		utf16 lineText,
-		StateStackImpl prevState,
-		bool emitBinaryTokens,
-		num timeLimit
-	) {
-		if (data->_rootId == -1) {
-			data->_rootId = RuleFactory::getCompiledRuleId(
-				data->_grammar.repository.$self,
-				this,
-				data->_grammar.repository
-			);
-			// This ensures ids are deterministic, and thus equal in renderer and webworker.
-			getInjections();
-		}
-
-		bool isFirstLine;
-		if (!prevState || prevState == StateStackImpl.NULL) {
-			isFirstLine = true;
-			//const rawDefaultMetadata =
-			//	data->_basicScopeAttributesProvider.getDefaultAttributes();
-			auto defaultStyle = data->themeProvider.getDefaults();
-			auto defaultMetadata = EncodedTokenAttributes::set(
-				0,
-				0, // null rawDefaultMetadata.languageId,
-				null, // rawDefaultMetadata.tokenType
-				null,
-				defaultStyle.fontStyle,
-				defaultStyle.foregroundId,
-				defaultStyle.backgroundId
-			);
-
-			auto rootScopeName = getRule(data->_rootId).getName(
-				null,
-				null
-			);
-
-			AttributedScopeStack scopeList;
-			if (rootScopeName) {
-				scopeList = AttributedScopeStack::createRootAndLookUpScopeName(
-					rootScopeName,
-					defaultMetadata,
-					this
-				);
-			} else {
-				scopeList = AttributedScopeStack::createRoot(
-					 "unknown",
-					 defaultMetadata
-				);
-			}
-
-			prevState = StateStackImpl(
-				null,
-				data->_rootId,
-				-1,
-				-1,
-				false,
-				null,
-				scopeList,
-				scopeList
-			);
-		} else {
-			isFirstLine = false;
-			prevState.reset();
-		}
-
-		lineText += "\n";
-		num   lineLength = lineText.len()
-		auto lineTokens = LineTokens(
-			emitBinaryTokens,
-			lineText,
-			data->_tokenTypeMatchers,
-			data->balancedBracketSelectors
-		);
-		auto r = _tokenizeString(
-			this,
-			onigLineText,
-			isFirstLine,
-			0,
-			prevState,
-			lineTokens,
-			true,
-			timeLimit
-		);
-		return ILineTokensResult {
-			lineLength	 = lineLength,
-			lineTokens	 = lineTokens,
-			ruleStack	 = r.stack,
-			stoppedEarly = r.stoppedEarly,
-		};
 	}
 };
 
-AttributedScopeStack AttributedScopeStack::pushAttributed(ScopePath scopePath, Grammar &grammar) {
+AttributedScopeStack AttributedScopeStack::members::pushAttributed(ScopePath scopePath, Grammar &grammar) {
 	if (!scopePath)
 		return *this;
 
 	if (scopePath.index_of(' ') == -1)
-		return AttributedScopeStack::_pushAttributed(*this, scopePath, grammar);
+		return AttributedScopeStack::members::_pushAttributed(*this, scopePath, grammar);
 
 	auto scopes = scopePath.split(" ");
 	AttributedScopeStack result = *this;
 	for (str &scope: scopes) {
-		result = AttributedScopeStack::_pushAttributed(result, scope, grammar);
+		result = AttributedScopeStack::members::_pushAttributed(result, scope, grammar);
 	}
 	return result;
 
 }
 
-static AttributedScopeStack AttributedScopeStack::createRootAndLookUpScopeName(ScopeName scopeName, EncodedTokenAttr tokenAttributes, Grammar &grammar) {
-	auto rawRootMetadata = grammar.getMetadataForScope(scopeName);
+static AttributedScopeStack AttributedScopeStack::members::createRootAndLookUpScopeName(ScopeName scopeName, EncodedTokenAttr tokenAttributes, Grammar &grammar) {
+	auto rawRootMetadata = grammar->getMetadataForScope(scopeName);
 	auto scopePath = ScopeStack(null, scopeName);
-	auto rootStyle = grammar.themeProvider.themeMatch(scopePath);
-	auto resolvedTokenAttributes = AttributedScopeStack::mergeAttributes(
+	auto rootStyle = grammar->theme_provider->themeMatch(scopePath);
+	auto resolvedTokenAttributes = AttributedScopeStack::members::mergeAttributes(
 		tokenAttributes,
 		rawRootMetadata,
 		rootStyle
 	);
-	return AttributedScopeStack(null, scopePath, resolvedTokenAttributes);
+	return AttributedScopeStack(
+		AttributedScopeStack::members {
+			null, scopePath, resolvedTokenAttributes
+		}
+	);
 }
 
-AttributedScopeStack AttributedScopeStack::_pushAttributed(
+AttributedScopeStack AttributedScopeStack::members::_pushAttributed(
 	AttributedScopeStack target,
 	ScopeName scopeName,
 	Grammar &grammar,
 ) {
-	auto rawMetadata = grammar.getMetadataForScope(scopeName);
+	auto rawMetadata = grammar->getMetadataForScope(scopeName);
 
 	auto newPath = target.scopePath.push(scopeName);
 	auto scopeThemeMatchResult =
-		grammar.themeProvider.themeMatch(newPath);
-	auto metadata = AttributedScopeStack::mergeAttributes(
+		grammar->theme_provider->themeMatch(newPath);
+	auto metadata = AttributedScopeStack::members::mergeAttributes(
 		target.tokenAttributes,
 		rawMetadata,
 		scopeThemeMatchResult
@@ -3765,11 +3854,11 @@ Grammar createGrammar(
 	ScopeName scopeName,
 	RawGrammar grammar,
 	num initialLanguage,
-	IEmbeddedLanguagesMap embeddedLanguages,
-	ITokenTypeMap tokenTypes,
+	EmbeddedLanguagesMap embeddedLanguages,
+	TokenTypeMap tokenTypes,
 	BalancedBracketSelectors balancedBracketSelectors,
-	IGrammarRepository &grammarRepository,
-	IOnigLib &onigLib
+	GrammarRepository grammar_repo,
+	OnigLib oni_lib
 ) {
 	return Grammar(
 		scopeName,
@@ -3778,98 +3867,103 @@ Grammar createGrammar(
 		embeddedLanguages,
 		tokenTypes,
 		balancedBracketSelectors,
-		grammarRepository,
-		onigLib
+		grammar_repo,
+		oni_lib
 	); //TODO
 }
 
 struct SyncRegistry : mx {
-	struct members: IGrammarRepository, IThemeProvider {
+	struct members {
+		GrammarRepository grammar_repo;
 		ion::map<Grammar> _grammars;
 		ion::map<RawGrammar> _rawGrammars; /// must be allocated and stored unless this is primary store
 		ion::map<array<ScopeName>> _injectionGrammars;
 		Theme _theme;
+		ThemeProvider theme_provider;
+		register(members)
+
+		void setTheme(Theme theme) {
+			_theme = theme;
+		}
+
+		array<str> getColorMap() {
+			return _theme.getColorMap();
+		}
+
+		/**
+		 * Add `grammar` to registry and return a list of referenced scope names
+		 */
+		void addGrammar(RawGrammar grammar, array<ScopeName> injectionScopeNames) {
+			_rawGrammars[grammar->scopeName] = grammar;
+			if (injectionScopeNames) {
+				_injectionGrammars[grammar->scopeName] = injectionScopeNames;
+			}
+		}
+
+		/**
+		 * Lookup a raw grammar.
+		 */
+		RawGrammar lookup(ScopeName scopeName) {
+			field<RawGrammar> *f = _rawGrammars.lookup(scopeName);
+			return f ? f->value : null;
+		}
+
+		/**
+		 * Returns the injections for the given grammar
+		 */
+		array<ScopeName> injections(ScopeName targetScope) {
+			return _injectionGrammars[targetScope];
+		}
+
+		/**
+		 * Get the default theme settings
+		 */
+		StyleAttributes getDefaults() {
+			return _theme.getDefaults();
+		}
+
+		/**
+		 * Match a scope in the theme.
+		 */
+		StyleAttributes themeMatch(ScopeStack scopePath) {
+			return _theme.match(scopePath);
+		}
+
+		/**
+		 * Lookup a grammar.
+		 */
+		Grammar &grammarForScopeName(
+			ScopeName 					scopeName,
+			num 						initialLanguage,
+			EmbeddedLanguagesMap 		embeddedLanguages,
+			TokenTypeMap 				tokenTypes,
+			BalancedBracketSelectors 	balancedBracketSelectors
+		) {
+			if (!_grammars.has(scopeName)) {
+				auto rawGrammar = _rawGrammars.get(scopeName);
+				if (!rawGrammar) {
+					return null;
+				}
+				_grammars.set(scopeName, createGrammar(
+					scopeName,
+					rawGrammar,
+					initialLanguage,
+					embeddedLanguages,
+					tokenTypes,
+					balancedBracketSelectors,
+					this
+				));
+			}
+			return _grammars[scopeName];
+		}
 	};
 
 	mx_basic(SyncRegistry);
 
 	SyncRegistry(Theme theme):SyncRegistry() {
 		data->_theme = theme;
-	}
-
-	void setTheme(Theme theme) {
-		data->_theme = theme;
-	}
-
-	array<str> getColorMap() {
-		return data->_theme.getColorMap();
-	}
-
-	/**
-	 * Add `grammar` to registry and return a list of referenced scope names
-	 */
-	void addGrammar(RawGrammar grammar, array<ScopeName> injectionScopeNames) {
-		data->_rawGrammars[grammar.scopeName] = grammar;
-		if (injectionScopeNames) {
-			data->_injectionGrammars[grammar.scopeName] = injectionScopeNames;
-		}
-	}
-
-	/**
-	 * Lookup a raw grammar.
-	 */
-	RawGrammar lookup(ScopeName scopeName) {
-		field<RawGrammar> *f = data->_rawGrammars.lookup(scopeName);
-		return f ? f->value : null;
-	}
-
-	/**
-	 * Returns the injections for the given grammar
-	 */
-	array<ScopeName> injections(ScopeName targetScope) {
-		return data->_injectionGrammars[targetScope];
-	}
-
-	/**
-	 * Get the default theme settings
-	 */
-	StyleAttributes getDefaults() {
-		return data->_theme.getDefaults();
-	}
-
-	/**
-	 * Match a scope in the theme.
-	 */
-	StyleAttributes themeMatch(ScopeStack scopePath) {
-		return data->_theme.match(scopePath);
-	}
-
-	/**
-	 * Lookup a grammar.
-	 */
-	Grammar &grammarForScopeName(
-		ScopeName 					scopeName,
-		num 						initialLanguage,
-		IEmbeddedLanguagesMap 		embeddedLanguages,
-		ITokenTypeMap 				tokenTypes,
-		BalancedBracketSelectors 	balancedBracketSelectors
-	) {
-		if (!data->_grammars.has(scopeName)) {
-			auto rawGrammar = data->_rawGrammars.get(scopeName);
-			if (!rawGrammar) {
-				return null;
-			}
-			data->_grammars.set(scopeName, createGrammar(
-				scopeName,
-				rawGrammar,
-				initialLanguage,
-				embeddedLanguages,
-				tokenTypes,
-				balancedBracketSelectors,
-				this
-			));
-		}
-		return data->_grammars[scopeName];
+		data->grammar_repo->lookup     = lambda<RawGrammar(ScopeName)>(this, SyncRegistry::lookup);
+		data->grammar_repo->injections = lambda<array<ScopeName>(ScopeName)>(this, SyncRegistry::injections);
 	}
 }
 
@@ -3936,9 +4030,6 @@ IWhileCheckResult _checkWhileConditions(
 
 	return { .stack = stack, .linePos = linePos, .anchorPosition = anchorPosition, .isFirstLine = isFirstLine };
 }
-
-
-
 
 TokenizeStringResult _tokenizeString(
 	Grammar grammar, utf16 lineText, bool isFirstLine,
@@ -4051,7 +4142,7 @@ TokenizeStringResult _tokenizeString(
 			}
 		} else {
 			// We matched a rule!
-			const _rule = grammar.getRule(matchedRuleId);
+			const _rule = grammar->getRule(matchedRuleId);
 
 			lineTokens.produce(stack, captureIndices[0].start);
 
@@ -4238,144 +4329,142 @@ struct Registry:mx {
 	struct members {
 		RegistryOptions _options;
 		SyncRegistry _syncRegistry;
-		register(members);
+		register(members)
+
+		void dispose() {
+			_syncRegistry.dispose();
+		}
+
+		/**
+		 * Change the theme. Once called, no previous `ruleStack` should be used anymore.
+		 */
+		void setTheme(IRawTheme &theme, array<str> colorMap = {}) {
+			_syncRegistry.setTheme(Theme.createFromRawTheme(theme, colorMap));
+		}
+
+		/**
+		 * Returns a lookup array for color ids.
+		 */
+		array<str> getColorMap() {
+			return _syncRegistry.getColorMap();
+		}
+
+		/**
+		 * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
+		 * Please do not use language id 0.
+		 */
+		Grammar loadGrammarWithEmbeddedLanguages(
+			ScopeName initialScopeName,
+			num initialLanguage,
+			EmbeddedLanguagesMap &embeddedLanguages // never pass the structs
+		) {
+			return loadGrammarWithConfiguration(initialScopeName, initialLanguage, { embeddedLanguages });
+		}
+
+		/**
+		 * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
+		 * Please do not use language id 0.
+		 */
+		Grammar loadGrammarWithConfiguration(
+			ScopeName initialScopeName,
+			num initialLanguage,
+			IGrammarConfiguration &configuration
+		) {
+			return _loadGrammar(
+				initialScopeName,
+				initialLanguage,
+				configuration.embeddedLanguages,
+				configuration.tokenTypes,
+				BalancedBracketSelectors(
+					configuration.balancedBracketSelectors,
+					configuration.unbalancedBracketSelectors
+				)
+			);
+		}
+
+		/**
+		 * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
+		 */
+		Grammar loadGrammar(ScopeName initialScopeName) {
+			return _loadGrammar(initialScopeName, 0, null, null, null);
+		}
+
+		Grammar _loadGrammar(
+			ScopeName 					initialScopeName,
+			num 						initialLanguage,
+			EmbeddedLanguagesMap 	   &embeddedLanguages,
+			TokenTypeMap 			   &tokenTypes,
+			BalancedBracketSelectors 	balancedBracketSelectors
+		) {
+			const dependencyProcessor = ScopeDependencyProcessor(_syncRegistry, initialScopeName);
+			while (dependencyProcessor.Q.length > 0) {
+				await Promise.all(dependencyProcessor.Q.map((request) => _loadSingleGrammar(request.scopeName)));
+				dependencyProcessor.processQueue();
+			}
+
+			return _grammarForScopeName(
+				initialScopeName,
+				initialLanguage,
+				embeddedLanguages,
+				tokenTypes,
+				balancedBracketSelectors
+			);
+		}
+
+		/// convert all async functions to sync; not a problem
+
+		Grammar _loadSingleGrammar(ScopeName scopeName) {
+			return _doLoadSingleGrammar(scopeName);
+		}
+
+		Grammar _doLoadSingleGrammar(ScopeName scopeName) {
+			Grammar grammar = _options.loadGrammar(scopeName);
+			lambda<array<ScopeName>(ScopeName)> injections =
+				_options.getInjections.type() == typeof(lambda<array<ScopeName>(ScopeName)>) ?
+					_options.getInjections(scopeName) : {};
+			_syncRegistry.addGrammar(grammar, injections);
+			return grammar;
+		}
+
+		/**
+		 * Adds a rawGrammar.
+		 */
+		void addGrammar(
+			RawGrammar rawGrammar,
+			array<str> injections = {},
+			num initialLanguage = 0,
+			EmbeddedLanguagesMap embeddedLanguages = null)
+		{
+			_syncRegistry.addGrammar(rawGrammar, injections);
+			return _grammarForScopeName(rawGrammar.scopeName, initialLanguage, embeddedLanguages);
+		}
+
+		/**
+		 * Get the grammar for `scopeName`. The grammar must first be created via `loadGrammar` or `addGrammar`.
+		 */
+		Grammar _grammarForScopeName(
+			str scopeName,
+			num initialLanguage = 0,
+			EmbeddedLanguagesMap embeddedLanguages = null,
+			TokenTypeMap tokenTypes = null,
+			BalancedBracketSelectors balancedBracketSelectors = null
+		) {
+			return _syncRegistry.grammarForScopeName(
+				scopeName,
+				initialLanguage,
+				embeddedLanguages,
+				tokenTypes,
+				balancedBracketSelectors
+			);
+		}
 	};
 
 	mx_basic(Registry);
 
 	Registry(RegistryOptions options) {
 		data->_options = options;
-		data->_syncRegistry = SyncRegistry(Theme.createFromRawTheme(options.theme, options.colorMap));
+		data->_syncRegistry = SyncRegistry(Theme::members::createFromRawTheme(options.theme, options.colorMap));
 	}
-
-	void dispose() {
-		data->_syncRegistry.dispose();
-	}
-
-	/**
-	 * Change the theme. Once called, no previous `ruleStack` should be used anymore.
-	 */
-	void setTheme(IRawTheme &theme, array<str> colorMap = {}) {
-		data->_syncRegistry.setTheme(Theme.createFromRawTheme(theme, colorMap));
-	}
-
-	/**
-	 * Returns a lookup array for color ids.
-	 */
-	array<str> getColorMap() {
-		return data->_syncRegistry.getColorMap();
-	}
-
-	/**
-	 * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
-	 * Please do not use language id 0.
-	 */
-	Grammar loadGrammarWithEmbeddedLanguages(
-		ScopeName initialScopeName,
-		num initialLanguage,
-		IEmbeddedLanguagesMap &embeddedLanguages // never pass the structs
-	) {
-		return loadGrammarWithConfiguration(initialScopeName, initialLanguage, { embeddedLanguages });
-	}
-
-	/**
-	 * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
-	 * Please do not use language id 0.
-	 */
-	Grammar loadGrammarWithConfiguration(
-		ScopeName initialScopeName,
-		num initialLanguage,
-		IGrammarConfiguration &configuration
-	) {
-		return _loadGrammar(
-			initialScopeName,
-			initialLanguage,
-			configuration.embeddedLanguages,
-			configuration.tokenTypes,
-			BalancedBracketSelectors(
-				configuration.balancedBracketSelectors,
-				configuration.unbalancedBracketSelectors
-			)
-		);
-	}
-
-	/**
-	 * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
-	 */
-	Grammar loadGrammar(ScopeName initialScopeName) {
-		return _loadGrammar(initialScopeName, 0, null, null, null);
-	}
-
-	Grammar _loadGrammar(
-		ScopeName 					initialScopeName,
-		num 						initialLanguage,
-		IEmbeddedLanguagesMap 	   &embeddedLanguages,
-		ITokenTypeMap 			   &tokenTypes,
-		BalancedBracketSelectors 	balancedBracketSelectors
-	) {
-		const dependencyProcessor = ScopeDependencyProcessor(data->_syncRegistry, initialScopeName);
-		while (dependencyProcessor.Q.length > 0) {
-			await Promise.all(dependencyProcessor.Q.map((request) => _loadSingleGrammar(request.scopeName)));
-			dependencyProcessor.processQueue();
-		}
-
-		return _grammarForScopeName(
-			initialScopeName,
-			initialLanguage,
-			embeddedLanguages,
-			tokenTypes,
-			balancedBracketSelectors
-		);
-	}
-
-	/// convert all async functions to sync; not a problem
-
-	Grammar _loadSingleGrammar(ScopeName scopeName) {
-		return _doLoadSingleGrammar(scopeName);
-	}
-
-	Grammar _doLoadSingleGrammar(ScopeName scopeName) {
-		Grammar grammar = data->_options.loadGrammar(scopeName);
-		lambda<array<ScopeName>(ScopeName)> injections =
-			data->_options.getInjections.type() == typeof(lambda<array<ScopeName>(ScopeName)>) ?
-				data->_options.getInjections(scopeName) : {};
-		data->_syncRegistry.addGrammar(grammar, injections);
-		return grammar;
-	}
-
-	/**
-	 * Adds a rawGrammar.
-	 */
-	void addGrammar(
-		RawGrammar rawGrammar,
-		array<str> injections = {},
-		num initialLanguage = 0,
-		IEmbeddedLanguagesMap embeddedLanguages = null)
-	{
-		data->_syncRegistry.addGrammar(rawGrammar, injections);
-		return _grammarForScopeName(rawGrammar.scopeName, initialLanguage, embeddedLanguages);
-	}
-
-	/**
-	 * Get the grammar for `scopeName`. The grammar must first be created via `loadGrammar` or `addGrammar`.
-	 */
-	Grammar _grammarForScopeName(
-		str scopeName,
-		num initialLanguage = 0,
-		IEmbeddedLanguagesMap embeddedLanguages = null,
-		ITokenTypeMap tokenTypes = null,
-		BalancedBracketSelectors balancedBracketSelectors = null
-	) {
-		return data->_syncRegistry.grammarForScopeName(
-			scopeName,
-			initialLanguage,
-			embeddedLanguages,
-			tokenTypes,
-			balancedBracketSelectors
-		);
-	}
-
-	/// these functions can be reduced
 }
 
 #endif
