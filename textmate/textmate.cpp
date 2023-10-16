@@ -748,7 +748,7 @@ struct ThemeTrieElementRule:mx {
 		static array<ThemeTrieElementRule> cloneArr(array<ThemeTrieElementRule> arr) {
 			array<ThemeTrieElementRule> r;
 			for (num i = 0, len = arr.len(); i < len; i++) {
-				r[i] = arr[i].clone();
+				r[i] = arr[i]->clone();
 			}
 			return r;
 		}
@@ -804,7 +804,7 @@ struct ThemeTrieElement:mx {
 			str head     = (dotIndex == -1) ? scope : scope.mid(0, dotIndex);
 			str tail     = (dotIndex == -1) ? ""    : scope.mid(dotIndex + 1);
 			if (_children(head))
-				return _children[head].match(tail);
+				return _children[head]->match(tail);
 			return default_result();
 		}
 
@@ -821,7 +821,7 @@ struct ThemeTrieElement:mx {
 				child = _children[head];
 			} else {
 				child = ThemeTrieElement(
-					_mainRule.clone(),
+					_mainRule->clone(),
 					ThemeTrieElementRule::cloneArr(_rulesWithParentScopes));
 				_children[head] = child;
 			}
@@ -833,7 +833,7 @@ struct ThemeTrieElement:mx {
 
 			if (!parentScopes) {
 				// Merge into the main rule
-				_mainRule.acceptOverwrite(scopeDepth, fontStyle, foreground, background);
+				_mainRule->acceptOverwrite(scopeDepth, fontStyle, foreground, background);
 				return;
 			}
 
@@ -842,7 +842,7 @@ struct ThemeTrieElement:mx {
 				ThemeTrieElementRule &rule = _rulesWithParentScopes[i];
 
 				if (strArrCmp(rule->parentScopes, parentScopes) == 0) {
-					rule.acceptOverwrite(scopeDepth, fontStyle, foreground, background);
+					rule->acceptOverwrite(scopeDepth, fontStyle, foreground, background);
 					return;
 				}
 			}
@@ -917,7 +917,7 @@ struct Theme:mx {
 		lambda<array<ThemeTrieElementRule>(ScopeName)> _cachedMatchRoot;
 
 		array<str> getColorMap() {
-			return _colorMap.getColorMap();
+			return _colorMap->getColorMap();
 		}
 
 		StyleAttributes getDefaults() {
@@ -999,13 +999,13 @@ struct Theme:mx {
 				}
 			}
 			ColorMap 		colorMap = ColorMap(_colorMap);
-			StyleAttributes defaults = StyleAttributes(defaultFontStyle, colorMap.getId(defaultForeground), colorMap.getId(defaultBackground));
+			StyleAttributes defaults = StyleAttributes(defaultFontStyle, colorMap->getId(defaultForeground), colorMap->getId(defaultBackground));
 
 			ThemeTrieElement root    = ThemeTrieElement(ThemeTrieElementRule::members { 0, null, FontStyle::_NotSet, 0, 0 }, {});
 			for (num i = 0, len = parsedThemeRules.len(); i < len; i++) {
 				ParsedThemeRule rule = parsedThemeRules[i];
 				root.insert(0, rule->scope, rule->parentScopes,
-					rule->fontStyle, colorMap.getId(rule->foreground), colorMap.getId(rule->background));
+					rule->fontStyle, colorMap->getId(rule->foreground), colorMap->getId(rule->background));
 			}
 
 			return Theme::members { colorMap, defaults, root };
@@ -1013,7 +1013,7 @@ struct Theme:mx {
 
 		/// this is so you can trivially construct and still get logic to initialize from there
 		void init() {
-			_cachedMatchRoot = [&](ScopeName scopeName) -> array<ThemeTrieElementRule> { return _root.match(scopeName); };
+			_cachedMatchRoot = [&](ScopeName scopeName) -> array<ThemeTrieElementRule> { return _root->match(scopeName); };
 		}
 	};
 	mx_basic(Theme);
@@ -1476,7 +1476,7 @@ struct CompiledRule:mx {
 			num startPosition,
 			states<FindOption> options
 		) {
-			IOnigMatch result = scanner.findNextMatchSync(string, startPosition, options);
+			IOnigMatch result = scanner->findNextMatchSync(string, startPosition, options);
 			if (!result) {
 				return {};
 			}
