@@ -402,12 +402,6 @@ struct RawGrammar:mx {
 
 struct ScopeStack;
 
-struct ThemeProvider:mx {
-	lambda<StyleAttributes(ScopeStack&)> themeMatch;
-	lambda<StyleAttributes()> getDefaults;
-	mx_basic(ThemeProvider)
-};
-
 struct GrammarRepository:mx {
 	struct members {
 		lambda<RawGrammar(ScopeName)> 		lookup;
@@ -554,6 +548,14 @@ struct StyleAttributes:mx {
 		data->foregroundId = foregroundId;
 		data->backgroundId = backgroundId;
 	}
+};
+
+struct ThemeProvider:mx {
+	struct members {
+		lambda<StyleAttributes(ScopeStack&)> themeMatch; /// ThemeProvider
+		lambda<StyleAttributes()> getDefaults; /// ThemeProvider
+	};
+	mx_basic(ThemeProvider)
 };
 
 /**
@@ -3901,35 +3903,6 @@ struct SyncRegistry : mx {
 		}
 
 		/**
-		 * Lookup a raw grammar.
-		 */
-		RawGrammar lookup(ScopeName scopeName) {
-			field<RawGrammar> *f = _rawGrammars.lookup(scopeName);
-			return f ? f->value : null;
-		}
-
-		/**
-		 * Returns the injections for the given grammar
-		 */
-		array<ScopeName> injections(ScopeName targetScope) {
-			return _injectionGrammars[targetScope];
-		}
-
-		/**
-		 * Get the default theme settings
-		 */
-		StyleAttributes getDefaults() {
-			return _theme.getDefaults();
-		}
-
-		/**
-		 * Match a scope in the theme.
-		 */
-		StyleAttributes themeMatch(ScopeStack scopePath) {
-			return _theme.match(scopePath);
-		}
-
-		/**
 		 * Lookup a grammar.
 		 */
 		Grammar &grammarForScopeName(
@@ -3956,14 +3929,31 @@ struct SyncRegistry : mx {
 			}
 			return _grammars[scopeName];
 		}
+
+		void init() {
+			grammar_repo->lookup = [&](ScopeName scopeName) -> RawGrammar {
+				field<RawGrammar> *f = _rawGrammars.lookup(scopeName);
+				return f ? f->value : null;
+			};
+
+			grammar_repo->injections = [&](ScopeName targetScope) -> array<ScopeName> {
+				return _injectionGrammars[targetScope];
+			};
+
+			theme_provider->getDefaults = [&]() -> StyleAttributes {
+				return _theme->getDefaults();
+			};
+
+			theme_provider->getDefaults = [&](ScopeStack scopePath) -> StyleAttributes {
+				return _theme->match(scopePath);
+			};
+		}
 	};
 
 	mx_basic(SyncRegistry);
 
 	SyncRegistry(Theme theme):SyncRegistry() {
 		data->_theme = theme;
-		data->grammar_repo->lookup     = lambda<RawGrammar(ScopeName)>(this, SyncRegistry::lookup);
-		data->grammar_repo->injections = lambda<array<ScopeName>(ScopeName)>(this, SyncRegistry::injections);
 	}
 }
 
