@@ -460,6 +460,8 @@ struct ScopeStack:mx {
 		data->scopeName = scopeName;
 	}
 
+	ScopeStack(null_t) : ScopeStack() { }
+
 	ScopeStack push(ScopeName scopeName) {
 		return ScopeStack(*this, scopeName);
 	}
@@ -822,11 +824,11 @@ struct ThemeTrieElement:mx {
 			} else {
 				child = ThemeTrieElement(
 					_mainRule->clone(),
-					ThemeTrieElementRule::cloneArr(_rulesWithParentScopes));
+					ThemeTrieElementRule::members::cloneArr(_rulesWithParentScopes));
 				_children[head] = child;
 			}
 
-			child.insert(scopeDepth + 1, tail, parentScopes, fontStyle, foreground, background);
+			child->insert(scopeDepth + 1, tail, parentScopes, fontStyle, foreground, background);
 		}
 
 		void _doInsertHere(num scopeDepth, array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
@@ -991,10 +993,10 @@ struct Theme:mx {
 				if (!incomingDefaults->fontStyle[FontStyle::_NotSet]) {
 					defaultFontStyle = incomingDefaults->fontStyle;
 				}
-				if (incomingDefaults->foreground != null) {
+				if (incomingDefaults->foreground) {
 					defaultForeground = incomingDefaults->foreground;
 				}
-				if (incomingDefaults->background != null) {
+				if (incomingDefaults->background) {
 					defaultBackground = incomingDefaults->background;
 				}
 			}
@@ -1004,7 +1006,7 @@ struct Theme:mx {
 			ThemeTrieElement root    = ThemeTrieElement(ThemeTrieElementRule::members { 0, null, FontStyle::_NotSet, 0, 0 }, {});
 			for (num i = 0, len = parsedThemeRules.len(); i < len; i++) {
 				ParsedThemeRule rule = parsedThemeRules[i];
-				root.insert(0, rule->scope, rule->parentScopes,
+				root->insert(0, rule->scope, rule->parentScopes,
 					rule->fontStyle, colorMap->getId(rule->foreground), colorMap->getId(rule->background));
 			}
 
@@ -1664,7 +1666,7 @@ struct RegExpSource:mx {
 		}
 
 		if (data->hasAnchor) {
-			data->_anchorCache = _buildAnchorCache();
+			data->_anchorCache = data->_buildAnchorCache();
 		} else {
 			data->_anchorCache = {};
 		}
@@ -1723,13 +1725,13 @@ struct RegExpSourceList:mx {
 			if (_items[index]->source != newSource) {
 				// bust the cache
 				_disposeCaches();
-				_items[index].setSource(newSource);
+				_items[index]->setSource(newSource);
 			}
 		}
 
 		CompiledRule _resolveAnchors(OnigLib oni_lib, bool allowA, bool allowG) {
 			array<utf16> regExps = _items.map<utf16>([&](RegExpSource e) -> utf16 {
-				return e.resolveAnchors(allowA, allowG);
+				return e->resolveAnchors(allowA, allowG);
 			});
 			return CompiledRule(oni_lib, regExps, _items.map<RuleId>([](RegExpSource &e) -> RuleId {
 				return e->ruleId;
@@ -1763,24 +1765,24 @@ struct RegExpSourceList:mx {
 			if (allowA) {
 				if (allowG) {
 					if (!data->_anchorCache.A1_G1) {
-						data->_anchorCache.A1_G1 = _resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A1_G1 = data->_resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return data->_anchorCache.A1_G1;
 				} else {
 					if (!data->_anchorCache.A1_G0) {
-						data->_anchorCache.A1_G0 = _resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A1_G0 = data->_resolveAnchors(oni_lib, allowA, allowG);
 					}
-					return _data->anchorCache.A1_G0;
+					return data->_anchorCache.A1_G0;
 				}
 			} else {
 				if (allowG) {
 					if (!data->_anchorCache.A0_G1) {
-						data->_anchorCache.A0_G1 = _resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A0_G1 = data->_resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return data->_anchorCache.A0_G1;
 				} else {
 					if (!data->_anchorCache.A0_G0) {
-						data->_anchorCache.A0_G0 = _resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A0_G0 = data->_resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return data->_anchorCache.A0_G0;
 				}
@@ -1902,15 +1904,18 @@ struct CaptureRule : Rule {
 
 	CompiledRule compile(RuleRegistry &grammar, utf16 endRegexSource) {
 		console.fault("Not supported!");
+		return {};
 	}
 
 	CompiledRule compileAG(RuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) {
 		console.fault("Not supported!");
+		return {};
 	}
 };
 
 struct MatchRule:Rule {
 	struct members {
+		mx self;
 		RegExpSource 		_match;
 		array<CaptureRule> 	captures;
 		RegExpSourceList 	_cachedCompiledPatterns;
@@ -1918,7 +1923,7 @@ struct MatchRule:Rule {
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
-				_cachedCompiledPatterns.dispose();
+				_cachedCompiledPatterns->dispose();
 				_cachedCompiledPatterns = null;
 			}
 		}
@@ -1930,7 +1935,8 @@ struct MatchRule:Rule {
 		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar) {
 			if (!_cachedCompiledPatterns) {
 				_cachedCompiledPatterns = RegExpSourceList();
-				collectPatterns(grammar, _cachedCompiledPatterns);
+				MatchRule m = self.grab();
+				m.collectPatterns(grammar, _cachedCompiledPatterns);
 			}
 			return _cachedCompiledPatterns;
 		}
@@ -1940,13 +1946,14 @@ struct MatchRule:Rule {
 
 	MatchRule(ILocation &_location, RuleId id, utf16 name, utf16 match, array<CaptureRule> captures):MatchRule() {
 		Rule::init(_location, id, name, utf16());
+		data->self = mem;
 		data->_match = RegExpSource(match, id);
 		data->captures = captures;
 		data->_cachedCompiledPatterns = null;
 	}
 
-	void collectPatterns(RuleRegistry &grammar, RegExpSourceList out) {
-		out.push(data->_match);
+	void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) {
+		out->push(data->_match);
 	}
 
 	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
@@ -1960,12 +1967,13 @@ struct MatchRule:Rule {
 
 struct IncludeOnlyRule:Rule {
 	struct members {
+		mx self;
 		RegExpSourceList _cachedCompiledPatterns;
 		register(members)
 		
 		void dispose() {
 			if (_cachedCompiledPatterns) {
-				_cachedCompiledPatterns.dispose();
+				_cachedCompiledPatterns->dispose();
 				_cachedCompiledPatterns = null;
 			}
 		}
@@ -1973,7 +1981,8 @@ struct IncludeOnlyRule:Rule {
 		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar) {
 			if (!_cachedCompiledPatterns) {
 				_cachedCompiledPatterns = RegExpSourceList();
-				collectPatterns(grammar, _cachedCompiledPatterns);
+				IncludeOnlyRule s = self.grab();
+				s.collectPatterns(grammar, _cachedCompiledPatterns);
 			}
 			return _cachedCompiledPatterns;
 		}
@@ -1985,12 +1994,13 @@ struct IncludeOnlyRule:Rule {
 		Rule::init(_location, id, name, contentName);
 		Rule::data->patterns = patterns.patterns;
 		Rule::data->hasMissingPatterns = patterns.hasMissingPatterns;
+		data->self = mem;
 		data->_cachedCompiledPatterns = null;
 	}
 
 	void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) {
 		for (RuleId &pattern: Rule::data->patterns) {
-			auto rule = grammar->getRule(pattern);
+			Rule rule = grammar->getRule(pattern);
 			rule.collectPatterns(grammar, out);
 		}
 	}
@@ -2006,6 +2016,7 @@ struct IncludeOnlyRule:Rule {
 
 struct BeginEndRule:Rule {
 	struct members {
+		mx self;
 		RegExpSource 	_begin;
 		array<CaptureRule> 	beginCaptures;
 		RegExpSource 	_end;
@@ -2018,7 +2029,7 @@ struct BeginEndRule:Rule {
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
-				_cachedCompiledPatterns.dispose();
+				//_cachedCompiledPatterns->dispose();
 				_cachedCompiledPatterns = null;
 			}
 		}
@@ -2032,29 +2043,30 @@ struct BeginEndRule:Rule {
 		}
 
 		utf16 getEndWithResolvedBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-			return _end.resolveBackReferences(lineText, captureIndices);
+			return _end->resolveBackReferences(lineText, captureIndices);
 		}
 
 		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar, utf16 endRegexSource) {
 			if (!_cachedCompiledPatterns) {
 				_cachedCompiledPatterns = RegExpSourceList();
 
-				for (RuleId &pattern: Rule::patterns) {
+				BeginEndRule b = self.grab();
+				for (RuleId &pattern: b.Rule::data->patterns) { // figure out a better way of doing poly intra member
 					auto rule = grammar->getRule(pattern);
 					rule.collectPatterns(grammar, _cachedCompiledPatterns);
 				}
 
 				if (applyEndPatternLast) {
-					_cachedCompiledPatterns.push(_end->hasBackReferences ? _end.clone() : _end);
+					_cachedCompiledPatterns->push(_end->hasBackReferences ? _end->clone() : _end);
 				} else {
-					_cachedCompiledPatterns.unshift(_end->hasBackReferences ? _end.clone() : _end);
+					_cachedCompiledPatterns->unshift(_end->hasBackReferences ? _end->clone() : _end);
 				}
 			}
 			if (_end->hasBackReferences) {
 				if (applyEndPatternLast) {
-					_cachedCompiledPatterns.setSource(_cachedCompiledPatterns.length() - 1, endRegexSource);
+					_cachedCompiledPatterns->setSource(_cachedCompiledPatterns->length() - 1, endRegexSource);
 				} else {
-					_cachedCompiledPatterns.setSource(0, endRegexSource);
+					_cachedCompiledPatterns->setSource(0, endRegexSource);
 				}
 			}
 			return _cachedCompiledPatterns;
@@ -2076,23 +2088,25 @@ struct BeginEndRule:Rule {
 		Rule::data->patterns = patterns.patterns;
 		Rule::data->hasMissingPatterns = patterns.hasMissingPatterns;
 		data->_cachedCompiledPatterns = null;
+		data->self = mem;
 	}
 
 	void collectPatterns(RuleRegistry &grammar, RegExpSourceList out) {
-		out.push(data->_begin);
+		out->push(data->_begin);
 	}
 
 	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
-		return _getCachedCompiledPatterns(grammar, endRegexSource).compile(oni_lib);
+		return data->_getCachedCompiledPatterns(grammar, endRegexSource).compile(oni_lib);
 	}
 
 	CompiledRule compileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return _getCachedCompiledPatterns(grammar, endRegexSource).compileAG(oni_lib, allowA, allowG);
+		return data->_getCachedCompiledPatterns(grammar, endRegexSource).compileAG(oni_lib, allowA, allowG);
 	}
 };
 
 struct BeginWhileRule : Rule {
 	struct members {
+		mx self;
 		RegExpSource 		_begin;
 		array<CaptureRule> 	beginCaptures;
 		array<CaptureRule> 	whileCaptures;
@@ -2106,11 +2120,11 @@ struct BeginWhileRule : Rule {
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
-				_cachedCompiledPatterns.dispose();
+				//_cachedCompiledPatterns->dispose();
 				_cachedCompiledPatterns = null;
 			}
 			if (_cachedCompiledWhilePatterns) {
-				_cachedCompiledWhilePatterns.dispose();
+				//_cachedCompiledWhilePatterns->dispose();
 				_cachedCompiledWhilePatterns = null;
 			}
 		}
@@ -2124,14 +2138,14 @@ struct BeginWhileRule : Rule {
 		}
 
 		utf16 getWhileWithResolvedBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-			return _while.resolveBackReferences(lineText, captureIndices);
+			return _while->resolveBackReferences(lineText, captureIndices);
 		}
 
 		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar) {
 			if (!_cachedCompiledPatterns) {
 				_cachedCompiledPatterns = RegExpSourceList();
-
-				for (RuleId &pattern: Rule::patterns) {
+				BeginWhileRule s = self.grab();
+				for (RuleId &pattern: s.Rule::data->patterns) {
 					auto rule = grammar->getRule(pattern);
 					rule.collectPatterns(grammar, _cachedCompiledPatterns);
 				}
@@ -2150,10 +2164,10 @@ struct BeginWhileRule : Rule {
 		RegExpSourceList _getCachedCompiledWhilePatterns(OnigLib oni_lib, utf16 endRegexSource) {
 			if (!_cachedCompiledWhilePatterns) {
 				_cachedCompiledWhilePatterns = RegExpSourceList();
-				_cachedCompiledWhilePatterns.push(_while->hasBackReferences ? _while.clone() : _while);
+				_cachedCompiledWhilePatterns->push(_while->hasBackReferences ? _while->clone() : _while);
 			}
 			if (_while->hasBackReferences) {
-				_cachedCompiledWhilePatterns.setSource(0, endRegexSource ? endRegexSource : utf16((unsigned short)0xFFFF));
+				_cachedCompiledWhilePatterns->setSource(0, endRegexSource ? endRegexSource : utf16((unsigned short)0xFFFF));
 			}
 			return _cachedCompiledWhilePatterns;
 		}
@@ -2167,6 +2181,7 @@ struct BeginWhileRule : Rule {
 			array<CaptureRule> whileCaptures, ICompilePatternsResult patterns) : BeginWhileRule() {
 
 		Rule::init(_location, id, name, contentName);
+		data->self = mem;
 		data->_begin = RegExpSource(begin, id);
 		data->beginCaptures = beginCaptures;
 		data->whileCaptures = whileCaptures;
@@ -2179,7 +2194,7 @@ struct BeginWhileRule : Rule {
 	}
 
 	void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) {
-		out.push(data->_begin);
+		out->push(data->_begin);
 	}
 
 	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
@@ -2454,7 +2469,7 @@ struct ScopeMatcher:mx {
 
 		register(members)
 
-		mx match(ScopeName scope) {
+		num match(ScopeName scope) {
 			if (!scopesRegExp) {
 				return {};
 			}
@@ -2520,7 +2535,7 @@ struct BasicScopeAttributesProvider:mx {
 
 		BasicScopeAttributes getBasicScopeAttributes(ScopeName scopeName) {
 			if (!scopeName) {
-				return BasicScopeAttributesProvider::_NULL_SCOPE_METADATA;
+				return BasicScopeAttributesProvider::members::_NULL_SCOPE_METADATA;
 			}
 			return _getBasicScopeAttributes(_embeddedLanguagesMatcher, scopeName);
 		}
@@ -2530,7 +2545,8 @@ struct BasicScopeAttributesProvider:mx {
 		 * e.g. source.html => html, source.css.embedded.html => css, punctuation.definition.tag.html => null
 		 */
 		static num _scopeToLanguage(ScopeMatcher &scope_matcher, ScopeName scope) {
-			return scope_matcher.match(scope) || 0;
+			bool m = scope_matcher->match(scope);
+			return m ? m : 0;
 		}
 
 		static OptionalStandardTokenType _toStandardTokenType(ScopeName scopeName) { /// shouldnt need utf16 here
@@ -2598,7 +2614,7 @@ struct AttributedScopeStack:mx {
 		}
 
 		bool equals(AttributedScopeStack other) {
-			return AttributedScopeStack::memebers::equals(*this, other);
+			return AttributedScopeStack::members::equals(*this, other);
 		}
 
 		static bool equals(
@@ -2715,6 +2731,206 @@ struct StateStackImpl:mx {
 		bool filled;
 		register(members);
 
+		static StateStackImpl pushFrame(StateStackImpl self, StateStackFrame &frame) {
+			auto namesScopeList = AttributedScopeStack::members::fromExtension(self ? self->nameScopesList : null, frame->nameScopesList);
+			return StateStackImpl(
+				self,
+				
+				frame->enterPos 	? frame->enterPos : -1,
+				frame->anchorPos ? frame->anchorPos : -1,
+				frame->beginRuleCapturedEOL,
+
+				ruleIdFromNumber(frame->ruleId),
+				
+				frame->endRule,
+				namesScopeList,
+				AttributedScopeStack::members::fromExtension(namesScopeList, frame->contentNameScopesList)
+			);
+		}
+
+		bool equals(StateStackImpl &other) {
+			if (!other) {
+				return false;
+			}
+			return StateStackImpl::_equals(*this, other);
+		}
+
+		static bool _equals(StateStackImpl a, StateStackImpl b) {
+			if (a == b) {
+				return true;
+			}
+			if (!_structuralEquals(a, b)) {
+				return false;
+			}
+			return AttributedScopeStack::members::equals(a->contentNameScopesList, b->contentNameScopesList);
+		}
+
+
+		static bool _structuralEquals(StateStackImpl a, StateStackImpl b) {
+			do {
+				if (a == b)
+					return true;
+
+				// End of list reached for both
+				if (!a && !b)
+					return true;
+
+				// End of list reached only for one
+				if (!a || !b)
+					return false;
+
+				if (a->depth   != b->depth  ||
+					a->ruleId  != b->ruleId ||
+					a->endRule != b->endRule)
+					return false;
+
+				// Go to previous pair
+				a = a->parent ? a->parent.grab() : StateStackImpl {};
+				b = b->parent ? b->parent.grab() : StateStackImpl {};
+			} while (true);
+		}
+
+		bool clone() {
+			return this;
+		}
+
+		static void _reset(StateStackImpl &el) {
+			while (el) {
+				el->_enterPos = -1;
+				el->_anchorPos = -1;
+				el = el->parent.grab();
+			}
+		}
+
+		void reset() {
+			StateStackImpl::_reset(*this);
+		}
+
+		StateStackImpl pop() {
+			return parent.grab();
+		}
+
+		StateStackImpl safePop() {
+			if (parent) {
+				return parent.grab();
+			}
+			return *this;
+		}
+
+		StateStackImpl push(
+			RuleId 	ruleId,
+			num 	enterPos,
+			num 	anchorPos,
+			bool 	beginRuleCapturedEOL,
+			utf16 	endRule,
+			AttributedScopeStack nameScopesList,
+			AttributedScopeStack contentNameScopesList
+		) {
+			return StateStackImpl(
+				*this,
+				ruleId,
+				enterPos,
+				anchorPos,
+				beginRuleCapturedEOL,
+				endRule,
+				nameScopesList,
+				contentNameScopesList
+			);
+		}
+
+		num getEnterPos() {
+			return _enterPos;
+		}
+
+		num getAnchorPos() {
+			return _anchorPos;
+		}
+
+		Rule getRule(RuleRegistry grammar) {
+			return grammar->getRule(ruleId);
+		}
+
+		utf16 toString() { /// 'toString' should probably always be to String.  not another form of it.  UTF8 out
+			array<utf16> r;
+			_writeString(r, 0);
+			return fmt {"[{0}]", { str(r.join(str(","))) }};
+		}
+
+		num _writeString(array<utf16> res, num outIndex) {
+			if (parent) {
+				StateStackImpl s = parent.grab();
+				outIndex = s._writeString(res, outIndex);
+			}
+
+			utf16 f = fmt {"({0}, {1}, {2})", {
+				ruleId,
+				nameScopesList ? nameScopesList->toString() : null,
+				contentNameScopesList ? contentNameScopesList->toString() : null}};
+			
+			res.push(f);
+			return res.len();
+		}
+
+		StateStackImpl withContentNameScopesList(AttributedScopeStack &contentNameScopeStack) {
+			if (contentNameScopesList == contentNameScopeStack)
+				return *this;
+			StateStackImpl p = parent.grab();
+			return p.push(
+				ruleId,
+				_enterPos,
+				_anchorPos,
+				beginRuleCapturedEOL,
+				endRule,
+				nameScopesList,
+				contentNameScopeStack
+			);
+		}
+
+		StateStackImpl withEndRule(utf16 endRule) {
+			if (endRule == endRule)
+				return *this;
+			
+			return StateStackImpl(
+				parent,
+				ruleId,
+				_enterPos,
+				_anchorPos,
+				beginRuleCapturedEOL,
+				endRule,
+				nameScopesList,
+				contentNameScopesList
+			);
+		}
+
+		// Used to warn of endless loops
+		bool hasSameRuleAs(StateStackImpl other) {
+			StateStackImpl el = *this;
+			while (el && el->_enterPos == other->_enterPos) {
+				if (el->ruleId == other->ruleId) {
+					return true;
+				}
+				el = el->parent.grab();
+			}
+			return false;
+		}
+
+		StateStackFrame toStateStackFrame() {
+			StateStackImpl parent = parent.grab();
+			AttributedScopeStack scope_list = nameScopesList ? 
+					nameScopesList.getExtensionIfDefined(
+						bool(parent) ? parent->nameScopesList : null) : null;
+			
+			return StateStackFrame::members {
+				.ruleId = ruleIdToNumber(ruleId),
+				.beginRuleCapturedEOL 	= beginRuleCapturedEOL,
+				.endRule 				= endRule,
+				.nameScopesList 		= scope_list,
+				.contentNameScopesList 	= contentNameScopesList ? 
+					contentNameScopesList.getExtensionIfDefined(nameScopesList) : null,
+			};
+		}
+		
+
 		operator  bool() { return  filled; }
 		bool operator!() { return !filled; }
 	};
@@ -2751,206 +2967,8 @@ struct StateStackImpl:mx {
 		data->filled = true;
 	}
 
-	bool equals(StateStackImpl &other) {
-		if (!other) {
-			return false;
-		}
-		return StateStackImpl::_equals(*this, other);
-	}
-
-	static bool _equals(StateStackImpl a, StateStackImpl b) {
-		if (a == b) {
-			return true;
-		}
-		if (!_structuralEquals(a, b)) {
-			return false;
-		}
-		return AttributedScopeStack::members::equals(a->contentNameScopesList, b->contentNameScopesList);
-	}
-
 	operator bool() {
 		return data->filled;
-	}
-
-	static bool _structuralEquals(StateStackImpl a, StateStackImpl b) {
-		do {
-			if (a == b)
-				return true;
-
-			// End of list reached for both
-			if (!a && !b)
-				return true;
-
-			// End of list reached only for one
-			if (!a || !b)
-				return false;
-
-			if (a->depth   != b->depth  ||
-				a->ruleId  != b->ruleId ||
-				a->endRule != b->endRule)
-				return false;
-
-			// Go to previous pair
-			a = a->parent ? a->parent.grab() : StateStackImpl {};
-			b = b->parent ? b->parent.grab() : StateStackImpl {};
-		} while (true);
-	}
-
-	bool clone() {
-		return this;
-	}
-
-	static void _reset(StateStackImpl &el) {
-		while (el) {
-			el->_enterPos = -1;
-			el->_anchorPos = -1;
-			el = el->parent.grab();
-		}
-	}
-
-	void reset() {
-		StateStackImpl::_reset(*this);
-	}
-
-	StateStackImpl pop() {
-		return data->parent.grab();
-	}
-
-	StateStackImpl safePop() {
-		if (data->parent) {
-			return data->parent.grab();
-		}
-		return *this;
-	}
-
-	StateStackImpl push(
-		RuleId 	ruleId,
-		num 	enterPos,
-		num 	anchorPos,
-		bool 	beginRuleCapturedEOL,
-		utf16 	endRule,
-		AttributedScopeStack nameScopesList,
-		AttributedScopeStack contentNameScopesList
-	) {
-		return StateStackImpl(
-			*this,
-			ruleId,
-			enterPos,
-			anchorPos,
-			beginRuleCapturedEOL,
-			endRule,
-			nameScopesList,
-			contentNameScopesList
-		);
-	}
-
-	num getEnterPos() {
-		return data->_enterPos;
-	}
-
-	num getAnchorPos() {
-		return data->_anchorPos;
-	}
-
-	Rule getRule(RuleRegistry grammar) {
-		return grammar->getRule(data->ruleId);
-	}
-
-	utf16 toString() { /// 'toString' should probably always be to String.  not another form of it.  UTF8 out
-		array<utf16> r;
-		_writeString(r, 0);
-		return fmt {"[{0}]", { str(r.join(str(","))) }};
-	}
-
-	num _writeString(array<utf16> res, num outIndex) {
-		if (data->parent) {
-			StateStackImpl s = data->parent.grab();
-			outIndex = s._writeString(res, outIndex);
-		}
-
-		utf16 f = fmt {"({0}, {1}, {2})", {
-			data->ruleId,
-			data->nameScopesList ? data->nameScopesList.toString() : null,
-			data->contentNameScopesList ? data->contentNameScopesList.toString() : null}};
-		
-		res.push(f);
-		return res.len();
-	}
-
-	StateStackImpl withContentNameScopesList(AttributedScopeStack &contentNameScopeStack) {
-		if (data->contentNameScopesList == contentNameScopeStack)
-			return *this;
-		StateStackImpl p = data->parent.grab();
-		return p.push(
-			data->ruleId,
-			data->_enterPos,
-			data->_anchorPos,
-			data->beginRuleCapturedEOL,
-			data->endRule,
-			data->nameScopesList,
-			contentNameScopeStack
-		);
-	}
-
-	StateStackImpl withEndRule(utf16 endRule) {
-		if (data->endRule == endRule)
-			return *this;
-		
-		return StateStackImpl(
-			data->parent,
-			data->ruleId,
-			data->_enterPos,
-			data->_anchorPos,
-			data->beginRuleCapturedEOL,
-			endRule,
-			data->nameScopesList,
-			data->contentNameScopesList
-		);
-	}
-
-	// Used to warn of endless loops
-	bool hasSameRuleAs(StateStackImpl other) {
-		StateStackImpl el = *this;
-		while (el && el->_enterPos == other->_enterPos) {
-			if (el->ruleId == other->ruleId) {
-				return true;
-			}
-			el = el->parent.grab();
-		}
-		return false;
-	}
-
-	StateStackFrame toStateStackFrame() {
-		StateStackImpl parent = data->parent.grab();
-		AttributedScopeStack scope_list = data->nameScopesList ? 
-				data->nameScopesList.getExtensionIfDefined(
-					bool(parent) ? parent->nameScopesList : null) : null;
-		
-		return StateStackFrame::members {
-			.ruleId = ruleIdToNumber(data->ruleId),
-			.beginRuleCapturedEOL 	= data->beginRuleCapturedEOL,
-			.endRule 				= data->endRule,
-			.nameScopesList 		= scope_list,
-			.contentNameScopesList 	= data->contentNameScopesList ? 
-				data->contentNameScopesList.getExtensionIfDefined(data->nameScopesList) : null,
-		};
-	}
-
-	static StateStackImpl pushFrame(StateStackImpl self, StateStackFrame &frame) {
-		auto namesScopeList = AttributedScopeStack::members::fromExtension(self ? self->nameScopesList : null, frame->nameScopesList);
-		return StateStackImpl(
-			self,
-			
-			frame->enterPos 	? frame->enterPos : -1,
-			frame->anchorPos ? frame->anchorPos : -1,
-			frame->beginRuleCapturedEOL,
-
-			ruleIdFromNumber(frame->ruleId),
-			
-			frame->endRule,
-			namesScopeList,
-			AttributedScopeStack::members::fromExtension(namesScopeList, frame->contentNameScopesList)
-		);
 	}
 };
 
@@ -3318,7 +3336,7 @@ struct LineTokens:mx {
 			return;
 		}
 
-		array<str> scopes = scopesList ? scopesList.getScopeNames() : array<str>();
+		array<str> scopes = scopesList ? scopesList->getScopeNames() : array<str>();
 
 		if (is_debug()) {
 			RegEx regex = RegEx(R"(\n$)");
@@ -3419,6 +3437,7 @@ RawGrammar initGrammar(RawGrammar grammar, RawRule base) {
 
 struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 	struct members {
+		mx self;
 		str						_rootScopeName;
 		RuleId 					_rootId = -1;
 		num 					_lastRuleId;
@@ -3461,13 +3480,14 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			array<MatcherWithPriority> matchers = createMatchers(selector, NameMatcher(this, &members::nameMatcher));
 			RuleId ruleId = RuleFactory::getCompiledRuleId(rule, ruleFactoryHelper, grammar->repository);
 			for (MatcherWithPriority &matcher: matchers) {
-				result.push({
+				Injection inj = Injection::members {
 					.debugSelector = selector,
 					.matcher = matcher->matcher,
 					.ruleId = ruleId,
 					.grammar = grammar,
 					.priority = matcher->priority
-				});
+				};
+				result.push(inj);
 			}
 		}
 
@@ -3499,7 +3519,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 							result,
 							expression,
 							raw_rule,
-							*this,
+							helper,
 							grammar
 						);
 					}
@@ -3513,13 +3533,13 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 						auto injectionGrammar =
 							helper->grammar_reg->getExternalGrammar(injectionScopeName, RawRepository {});
 						if (injectionGrammar) {
-							auto selector = injectionGrammar.injectionSelector;
+							auto selector = injectionGrammar->injectionSelector;
 							if (selector) {
 								collectInjections(
 									result,
 									selector,
 									injectionGrammar,
-									this,
+									helper,
 									injectionGrammar
 								);
 							}
@@ -3529,7 +3549,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			}
 
 			result.sort([](Injection &i1, Injection &i2) -> int {
-				return i1.priority - i2.priority;
+				return i1->priority - i2->priority;
 			}); // sort by priority
 
 			return result;
@@ -3539,12 +3559,12 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			if (!_injections) {
 				_injections = _collectInjections();
 
-				if (DebugFlags.InDebugMode && _injections.length > 0) {
+				if (is_debug() && _injections.len() > 0) {
 					console.log(
 						"Grammar {0} contains the following injections:"
 					, { _rootScopeName });
 					for (Injection &injection: _injections) {
-						console.log("  - {0}", { injection.debugSelector });
+						console.log("  - {0}", { injection->debugSelector });
 					}
 				}
 			}
@@ -3555,7 +3575,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		void dispose() {
 			for (auto &rule: _ruleId2desc) {
 				if (rule) {
-					rule.dispose();
+					//rule->dispose();
 				}
 			}
 		}
@@ -3566,9 +3586,9 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				num timeLimit = 0) {
 			auto r = _tokenize(lineText, prevState, false, timeLimit);
 			return {
-				tokens = 		r.lineTokens.getResult(r.ruleStack, r.lineLength),
-				ruleStack = 	r.ruleStack,
-				stoppedEarly = 	r.stoppedEarly,
+				.tokens = 		r.lineTokens.getResult(r.ruleStack, r.lineLength),
+				.ruleStack = 	r.ruleStack,
+				.stoppedEarly = 	r.stoppedEarly,
 			};
 		}
 
@@ -3578,9 +3598,9 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				num 			timeLimit = 0) {
 			auto r = _tokenize(lineText, prevState, true, timeLimit);
 			return {
-				tokens = 		r.lineTokens.getBinaryResult(r.ruleStack, r.lineLength),
-				ruleStack = 	r.ruleStack,
-				stoppedEarly = 	r.stoppedEarly,
+				.tokens = 		r.lineTokens.getBinaryResult(r.ruleStack, r.lineLength),
+				.ruleStack = 	r.ruleStack,
+				.stoppedEarly = r.stoppedEarly,
 			};
 		}
 
@@ -3591,17 +3611,19 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			num timeLimit
 		) {
 			if (_rootId == -1) {
+				mx r = _grammar["repository"];
+				mx s = _grammar["repository"]["$self"]; /// todo: debug this
 				_rootId = RuleFactory::getCompiledRuleId(
-					_grammar.repository.$self,
-					this,
-					_grammar.repository
+					s,
+					helper,
+					r
 				);
 				// This ensures ids are deterministic, and thus equal in renderer and webworker.
 				getInjections();
 			}
 
 			bool isFirstLine;
-			if (!prevState || prevState == StateStackImpl.NULL) {
+			if (!prevState || prevState == StateStackImpl::members::NULL) {
 				isFirstLine = true;
 				//const rawDefaultMetadata =
 				//	_basicScopeAttributesProvider.getDefaultAttributes();
@@ -3609,11 +3631,11 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				auto defaultMetadata = EncodedTokenAttributes::set(
 					0,
 					0, // null rawDefaultMetadata.languageId,
-					null, // rawDefaultMetadata.tokenType
+					OptionalStandardTokenType::NotSet, // rawDefaultMetadata.tokenType
 					null,
-					defaultStyle.fontStyle,
-					defaultStyle.foregroundId,
-					defaultStyle.backgroundId
+					defaultStyle->fontStyle,
+					defaultStyle->foregroundId,
+					defaultStyle->backgroundId
 				);
 
 				auto rootScopeName = getRule(_rootId).getName(
@@ -3641,16 +3663,16 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 					-1,
 					-1,
 					false,
-					null,
+					utf16(),
 					scopeList,
 					scopeList
 				);
 			} else {
 				isFirstLine = false;
-				prevState.reset();
+				prevState->reset();
 			}
 
-			lineText += "\n";
+			lineText = lineText + "\n";
 			num   lineLength = lineText.len()
 			auto lineTokens = LineTokens(
 				emitBinaryTokens,
@@ -3658,8 +3680,9 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				_tokenTypeMatchers,
 				balancedBracketSelectors
 			);
+			Grammar g = self.grab();
 			auto r = _tokenizeString(
-				this,
+				g,
 				onigLineText,
 				isFirstLine,
 				0,
@@ -3669,10 +3692,10 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				timeLimit
 			);
 			return ILineTokensResult {
-				lineLength	 = lineLength,
-				lineTokens	 = lineTokens,
-				ruleStack	 = r.stack,
-				stoppedEarly = r.stoppedEarly,
+				.lineLength	 = lineLength,
+				.lineTokens	 = lineTokens,
+				.ruleStack	 = r.stack,
+				.stoppedEarly = r.stoppedEarly,
 			};
 		}
 
@@ -3730,6 +3753,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		OnigLib 			     oni_lib
 		)
 	{
+		data->self = mem;
 		data->_basicScopeAttributesProvider = BasicScopeAttributesProvider(
 			initialLanguage,
 			embeddedLanguages
@@ -3748,7 +3772,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		if (tokenTypes) {
 			array<str> keys = tokenTypes.keys<str>();
 			for (str &selector: keys) {
-				array<Matcher> matchers = createMatchers(selector, NameMatcher(this, &Grammar::nameMatcher));
+				array<Matcher> matchers = createMatchers(selector, NameMatcher(data, &Grammar::members::nameMatcher));
 				for (Matcher &matcher: matchers) {
 					TokenTypeMatcher t {
 						.matcher = matcher,
@@ -3777,7 +3801,7 @@ AttributedScopeStack AttributedScopeStack::members::pushAttributed(ScopePath sco
 
 }
 
-static AttributedScopeStack AttributedScopeStack::members::createRootAndLookUpScopeName(ScopeName scopeName, EncodedTokenAttr tokenAttributes, Grammar &grammar) {
+AttributedScopeStack AttributedScopeStack::members::createRootAndLookUpScopeName(ScopeName scopeName, EncodedTokenAttr tokenAttributes, Grammar &grammar) {
 	auto rawRootMetadata = grammar->getMetadataForScope(scopeName);
 	auto scopePath = ScopeStack(null, scopeName);
 	auto rootStyle = grammar->theme_provider->themeMatch(scopePath);
@@ -3800,7 +3824,7 @@ AttributedScopeStack AttributedScopeStack::members::_pushAttributed(
 ) {
 	auto rawMetadata = grammar->getMetadataForScope(scopeName);
 
-	auto newPath = target.scopePath.push(scopeName);
+	auto newPath = target->scopePath.push(scopeName);
 	auto scopeThemeMatchResult =
 		grammar->theme_provider->themeMatch(newPath);
 	auto metadata = AttributedScopeStack::members::mergeAttributes(
@@ -3824,10 +3848,12 @@ StackDiff diffStateStacksRefEq(StateStackImpl first, StateStackImpl second) {
 	StateStackImpl curSecond = second;
 
 	while (curFirst != curSecond) {
-		if (curFirst && (!curSecond || curFirst.depth >= curSecond.depth)) {
+		if (curFirst && (!curSecond || curFirst->depth >= curSecond->depth)) {
 			// curFirst is certainly not contained in curSecond
 			pops++;
-			curFirst = curFirst.parent;
+			if (!curFirst->parent)
+				break;
+			curFirst = curFirst->parent.grab();
 		} else {
 			// curSecond is certainly not contained in curFirst.
 			// Also, curSecond must be defined, as otherwise a previous case would match
@@ -3841,13 +3867,13 @@ StackDiff diffStateStacksRefEq(StateStackImpl first, StateStackImpl second) {
 	};
 }
 
-StateStackImpl applyStateStackDiff(StateStackImpl stack, StateStackImpl diff) {
+StateStackImpl applyStateStackDiff(StateStackImpl stack, StackDiff &diff) {
 	StateStackImpl curStack = stack;
 	for (num i = 0; i < diff.pops; i++) {
 		curStack = curStack->parent;
 	}
 	for (auto &frame: diff.newFrames) {
-		curStack = StateStackImpl.pushFrame(curStack, frame);
+		curStack = StateStackImpl::members::pushFrame(curStack, frame);
 	}
 	return curStack;
 }
@@ -4322,7 +4348,8 @@ struct Registry:mx {
 		register(members)
 
 		void dispose() {
-			_syncRegistry.dispose();
+			//_syncRegistry->dispose();
+			_syncRegistry = SyncRegistry {};
 		}
 
 		/**
