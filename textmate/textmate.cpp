@@ -785,6 +785,7 @@ struct ThemeTrieElement:mx {
 	using ITrieChildrenMap = map<ThemeTrieElement>;
 
 	struct members {
+		mx self;
 		ThemeTrieElementRule 		_mainRule;
 		array<ThemeTrieElementRule> _rulesWithParentScopes;
 		ITrieChildrenMap 			_children;
@@ -822,11 +823,12 @@ struct ThemeTrieElement:mx {
 			} else {
 				child = ThemeTrieElement(
 					_mainRule->clone(),
-					ThemeTrieElementRule::cloneArr(_rulesWithParentScopes));
+					ThemeTrieElementRule::members::cloneArr(_rulesWithParentScopes));
 				_children[head] = child;
 			}
 
-			child.insert(scopeDepth + 1, tail, parentScopes, fontStyle, foreground, background);
+			ThemeTrieElement::members *m = child.data;
+			m->insert(scopeDepth + 1, tail, parentScopes, fontStyle, foreground, background);
 		}
 
 		void _doInsertHere(num scopeDepth, array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
@@ -1004,7 +1006,7 @@ struct Theme:mx {
 			ThemeTrieElement root    = ThemeTrieElement(ThemeTrieElementRule::members { 0, null, FontStyle::_NotSet, 0, 0 }, {});
 			for (num i = 0, len = parsedThemeRules.len(); i < len; i++) {
 				ParsedThemeRule rule = parsedThemeRules[i];
-				root.insert(0, rule->scope, rule->parentScopes,
+				root->insert(0, rule->scope, rule->parentScopes,
 					rule->fontStyle, colorMap->getId(rule->foreground), colorMap->getId(rule->background));
 			}
 
@@ -1664,7 +1666,7 @@ struct RegExpSource:mx {
 		}
 
 		if (data->hasAnchor) {
-			data->_anchorCache = _buildAnchorCache();
+			data->_anchorCache = data->_buildAnchorCache();
 		} else {
 			data->_anchorCache = {};
 		}
@@ -1723,13 +1725,13 @@ struct RegExpSourceList:mx {
 			if (_items[index]->source != newSource) {
 				// bust the cache
 				_disposeCaches();
-				_items[index].setSource(newSource);
+				_items[index]->setSource(newSource);
 			}
 		}
 
 		CompiledRule _resolveAnchors(OnigLib oni_lib, bool allowA, bool allowG) {
 			array<utf16> regExps = _items.map<utf16>([&](RegExpSource e) -> utf16 {
-				return e.resolveAnchors(allowA, allowG);
+				return e->resolveAnchors(allowA, allowG);
 			});
 			return CompiledRule(oni_lib, regExps, _items.map<RuleId>([](RegExpSource &e) -> RuleId {
 				return e->ruleId;
@@ -1763,24 +1765,24 @@ struct RegExpSourceList:mx {
 			if (allowA) {
 				if (allowG) {
 					if (!data->_anchorCache.A1_G1) {
-						data->_anchorCache.A1_G1 = _resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A1_G1 = data->_resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return data->_anchorCache.A1_G1;
 				} else {
 					if (!data->_anchorCache.A1_G0) {
-						data->_anchorCache.A1_G0 = _resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A1_G0 = data->_resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return _data->anchorCache.A1_G0;
 				}
 			} else {
 				if (allowG) {
 					if (!data->_anchorCache.A0_G1) {
-						data->_anchorCache.A0_G1 = _resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A0_G1 = data->_resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return data->_anchorCache.A0_G1;
 				} else {
 					if (!data->_anchorCache.A0_G0) {
-						data->_anchorCache.A0_G0 = _resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A0_G0 = data->_resolveAnchors(oni_lib, allowA, allowG);
 					}
 					return data->_anchorCache.A0_G0;
 				}
@@ -1918,7 +1920,7 @@ struct MatchRule:Rule {
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
-				_cachedCompiledPatterns.dispose();
+				//_cachedCompiledPatterns.dispose();
 				_cachedCompiledPatterns = null;
 			}
 		}
@@ -2018,7 +2020,7 @@ struct BeginEndRule:Rule {
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
-				_cachedCompiledPatterns.dispose();
+				//_cachedCompiledPatterns.dispose();
 				_cachedCompiledPatterns = null;
 			}
 		}
@@ -3529,7 +3531,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			}
 
 			result.sort([](Injection &i1, Injection &i2) -> int {
-				return i1.priority - i2.priority;
+				return i1->priority - i2->priority;
 			}); // sort by priority
 
 			return result;
@@ -3539,7 +3541,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			if (!_injections) {
 				_injections = _collectInjections();
 
-				if (DebugFlags.InDebugMode && _injections.length > 0) {
+				if (is_debug() && _injections.len() > 0) {
 					console.log(
 						"Grammar {0} contains the following injections:"
 					, { _rootScopeName });
