@@ -1816,13 +1816,6 @@ struct Rule:mx {
 		array<RuleId>	patterns;
 		bool 	  		hasMissingPatterns; /// there was duck typing in ts for this one
 		register(members)
-
-
-		utf16 debugName() {
-			if (_location)
-				return fmt {"{0}:{1}", { basename(_location->filename), _location->line }};
-			return str("unknown");
-		}
 	};
 
 	mx_basic(Rule);
@@ -1838,6 +1831,12 @@ struct Rule:mx {
 
 	Rule(ILocation &_location, RuleId id, utf16 name, utf16 contentName) : Rule() {
 		init(_location, id, name, contentName);
+	}
+
+	utf16 debugName() {
+		if (data->_location)
+			return fmt {"{0}:{1}", { basename(data->_location->filename), data->_location->line }};
+		return str("unknown");
 	}
 
 	utf16 getName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
@@ -4005,17 +4004,17 @@ struct IMatchInjectionsResult {
 
 struct RuleSearch {
 	CompiledRule ruleScanner;
-	num findOptions;
+	states<FindOption> findOptions;
 };
 
 RuleSearch prepareRuleSearch(Rule rule, Grammar grammar, str endRegexSource, bool allowA, bool allowG) {
 	CompiledRule ruleScanner = rule.compileAG(grammar->helper->rule_reg, endRegexSource, allowA, allowG);
-	return RuleSearch { ruleScanner, FindOption::None };
+	return RuleSearch { ruleScanner, states<FindOption> { FindOption::None } };
 }
 
 RuleSearch prepareRuleWhileSearch(BeginWhileRule rule, Grammar grammar, str endRegexSource, bool allowA, bool allowG) {
 	CompiledRule ruleScanner = rule->compileWhileAG(grammar->helper->rule_reg, endRegexSource, allowA, allowG);
-	return RuleSearch { ruleScanner, FindOption::None };
+	return RuleSearch { ruleScanner, states<FindOption> { FindOption::None }};
 }
 
 num getFindOptions(bool allowA, bool allowG) {
@@ -4136,12 +4135,13 @@ IWhileCheckResult _checkWhileConditions(
 	array<IWhileStack> whileRules;
 
 	for (StateStackImpl node = stack; node; node = node->pop()) {
-		mx nodeRule = node.getRule(grammar);
+		mx nodeRule = node->getRule(grammar);
 		if (nodeRule.type() == typeof(BeginWhileRule)) {
-			whileRules.push(IWhileStack {
-				rule  = nodeRule,
-				stack = node
-			});
+			IWhileStack w = IWhileStack::members {
+				.stack = node,
+				.rule  = nodeRule
+			};
+			whileRules.push(w);
 		}
 	}
 
@@ -4149,10 +4149,10 @@ IWhileCheckResult _checkWhileConditions(
 	for (int i = int(whileRules.len()) - 1; i >= 0; i--) {
 		IWhileStack &whileRule = whileRules[i];
 		RuleSearch rs = prepareRuleWhileSearch(whileRule->rule, grammar, whileRule->stack->endRule, isFirstLine, linePos == anchorPosition);
-		const r = rs.ruleScanner.findNextMatchSync(lineText, linePos, rs.findOptions);
+		IFindNextMatchResult r = rs.ruleScanner->findNextMatchSync(lineText, linePos, rs.findOptions);
 		if (is_debug()) {
-			console.log('  scanning for while rule');
-			console.log(ruleScanner.toString());
+			console.log("  scanning for while rule");
+			console.log(rs.ruleScanner->toString());
 		}
 
 		if (r) {
@@ -4163,18 +4163,18 @@ IWhileCheckResult _checkWhileConditions(
 				break;
 			}
 			if (r.captureIndices && r.captureIndices.len()) {
-				lineTokens->produce(whileRule->stack, r.captureIndices[0]->start);
+				lineTokens->produce(whileRule->stack, r.captureIndices[0].start);
 				handleCaptures(grammar, lineText, isFirstLine, whileRule->stack, lineTokens, whileRule->rule->whileCaptures, r.captureIndices);
-				lineTokens->produce(whileRule->stack, r.captureIndices[0]->end);
-				anchorPosition = r.captureIndices[0]->end;
-				if (r.captureIndices[0]->end > linePos) {
-					linePos = r.captureIndices[0]->end;
+				lineTokens->produce(whileRule->stack, r.captureIndices[0].end);
+				anchorPosition = r.captureIndices[0].end;
+				if (r.captureIndices[0].end > linePos) {
+					linePos = r.captureIndices[0].end;
 					isFirstLine = false;
 				}
 			}
 		} else {
 			if (is_debug()) {
-				console.log("  popping {0} - {1}", { whileRule->rule->debugName(), whileRule->rule->debugWhileRegExp });
+				console.log("  popping {0} - {1}", { whileRule->rule.debugName(), whileRule->rule->debugWhileRegExp() });
 			}
 
 			stack = whileRule->stack->pop();
@@ -4183,6 +4183,158 @@ IWhileCheckResult _checkWhileConditions(
 	}
 
 	return { .stack = stack, .linePos = linePos, .anchorPosition = anchorPosition, .isFirstLine = isFirstLine };
+}
+
+struct MatchResult {
+	array<IOnigCaptureIndex> captureIndices;
+	RuleId matchedRuleId;
+	operator bool() {
+		return captureIndices.len() > 0;
+	}
+};
+
+MatchResult matchRule(
+		Grammar grammar, OnigString     lineText, bool isFirstLine,
+		num    linePos,  StateStackImpl stack,    num  anchorPosition)
+{
+	Rule       rule 	 = stack->getRule(grammar);
+	RuleSearch rs   	 = prepareRuleSearch(rule, grammar, stack->endRule, isFirstLine, linePos == anchorPosition);
+	num        perfStart = 0;
+	if (is_debug()) {
+		perfStart = millis();
+	}
+
+	IFindNextMatchResult r = rs.ruleScanner->findNextMatchSync(lineText, linePos, rs.findOptions);
+
+	if (is_debug()) {
+		auto elapsedMillis = millis() - perfStart;
+		if (elapsedMillis > 5) {
+			console.log("Rule {0} ({1}) matching took {2} against '{3}'",
+			 	{ rule.debugName(), rule->id, elapsedMillis, lineText });
+		}
+		console.log("  scanning for (linePos: {0}, anchorPosition: {1})",
+			{ linePos, anchorPosition });
+		console.log(rs.ruleScanner->toString());
+		if (r) {
+			console.log("matched rule id: {0} from {1} to {2}",
+				{ r.ruleId, r.captureIndices[0].start, r.captureIndices[0].end });
+		}
+	}
+
+	if (r) {
+		return MatchResult {
+			.captureIndices = r.captureIndices,
+			.matchedRuleId  = r.ruleId
+		};
+	}
+	return MatchResult {};
+}
+
+
+
+
+
+
+
+function matchInjections(injections: Injection[], grammar: Grammar, lineText: OnigString, isFirstLine: boolean, linePos: number, stack: StateStackImpl, anchorPosition: number): IMatchInjectionsResult | null {
+	// The lower the better
+	num bestMatchRating = 0xFFFFFFFF;
+	 bestMatchCaptureIndices: [] | null = null;
+	let bestMatchRuleId: RuleId | typeof endRuleId;
+	let bestMatchResultPriority: number = 0;
+
+	const scopes = stack.contentNameScopesList!.getScopeNames();
+
+	for (let i = 0, len = injections.length; i < len; i++) {
+		const injection = injections[i];
+		if (!injection.matcher(scopes)) {
+			// injection selector doesn't match stack
+			continue;
+		}
+		const rule = grammar.getRule(injection.ruleId);
+		const { ruleScanner, findOptions } = prepareRuleSearch(rule, grammar, null, isFirstLine, linePos === anchorPosition);
+		const matchResult = ruleScanner.findNextMatchSync(lineText, linePos, findOptions);
+		if (!matchResult) {
+			continue;
+		}
+
+		if (DebugFlags.InDebugMode) {
+			console.log(`  matched injection: ${injection.debugSelector}`);
+			console.log(ruleScanner.toString());
+		}
+
+		const matchRating = matchResult.captureIndices[0].start;
+		if (matchRating >= bestMatchRating) {
+			// Injections are sorted by priority, so the previous injection had a better or equal priority
+			continue;
+		}
+
+		bestMatchRating = matchRating;
+		bestMatchCaptureIndices = matchResult.captureIndices;
+		bestMatchRuleId = matchResult.ruleId;
+		bestMatchResultPriority = injection.priority;
+
+		if (bestMatchRating === linePos) {
+			// No more need to look at the rest of the injections.
+			break;
+		}
+	}
+
+	if (bestMatchCaptureIndices) {
+		return {
+			priorityMatch: bestMatchResultPriority === -1,
+			captureIndices: bestMatchCaptureIndices,
+			matchedRuleId: bestMatchRuleId!
+		};
+	}
+
+	return null;
+}
+
+interface IMatchInjectionsResult {
+	readonly priorityMatch: boolean;
+	readonly captureIndices: IOnigCaptureIndex[];
+	readonly matchedRuleId: RuleId | typeof endRuleId;
+}
+
+
+
+
+
+
+
+MatchResult matchRuleOrInjections(Grammar grammar, OnigString lineText, 
+		bool isFirstLine, num linePos, StateStackImpl stack, num anchorPosition) {
+	// Look for normal grammar rule
+	auto matchResult = matchRule(grammar, lineText, isFirstLine, linePos, stack, anchorPosition);
+
+	// Look for injected rules
+	array<Injection> injections = grammar->getInjections();
+	if (!injections) {
+		// No injections whatsoever => early return
+		return matchResult;
+	}
+
+	auto injectionResult = matchInjections(injections, grammar, lineText, isFirstLine, linePos, stack, anchorPosition);
+	if (!injectionResult) {
+		// No injections matched => early return
+		return matchResult;
+	}
+
+	if (!matchResult) {
+		// Only injections matched => early return
+		return injectionResult;
+	}
+
+	// Decide if `matchResult` or `injectionResult` should win
+	auto matchResultScore = matchResult.captureIndices[0].start;
+	auto injectionResultScore = injectionResult.captureIndices[0].start;
+
+	if (injectionResultScore < matchResultScore || (injectionResult.priorityMatch && injectionResultScore == matchResultScore)) {
+		// injection won!
+		return injectionResult;
+	}
+	return matchResult;
 }
 
 TokenizeStringResult _tokenizeString(
@@ -4196,7 +4348,7 @@ TokenizeStringResult _tokenizeString(
 	num anchorPosition = -1;
 
 	if (checkWhileConditions) {
-		const whileCheckResult = _checkWhileConditions(
+		IWhileCheckResult whileCheckResult = _checkWhileConditions(
 			grammar,
 			lineText,
 			isFirstLine,
@@ -4220,7 +4372,7 @@ TokenizeStringResult _tokenizeString(
 			//		.replace(/\n$/, "\\n")}|`
 			//);
 		}
-		const r = matchRuleOrInjections(
+		auto r = matchRuleOrInjections(
 			grammar,
 			lineText,
 			isFirstLine,
@@ -4239,10 +4391,10 @@ TokenizeStringResult _tokenizeString(
 			return;
 		}
 
-		const IOnigCaptureIndex captureIndices[] = r.captureIndices;
-		const matchedRuleId = r.matchedRuleId;
+		array<IOnigCaptureIndex> captureIndices[] = r.captureIndices;
+		auto matchedRuleId = r.matchedRuleId;
 
-		const hasAdvanced =
+		auto hasAdvanced =
 			captureIndices && captureIndices.len() > 0
 				? captureIndices[0].end > linePos
 				: false;
@@ -4258,24 +4410,24 @@ TokenizeStringResult _tokenizeString(
 			}
 
 			lineTokens->produce(stack, captureIndices[0].start);
-			stack = stack.withContentNameScopesList(stack->nameScopesList!);
+			stack = stack.withContentNameScopesList(stack->nameScopesList);
 			handleCaptures(
 				grammar,
 				lineText,
 				isFirstLine,
 				stack,
 				lineTokens,
-				poppedRule.endCaptures,
+				poppedRule->endCaptures,
 				captureIndices
 			);
 			lineTokens->produce(stack, captureIndices[0].end);
 
 			// pop
-			const popped = stack;
+			auto popped = stack;
 			stack = stack->parent.grab();
-			anchorPosition = popped.getAnchorPos();
+			anchorPosition = popped->getAnchorPos();
 
-			if (!hasAdvanced && popped.getEnterPos() == linePos) {
+			if (!hasAdvanced && popped->getEnterPos() == linePos) {
 				// Grammar pushed & popped a rule without advancing
 				if (is_debug()) {
 					console.error(
@@ -4293,7 +4445,7 @@ TokenizeStringResult _tokenizeString(
 			}
 		} else {
 			// We matched a rule!
-			auto _rule = grammar->getRule(matchedRuleId);
+			auto _rule = grammar.getRule(matchedRuleId);
 
 			lineTokens->produce(stack, captureIndices[0].start);
 
@@ -4314,8 +4466,8 @@ TokenizeStringResult _tokenizeString(
 				nameScopesList
 			);
 
-			if (_rule instanceof BeginEndRule) {
-				const pushedRule = _rule;
+			if (_rule.type() == typeof(BeginEndRule)) { /// operator overload at static, at the class is nice for address of type or to check against type
+				auto pushedRule = _rule;
 				if (DebugFlags.InDebugMode) {
 					console.log(
 						"  pushing " +
@@ -4337,11 +4489,11 @@ TokenizeStringResult _tokenizeString(
 				lineTokens->produce(stack, captureIndices[0].end);
 				anchorPosition = captureIndices[0].end;
 
-				const contentName = pushedRule.getContentName(
+				auto contentName = pushedRule.getContentName(
 					lineText.content,
 					captureIndices
 				);
-				const contentNameScopesList = nameScopesList.pushAttributed(
+				auto contentNameScopesList = nameScopesList.pushAttributed(
 					contentName,
 					grammar
 				);
@@ -4368,8 +4520,8 @@ TokenizeStringResult _tokenizeString(
 					STOP = true;
 					return;
 				}
-			} else if (_rule instanceof BeginWhileRule) {
-				const pushedRule = <BeginWhileRule>_rule;
+			} else if (_rule.type() == typeof(BeginWhileRule)) {
+				BeginWhileRule pushedRule = BeginWhileRule(_rule.grab());
 				if (DebugFlags.InDebugMode) {
 					console.log("  pushing " + pushedRule.debugName());
 				}
@@ -4385,18 +4537,18 @@ TokenizeStringResult _tokenizeString(
 				);
 				lineTokens->produce(stack, captureIndices[0].end);
 				anchorPosition = captureIndices[0].end;
-				const contentName = pushedRule.getContentName(
+				auto contentName = pushedRule.getContentName(
 					lineText.content,
 					captureIndices
 				);
-				const contentNameScopesList = nameScopesList.pushAttributed(
+				auto contentNameScopesList = nameScopesList.pushAttributed(
 					contentName,
 					grammar
 				);
-				stack = stack.withContentNameScopesList(contentNameScopesList);
+				stack = stack->withContentNameScopesList(contentNameScopesList);
 
 				if (pushedRule.whileHasBackReferences) {
-					stack = stack.withEndRule(
+					stack = stack->withEndRule(
 						pushedRule.getWhileWithResolvedBackReferences(
 							lineText.content,
 							captureIndices
@@ -4404,9 +4556,9 @@ TokenizeStringResult _tokenizeString(
 					);
 				}
 
-				if (!hasAdvanced && beforePush.hasSameRuleAs(stack)) {
+				if (!hasAdvanced && beforePush->hasSameRuleAs(stack)) {
 					// Grammar pushed the same rule without advancing
-					if (DebugFlags.InDebugMode) {
+					if (is_debug()) {
 						console.error(
 							"[3] - Grammar is in an endless loop - Grammar pushed the same rule without advancing"
 						);
@@ -4417,13 +4569,13 @@ TokenizeStringResult _tokenizeString(
 					return;
 				}
 			} else {
-				const matchingRule = <MatchRule>_rule;
-				if (DebugFlags.InDebugMode) {
+				MatchRule matchingRule = MatchRule(_rule.grab());
+				if (is_debig()) {
 					console.log(
-						"  matched " +
-							matchingRule.debugName() +
-							" - " +
+						"  matched {0} - {1}", {
+							matchingRule.debugName(),
 							matchingRule.debugMatchRegExp
+						}
 					);
 				}
 
@@ -4439,16 +4591,16 @@ TokenizeStringResult _tokenizeString(
 				lineTokens->produce(stack, captureIndices[0].end);
 
 				// pop rule immediately since it is a MatchRule
-				stack = stack.pop();
+				stack = stack->pop();
 
 				if (!hasAdvanced) {
 					// Grammar is not advancing, nor is it pushing/popping
-					if (DebugFlags.InDebugMode) {
+					if (is_debug()) {
 						console.error(
 							"[4] - Grammar is in an endless loop - Grammar is not advancing, nor is it pushing/popping"
 						);
 					}
-					stack = stack.safePop();
+					stack = stack->safePop();
 					lineTokens->produce(stack, lineLength);
 					STOP = true;
 					return;
@@ -4458,7 +4610,7 @@ TokenizeStringResult _tokenizeString(
 
 		if (captureIndices[0].end > linePos) {
 			// Advance stream
-			linePos = captureIndices[0]->end;
+			linePos = captureIndices[0].end;
 			isFirstLine = false;
 		}
 	};
@@ -4492,14 +4644,14 @@ struct Registry:mx {
 		 * Change the theme. Once called, no previous `ruleStack` should be used anymore.
 		 */
 		void setTheme(IRawTheme &theme, array<str> colorMap = {}) {
-			_syncRegistry.setTheme(Theme.createFromRawTheme(theme, colorMap));
+			_syncRegistry->setTheme(Theme.createFromRawTheme(theme, colorMap));
 		}
 
 		/**
 		 * Returns a lookup array for color ids.
 		 */
 		array<str> getColorMap() {
-			return _syncRegistry.getColorMap();
+			return _syncRegistry->getColorMap();
 		}
 
 		/**
@@ -4549,10 +4701,10 @@ struct Registry:mx {
 			TokenTypeMap 			   &tokenTypes,
 			BalancedBracketSelectors 	balancedBracketSelectors
 		) {
-			const dependencyProcessor = ScopeDependencyProcessor(_syncRegistry, initialScopeName);
+			ScopeDependencyProcessor dependencyProcessor(_syncRegistry, initialScopeName);
 			while (dependencyProcessor.Q.length > 0) {
-				await Promise.all(dependencyProcessor.Q.map((request) => _loadSingleGrammar(request.scopeName)));
-				dependencyProcessor.processQueue();
+				await Promise.all(dependencyProcessor->Q->map((request) => _loadSingleGrammar(request.scopeName)));
+				dependencyProcessor->processQueue();
 			}
 
 			return _grammarForScopeName(
