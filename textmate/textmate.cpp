@@ -3996,10 +3996,16 @@ struct SyncRegistry : mx {
 	}
 };
 
-struct IMatchInjectionsResult {
-	bool priorityMatch;
-	array<IOnigCaptureIndex> captureIndices;
-	RuleId matchedRuleId;
+struct MatchInjectionsResult:mx {
+	struct members {
+		array<IOnigCaptureIndex> captureIndices;
+		RuleId matchedRuleId;
+		bool priorityMatch;
+	};
+	mx_basic(MatchInjectionsResult)
+	operator bool() {
+		return data->matchedRuleId >= 0; /// they use this as a truthy assert on return of IMatchInjectionsResult
+	}
 };
 
 struct RuleSearch {
@@ -4184,16 +4190,20 @@ IWhileCheckResult _checkWhileConditions(
 
 	return { .stack = stack, .linePos = linePos, .anchorPosition = anchorPosition, .isFirstLine = isFirstLine };
 }
-
-struct MatchResult {
-	array<IOnigCaptureIndex> captureIndices;
-	RuleId matchedRuleId;
+	
+struct MatchResult:mx {
+	struct members {
+		array<IOnigCaptureIndex> captureIndices;
+		RuleId matchedRuleId;
+		bool priorityMatch;
+	};
+	mx_basic(MatchResult)
 	operator bool() {
-		return captureIndices.len() > 0;
+		return matchedRuleId >= 0; /// they use this as a truthy assert on return of IMatchInjectionsResult
 	}
 };
 
-MatchResult matchRule(
+mx matchRule(
 		Grammar grammar, OnigString     lineText, bool isFirstLine,
 		num    linePos,  StateStackImpl stack,    num  anchorPosition)
 {
@@ -4222,7 +4232,7 @@ MatchResult matchRule(
 	}
 
 	if (r) {
-		return MatchResult {
+		return MatchResult { /// this one is the same as the injection type minus the boolean
 			.captureIndices = r.captureIndices,
 			.matchedRuleId  = r.ruleId
 		};
@@ -4231,39 +4241,38 @@ MatchResult matchRule(
 }
 
 
+MatchInjectionsResult matchInjections(
+		array<Injection> injections, Grammar grammar,
+		OnigString lineText, bool isFirstLine, num linePos,
+		StateStackImpl stack, num anchorPosition)
+{
+	// the lower the better
+	num 	bestMatchRating = 0x7FFFFFFFFFFFFFFF;
+	array<IOnigCaptureIndex> bestMatchCaptureIndices;
+	RuleId 	bestMatchRuleId;
+	num 	bestMatchResultPriority = 0;
 
+	auto scopes = stack->contentNameScopesList->getScopeNames();
 
-
-
-
-function matchInjections(injections: Injection[], grammar: Grammar, lineText: OnigString, isFirstLine: boolean, linePos: number, stack: StateStackImpl, anchorPosition: number): IMatchInjectionsResult | null {
-	// The lower the better
-	num bestMatchRating = 0xFFFFFFFF;
-	 bestMatchCaptureIndices: [] | null = null;
-	let bestMatchRuleId: RuleId | typeof endRuleId;
-	let bestMatchResultPriority: number = 0;
-
-	const scopes = stack.contentNameScopesList!.getScopeNames();
-
-	for (let i = 0, len = injections.length; i < len; i++) {
-		const injection = injections[i];
-		if (!injection.matcher(scopes)) {
+	for (size_t i = 0, len = injections.len(); i < len; i++) {
+		auto injection = injections[i];
+		if (!injection->matcher(scopes)) {
 			// injection selector doesn't match stack
 			continue;
 		}
-		const rule = grammar.getRule(injection.ruleId);
-		const { ruleScanner, findOptions } = prepareRuleSearch(rule, grammar, null, isFirstLine, linePos === anchorPosition);
-		const matchResult = ruleScanner.findNextMatchSync(lineText, linePos, findOptions);
+		auto rule = grammar->helper->rule_reg->getRule(injection->ruleId);
+		auto rs = prepareRuleSearch(rule, grammar, null, isFirstLine, linePos == anchorPosition);
+		auto matchResult = rs.ruleScanner->findNextMatchSync(lineText, linePos, rs.findOptions);
 		if (!matchResult) {
 			continue;
 		}
 
-		if (DebugFlags.InDebugMode) {
-			console.log(`  matched injection: ${injection.debugSelector}`);
-			console.log(ruleScanner.toString());
+		if (is_debug()) {
+			console.log("  matched injection: {0}", { injection->debugSelector });
+			console.log(rs.ruleScanner->toString());
 		}
 
-		const matchRating = matchResult.captureIndices[0].start;
+		auto matchRating = matchResult.captureIndices[0].start;
 		if (matchRating >= bestMatchRating) {
 			// Injections are sorted by priority, so the previous injection had a better or equal priority
 			continue;
@@ -4272,41 +4281,31 @@ function matchInjections(injections: Injection[], grammar: Grammar, lineText: On
 		bestMatchRating = matchRating;
 		bestMatchCaptureIndices = matchResult.captureIndices;
 		bestMatchRuleId = matchResult.ruleId;
-		bestMatchResultPriority = injection.priority;
+		bestMatchResultPriority = injection->priority;
 
-		if (bestMatchRating === linePos) {
+		if (bestMatchRating == linePos) {
 			// No more need to look at the rest of the injections.
 			break;
 		}
 	}
 
 	if (bestMatchCaptureIndices) {
-		return {
-			priorityMatch: bestMatchResultPriority === -1,
-			captureIndices: bestMatchCaptureIndices,
-			matchedRuleId: bestMatchRuleId!
+		return MatchInjectionsResult {
+			MatchInjectionsResult::members {
+				.captureIndices = bestMatchCaptureIndices,
+				.matchedRuleId  = bestMatchRuleId,
+				.priorityMatch  = bestMatchResultPriority == -1
+			}
 		};
 	}
 
-	return null;
+	return MatchInjectionsResult {};
 }
-
-interface IMatchInjectionsResult {
-	readonly priorityMatch: boolean;
-	readonly captureIndices: IOnigCaptureIndex[];
-	readonly matchedRuleId: RuleId | typeof endRuleId;
-}
-
-
-
-
-
-
 
 MatchResult matchRuleOrInjections(Grammar grammar, OnigString lineText, 
 		bool isFirstLine, num linePos, StateStackImpl stack, num anchorPosition) {
 	// Look for normal grammar rule
-	auto matchResult = matchRule(grammar, lineText, isFirstLine, linePos, stack, anchorPosition);
+	MatchResult matchResult = matchRule(grammar, lineText, isFirstLine, linePos, stack, anchorPosition).grab();
 
 	// Look for injected rules
 	array<Injection> injections = grammar->getInjections();
@@ -4315,7 +4314,7 @@ MatchResult matchRuleOrInjections(Grammar grammar, OnigString lineText,
 		return matchResult;
 	}
 
-	auto injectionResult = matchInjections(injections, grammar, lineText, isFirstLine, linePos, stack, anchorPosition);
+	IMatchInjectionsResult injectionResult = matchInjections(injections, grammar, lineText, isFirstLine, linePos, stack, anchorPosition);
 	if (!injectionResult) {
 		// No injections matched => early return
 		return matchResult;
@@ -4391,7 +4390,7 @@ TokenizeStringResult _tokenizeString(
 			return;
 		}
 
-		array<IOnigCaptureIndex> captureIndices[] = r.captureIndices;
+		array<IOnigCaptureIndex> captureIndices = r.captureIndices;
 		auto matchedRuleId = r.matchedRuleId;
 
 		auto hasAdvanced =
@@ -4445,13 +4444,13 @@ TokenizeStringResult _tokenizeString(
 			}
 		} else {
 			// We matched a rule!
-			auto _rule = grammar.getRule(matchedRuleId);
+			auto _rule = grammar->getRule(matchedRuleId);
 
 			lineTokens->produce(stack, captureIndices[0].start);
 
 			auto beforePush = stack;
 			// push it on the stack rule
-			ScopePath scopeName = _rule.getName(lineText.content, captureIndices);
+			ScopePath scopeName = _rule->getName(lineText.content, captureIndices);
 			AttributedScopeStack nameScopesList = stack->contentNameScopesList->pushAttributed(
 				scopeName,
 				grammar
@@ -4470,10 +4469,7 @@ TokenizeStringResult _tokenizeString(
 				auto pushedRule = _rule;
 				if (DebugFlags.InDebugMode) {
 					console.log(
-						"  pushing " +
-							pushedRule.debugName +
-							" - " +
-							pushedRule.debugBeginRegExp
+						"  pushing {0} - {1}", { pushedRule.debugName, pushedRule.debugBeginRegExp }
 					);
 				}
 
@@ -4489,21 +4485,19 @@ TokenizeStringResult _tokenizeString(
 				lineTokens->produce(stack, captureIndices[0].end);
 				anchorPosition = captureIndices[0].end;
 
-				auto contentName = pushedRule.getContentName(
-					lineText.content,
-					captureIndices
+				auto contentName = pushedRule->getContentName(
+					lineText, captureIndices
 				);
-				auto contentNameScopesList = nameScopesList.pushAttributed(
+				auto contentNameScopesList = nameScopesList->pushAttributed(
 					contentName,
 					grammar
 				);
-				stack = stack.withContentNameScopesList(contentNameScopesList);
+				stack = stack->withContentNameScopesList(contentNameScopesList);
 
-				if (pushedRule.endHasBackReferences) {
-					stack = stack.withEndRule(
-						pushedRule.getEndWithResolvedBackReferences(
-							lineText.content,
-							captureIndices
+				if (pushedRule->endHasBackReferences) {
+					stack = stack->withEndRule(
+						pushedRule->getEndWithResolvedBackReferences(
+							lineText, captureIndices
 						)
 					);
 				}
