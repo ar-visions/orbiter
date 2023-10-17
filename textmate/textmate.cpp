@@ -755,11 +755,11 @@ struct ThemeTrieElementRule:mx {
 			return r;
 		}
 
-		void acceptOverwrite(num scopeDepth, FontStyle fontStyle, num foreground, num background) {
-			if (scopeDepth > scopeDepth) {
+		void acceptOverwrite(num _scopeDepth, FontStyle fontStyle, num foreground, num background) {
+			if (scopeDepth > _scopeDepth) {
 				console.log("how did this happen?");
 			} else {
-				scopeDepth = scopeDepth;
+				scopeDepth = _scopeDepth;
 			}
 			// console.log("TODO -> my depth: " + scopeDepth + ", overwriting depth: " + scopeDepth);
 			if (fontStyle != FontStyle::_NotSet) {
@@ -1177,7 +1177,7 @@ bool RawRepository::operator!() {
 void collectExternalReferencesInRules(
 	array<RawRule>  rules,
 	RawGrammar      baseGrammar,	/// omitted 'ContextWithRepository' and added the args here
-	RawGrammar      selfGrammar,
+	RawGrammar      selfGrammar_,
 	RawRepository 	repository,
 	ExternalReferenceCollector result
 ) {
@@ -1194,7 +1194,7 @@ void collectExternalReferencesInRules(
 			mergeObjects(m, repository->props, rule->repository->props) : repository->props;
 
 		if (rule->patterns) {
-			collectExternalReferencesInRules(rule->patterns, baseGrammar, selfGrammar, patternRepository, result);
+			collectExternalReferencesInRules(rule->patterns, baseGrammar, selfGrammar_, patternRepository, result);
 		}
 
 		str &include = rule->include;
@@ -1207,16 +1207,16 @@ void collectExternalReferencesInRules(
 				collectExternalReferencesInTopLevelRule(baseGrammar, baseGrammar, result); // not a bug.
 				break;
 			case IncludeReferenceKind::Self:
-				collectExternalReferencesInTopLevelRule(baseGrammar, selfGrammar, result);
+				collectExternalReferencesInTopLevelRule(baseGrammar, selfGrammar_, result);
 				break;
 			case IncludeReferenceKind::RelativeReference:
-				collectExternalReferencesInTopLevelRepositoryRule(reference->ruleName, baseGrammar, selfGrammar, patternRepository, result);
+				collectExternalReferencesInTopLevelRepositoryRule(reference->ruleName, baseGrammar, selfGrammar_, patternRepository, result);
 				break;
 			case IncludeReferenceKind::TopLevelReference:
 			case IncludeReferenceKind::TopLevelRepositoryReference:
 				RawGrammar selfGrammar =
-					reference->scopeName == selfGrammar->scopeName
-						? selfGrammar
+					reference->scopeName == selfGrammar_->scopeName
+						? selfGrammar_
 						: reference->scopeName == baseGrammar->scopeName
 						? baseGrammar
 						: null;
@@ -1856,9 +1856,17 @@ struct Rule:mx {
 		return RegexSource::replaceCaptures(data->_contentName, lineText, captureIndices);
 	}
 
-	virtual void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) { };
-	virtual CompiledRule compile(RuleRegistry &grammar, utf16 endRegexSource) { };
-	virtual CompiledRule compileAG(RuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) { };
+	virtual void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) {
+		console.fault("error");
+	};
+	virtual CompiledRule compile(RuleRegistry &grammar, utf16 endRegexSource) {
+		console.fault("error");
+		return CompiledRule();
+	};
+	virtual CompiledRule compileAG(RuleRegistry &grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+		console.fault("error");
+		return CompiledRule();
+	};
 };
 
 struct RuleRegistry:mx {
@@ -2801,10 +2809,6 @@ struct StateStackImpl:mx {
 			} while (true);
 		}
 
-		bool clone() {
-			return this;
-		}
-
 		static void _reset(StateStackImpl &el) {
 			while (el) {
 				el->_enterPos = -1;
@@ -2927,10 +2931,10 @@ struct StateStackImpl:mx {
 		}
 
 		StateStackFrame toStateStackFrame() {
-			StateStackImpl parent = parent.grab();
+			StateStackImpl _parent = parent.grab();
 			AttributedScopeStack scope_list = nameScopesList ? 
 					nameScopesList->getExtensionIfDefined(
-						bool(parent) ? parent->nameScopesList : null) : null;
+						bool(_parent) ? _parent->nameScopesList : null) : null;
 			
 			return StateStackFrame::members {
 				.ruleId = ruleIdToNumber(ruleId),
@@ -2965,8 +2969,8 @@ struct StateStackImpl:mx {
 		data->self = mem;
 		data->parent = parent.grab();
 		if (data->parent) {
-			StateStackImpl parent = parent.grab();
-			data->depth = parent->depth + 1;
+			StateStackImpl _parent = parent.grab();
+			data->depth = _parent->depth + 1;
 		} else
 			data->depth = 1;
 		
@@ -2978,6 +2982,10 @@ struct StateStackImpl:mx {
 		data->nameScopesList = nameScopesList;
 		data->contentNameScopesList = contentNameScopesList;
 		data->filled = true;
+	}
+
+	StateStackImpl clone() {
+		return copy();
 	}
 
 	operator bool() {
@@ -3255,6 +3263,137 @@ struct LineTokens:mx {
 		array<TokenTypeMatcher> _tokenTypeOverrides;
 		BalancedBracketSelectors balancedBracketSelectors;
 		register(members);
+
+		void produce(StateStackImpl stack, num endIndex) {
+			produceFromScopes(stack->contentNameScopesList, endIndex);
+		}
+
+		void produceFromScopes(
+			AttributedScopeStack scopesList,
+			num endIndex
+		) {
+			if (_lastTokenEndIndex >= endIndex) {
+				return;
+			}
+
+			if (_emitBinaryTokens) {
+				auto metadata = scopesList ? scopesList->tokenAttributes : 0;
+				bool containsBalancedBrackets = (balancedBracketSelectors && balancedBracketSelectors.matchesAlways());
+
+				if (_tokenTypeOverrides.len() > 0 ||
+				(balancedBracketSelectors && 
+				!balancedBracketSelectors.matchesAlways() && 
+				!balancedBracketSelectors.matchesNever())) {
+					// Only generate scope array when required to improve performance
+					array<ScopeName> scopes = scopesList ? scopesList->getScopeNames() : array<ScopeName>();
+					for (auto &tokenType: _tokenTypeOverrides) {
+						if (tokenType.matcher(scopes)) {
+							metadata = EncodedTokenAttributes::set(
+								metadata,
+								0,
+								toOptionalTokenType(tokenType.type),
+								null,
+								FontStyle::_NotSet,
+								0,
+								0
+							);
+						}
+					}
+					if (balancedBracketSelectors) {
+						containsBalancedBrackets = balancedBracketSelectors.match(scopes);
+					}
+				}
+
+				if (containsBalancedBrackets) {
+					metadata = EncodedTokenAttributes::set(
+						metadata,
+						0,
+						OptionalStandardTokenType::NotSet,
+						containsBalancedBrackets,
+						FontStyle::_NotSet,
+						0,
+						0
+					);
+				}
+
+				if (_binaryTokens.len() > 0 && _binaryTokens[_binaryTokens.len() - 1] == metadata) {
+					// no need to push a token with the same metadata
+					_lastTokenEndIndex = endIndex;
+					return;
+				}
+
+				if (is_debug()) {
+					array<str> scopes = scopesList ? scopesList->getScopeNames() : array<str>();
+					RegEx      regex  = RegEx(R"(\n$)");
+					utf16      txt    = _lineText.mid(_lastTokenEndIndex, endIndex - _lastTokenEndIndex);
+					console.log("  token: |{0}|", { regex.replace(txt, "\\n") });
+					for (size_t k = 0; k < scopes.len(); k++) {
+						console.log("      * {0}", { scopes[k] });
+					}
+				}
+
+				_binaryTokens.push(_lastTokenEndIndex);
+				_binaryTokens.push(metadata);
+
+				_lastTokenEndIndex = endIndex;
+				return;
+			}
+
+			array<str> scopes = scopesList ? scopesList->getScopeNames() : array<str>();
+
+			if (is_debug()) {
+				RegEx regex = RegEx(R"(\n$)");
+				utf16 txt = _lineText.mid(_lastTokenEndIndex, endIndex - _lastTokenEndIndex);
+				console.log("  token: |{0}|", { regex.replace(txt, "\\n") });
+				for (size_t k = 0; k < scopes.len(); k++) {
+					console.log("      * {0}", { scopes[k] });
+				}
+			}
+			IToken p {
+				.startIndex = _lastTokenEndIndex,
+				.endIndex   = endIndex,
+				.scopes     = scopes
+			};
+			_tokens.push(p);
+			_lastTokenEndIndex = endIndex;
+		}
+
+		array<IToken> getResult(StateStackImpl stack, num lineLength) {
+			if (_tokens.len() > 0 && _tokens[_tokens.len() - 1].startIndex == lineLength - 1) {
+				// pop produced token for newline
+				_tokens.pop();
+			}
+
+			if (_tokens.len() == 0) {
+				_lastTokenEndIndex = -1;
+				produce(stack, lineLength);
+				_tokens[_tokens.len() - 1].startIndex = 0;
+			}
+
+			return _tokens;
+		}
+
+		Uint32Array getBinaryResult(StateStackImpl stack, num lineLength) {
+			if (_binaryTokens.len() > 0 && _binaryTokens[_binaryTokens.len() - 2] == lineLength - 1) {
+				// pop produced token for newline
+				_binaryTokens.pop();
+				_binaryTokens.pop();
+			}
+
+			if (_binaryTokens.len() == 0) {
+				_lastTokenEndIndex = -1;
+				produce(stack, lineLength);
+				_binaryTokens[_binaryTokens.len() - 2] = 0;
+			}
+
+			auto result = Uint32Array(_binaryTokens.len());
+			for (size_t i = 0, len = _binaryTokens.len(); i < len; i++) {
+				u32 t = (u32)_binaryTokens[i];
+				result.push(t);
+			}
+
+			return result;
+		}
 	};
 	
 	mx_basic(LineTokens);
@@ -3272,137 +3411,6 @@ struct LineTokens:mx {
 		} else {
 			data->_lineText = null;
 		}
-	}
-
-	void produce(StateStackImpl stack, num endIndex) {
-		produceFromScopes(stack->contentNameScopesList, endIndex);
-	}
-
-	void produceFromScopes(
-		AttributedScopeStack scopesList,
-		num endIndex
-	) {
-		if (data->_lastTokenEndIndex >= endIndex) {
-			return;
-		}
-
-		if (data->_emitBinaryTokens) {
-			auto metadata = scopesList ? scopesList->tokenAttributes : 0;
-			bool containsBalancedBrackets = (data->balancedBracketSelectors && data->balancedBracketSelectors.matchesAlways());
-
-			if (data->_tokenTypeOverrides.len() > 0 ||
-			   (data->balancedBracketSelectors && 
-			   !data->balancedBracketSelectors.matchesAlways() && 
-			   !data->balancedBracketSelectors.matchesNever())) {
-				// Only generate scope array when required to improve performance
-				array<ScopeName> scopes = scopesList ? scopesList->getScopeNames() : array<ScopeName>();
-				for (auto &tokenType: data->_tokenTypeOverrides) {
-					if (tokenType.matcher(scopes)) {
-						metadata = EncodedTokenAttributes::set(
-							metadata,
-							0,
-							toOptionalTokenType(tokenType.type),
-							null,
-							FontStyle::_NotSet,
-							0,
-							0
-						);
-					}
-				}
-				if (data->balancedBracketSelectors) {
-					containsBalancedBrackets = data->balancedBracketSelectors.match(scopes);
-				}
-			}
-
-			if (containsBalancedBrackets) {
-				metadata = EncodedTokenAttributes::set(
-					metadata,
-					0,
-					OptionalStandardTokenType::NotSet,
-					containsBalancedBrackets,
-					FontStyle::_NotSet,
-					0,
-					0
-				);
-			}
-
-			if (data->_binaryTokens.len() > 0 && data->_binaryTokens[data->_binaryTokens.len() - 1] == metadata) {
-				// no need to push a token with the same metadata
-				data->_lastTokenEndIndex = endIndex;
-				return;
-			}
-
-			if (is_debug()) {
-				array<str> scopes = scopesList ? scopesList->getScopeNames() : array<str>();
-				RegEx      regex  = RegEx(R"(\n$)");
-				utf16      txt    = data->_lineText.mid(data->_lastTokenEndIndex, endIndex - data->_lastTokenEndIndex);
-				console.log("  token: |{0}|", { regex.replace(txt, "\\n") });
-				for (size_t k = 0; k < scopes.len(); k++) {
-					console.log("      * {0}", { scopes[k] });
-				}
-			}
-
-			data->_binaryTokens.push(data->_lastTokenEndIndex);
-			data->_binaryTokens.push(metadata);
-
-			data->_lastTokenEndIndex = endIndex;
-			return;
-		}
-
-		array<str> scopes = scopesList ? scopesList->getScopeNames() : array<str>();
-
-		if (is_debug()) {
-			RegEx regex = RegEx(R"(\n$)");
-			utf16 txt = data->_lineText.mid(data->_lastTokenEndIndex, endIndex - data->_lastTokenEndIndex);
-			console.log("  token: |{0}|", { regex.replace(txt, "\\n") });
-			for (size_t k = 0; k < scopes.len(); k++) {
-				console.log("      * {0}", { scopes[k] });
-			}
-		}
-		IToken p {
-			.startIndex = data->_lastTokenEndIndex,
-			.endIndex   = endIndex,
-			.scopes     = scopes
-		};
-		data->_tokens.push(p);
-		data->_lastTokenEndIndex = endIndex;
-	}
-
-	array<IToken> getResult(StateStackImpl stack, num lineLength) {
-		if (data->_tokens.len() > 0 && data->_tokens[data->_tokens.len() - 1].startIndex == lineLength - 1) {
-			// pop produced token for newline
-			data->_tokens.pop();
-		}
-
-		if (data->_tokens.len() == 0) {
-			data->_lastTokenEndIndex = -1;
-			produce(stack, lineLength);
-			data->_tokens[data->_tokens.len() - 1].startIndex = 0;
-		}
-
-		return data->_tokens;
-	}
-
-	Uint32Array getBinaryResult(StateStackImpl stack, num lineLength) {
-		if (data->_binaryTokens.len() > 0 && data->_binaryTokens[data->_binaryTokens.len() - 2] == lineLength - 1) {
-			// pop produced token for newline
-			data->_binaryTokens.pop();
-			data->_binaryTokens.pop();
-		}
-
-		if (data->_binaryTokens.len() == 0) {
-			data->_lastTokenEndIndex = -1;
-			produce(stack, lineLength);
-			data->_binaryTokens[data->_binaryTokens.len() - 2] = 0;
-		}
-
-		auto result = Uint32Array(data->_binaryTokens.len());
-		for (size_t i = 0, len = data->_binaryTokens.len(); i < len; i++) {
-			u32 t = (u32)data->_binaryTokens[i];
-			result.push(t);
-		}
-
-		return result;
 	}
 };
 
@@ -3598,7 +3606,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				num timeLimit = 0) {
 			auto r = _tokenize(lineText, prevState, false, timeLimit);
 			return {
-				.tokens = 		r.lineTokens.getResult(r.ruleStack, r.lineLength),
+				.tokens = 		r.lineTokens->getResult(r.ruleStack, r.lineLength),
 				.ruleStack = 	r.ruleStack,
 				.stoppedEarly = 	r.stoppedEarly,
 			};
@@ -3610,7 +3618,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				num 			timeLimit = 0) {
 			auto r = _tokenize(lineText, prevState, true, timeLimit);
 			return {
-				.tokens = 		r.lineTokens.getBinaryResult(r.ruleStack, r.lineLength),
+				.tokens = 		r.lineTokens->getBinaryResult(r.ruleStack, r.lineLength),
 				.ruleStack = 	r.ruleStack,
 				.stoppedEarly = r.stoppedEarly,
 			};
@@ -4060,14 +4068,14 @@ void handleCaptures(Grammar grammar, OnigString lineText,
 		// pop captures while needed
 		while (localStack.len() > 0 && localStack[localStack.len() - 1].endPos <= captureIndex.start) {
 			// pop!
-			lineTokens.produceFromScopes(localStack[localStack.len() - 1].scopes, localStack[localStack.len() - 1].endPos);
+			lineTokens->produceFromScopes(localStack[localStack.len() - 1].scopes, localStack[localStack.len() - 1].endPos);
 			localStack.pop();
 		}
 
 		if (localStack.len() > 0) {
-			lineTokens.produceFromScopes(localStack[localStack.len() - 1].scopes, captureIndex.start);
+			lineTokens->produceFromScopes(localStack[localStack.len() - 1].scopes, captureIndex.start);
 		} else {
-			lineTokens.produce(stack, captureIndex.start);
+			lineTokens->produce(stack, captureIndex.start);
 		}
 
 		if (captureRule->retokenizeCapturedWithRuleId) {
@@ -4078,7 +4086,7 @@ void handleCaptures(Grammar grammar, OnigString lineText,
 			auto contentNameScopesList = nameScopesList->pushAttributed(contentName, grammar); /// todo: utf16 vs str here
 
 			auto stackClone = stack->push(captureRule->retokenizeCapturedWithRuleId,
-				captureIndex.start, -1, false, null, nameScopesList, contentNameScopesList);
+				captureIndex.start, -1, false, utf16(), nameScopesList, contentNameScopesList);
 			auto onigSubStr = oni_lib->createOnigString(lineTextContent.mid(0, captureIndex.end));
 			_tokenizeString(grammar, onigSubStr, (isFirstLine && captureIndex.start == 0),
 				captureIndex.start, stackClone, lineTokens, false, /* no time limit */0);
@@ -4086,12 +4094,13 @@ void handleCaptures(Grammar grammar, OnigString lineText,
 			continue;
 		}
 
-		const captureRuleScopeName = captureRule.getName(lineTextContent, captureIndices);
-		if (captureRuleScopeName != null) {
+		utf16 captureRuleScopeName = captureRule.getName(lineTextContent, captureIndices);
+		if (captureRuleScopeName) {
 			// push
 			auto base = localStack.len() > 0 ? localStack[localStack.len() - 1].scopes : stack->contentNameScopesList;
 			auto captureRuleScopesList = base->pushAttributed(captureRuleScopeName, grammar);
-			localStack.push(LocalStackElement(captureRuleScopesList, captureIndex.end));
+			auto ls = LocalStackElement(captureRuleScopesList, captureIndex.end);
+			localStack.push(ls);
 		}
 	}
 
@@ -4139,24 +4148,24 @@ IWhileCheckResult _checkWhileConditions(
 	/// simple iteration from last to 0
 	for (int i = int(whileRules.len()) - 1; i >= 0; i--) {
 		IWhileStack &whileRule = whileRules[i];
-		const { ruleScanner, findOptions } = prepareRuleWhileSearch(whileRule.rule, grammar, whileRule.stack->endRule, isFirstLine, linePos == anchorPosition);
-		const r = ruleScanner.findNextMatchSync(lineText, linePos, findOptions);
-		if (DebugFlags.InDebugMode) {
+		RuleSearch rs = prepareRuleWhileSearch(whileRule->rule, grammar, whileRule->stack->endRule, isFirstLine, linePos == anchorPosition);
+		const r = rs.ruleScanner.findNextMatchSync(lineText, linePos, rs.findOptions);
+		if (is_debug()) {
 			console.log('  scanning for while rule');
 			console.log(ruleScanner.toString());
 		}
 
 		if (r) {
-			const matchedRuleId = r.ruleId;
+			RuleId matchedRuleId = r.ruleId;
 			if (matchedRuleId != whileRuleId) {
 				// we shouldn't end up here
-				stack = whileRule.stack->pop();
+				stack = whileRule->stack->pop();
 				break;
 			}
 			if (r.captureIndices && r.captureIndices.len()) {
-				lineTokens.produce(whileRule.stack, r.captureIndices[0]->start);
-				handleCaptures(grammar, lineText, isFirstLine, whileRule.stack, lineTokens, whileRule.rule->whileCaptures, r.captureIndices);
-				lineTokens.produce(whileRule.stack, r.captureIndices[0]->end);
+				lineTokens->produce(whileRule->stack, r.captureIndices[0]->start);
+				handleCaptures(grammar, lineText, isFirstLine, whileRule->stack, lineTokens, whileRule->rule->whileCaptures, r.captureIndices);
+				lineTokens->produce(whileRule->stack, r.captureIndices[0]->end);
 				anchorPosition = r.captureIndices[0]->end;
 				if (r.captureIndices[0]->end > linePos) {
 					linePos = r.captureIndices[0]->end;
@@ -4165,10 +4174,10 @@ IWhileCheckResult _checkWhileConditions(
 			}
 		} else {
 			if (is_debug()) {
-				console.log("  popping {0} - {1}", { whileRule.rule->debugName(), whileRule.rule->debugWhileRegExp });
+				console.log("  popping {0} - {1}", { whileRule->rule->debugName(), whileRule->rule->debugWhileRegExp });
 			}
 
-			stack = whileRule.stack->pop();
+			stack = whileRule->stack->pop();
 			break;
 		}
 	}
@@ -4225,7 +4234,7 @@ TokenizeStringResult _tokenizeString(
 				console.log("  no more matches.");
 			}
 			// No match
-			lineTokens.produce(stack, lineLength);
+			lineTokens->produce(stack, lineLength);
 			STOP = true;
 			return;
 		}
@@ -4240,19 +4249,16 @@ TokenizeStringResult _tokenizeString(
 
 		if (matchedRuleId == endRuleId) {
 			// We matched the `end` for this rule => pop it
-			BeginEndRule poppedRule = stack.getRule(grammar);
+			BeginEndRule poppedRule = stack->getRule(grammar);
 
-			if (DebugFlags.InDebugMode) {
+			if (is_debug()) {
 				console.log(
-					"  popping " +
-						poppedRule.debugName +
-						" - " +
-						poppedRule.debugEndRegExp
+					"  popping {0} - {1}", { poppedRule->debugName, poppedRule->debugEndRegExp }
 				);
 			}
 
-			lineTokens.produce(stack, captureIndices[0].start);
-			stack = stack.withContentNameScopesList(stack.nameScopesList!);
+			lineTokens->produce(stack, captureIndices[0].start);
+			stack = stack.withContentNameScopesList(stack->nameScopesList!);
 			handleCaptures(
 				grammar,
 				lineText,
@@ -4262,7 +4268,7 @@ TokenizeStringResult _tokenizeString(
 				poppedRule.endCaptures,
 				captureIndices
 			);
-			lineTokens.produce(stack, captureIndices[0].end);
+			lineTokens->produce(stack, captureIndices[0].end);
 
 			// pop
 			const popped = stack;
@@ -4271,7 +4277,7 @@ TokenizeStringResult _tokenizeString(
 
 			if (!hasAdvanced && popped.getEnterPos() == linePos) {
 				// Grammar pushed & popped a rule without advancing
-				if (DebugFlags.InDebugMode) {
+				if (is_debug()) {
 					console.error(
 						"[1] - Grammar is in an endless loop - Grammar pushed & popped a rule without advancing"
 					);
@@ -4281,20 +4287,20 @@ TokenizeStringResult _tokenizeString(
 				// Let's assume this was a mistake by the grammar author and the intent was to continue in this state
 				stack = popped;
 
-				lineTokens.produce(stack, lineLength);
+				lineTokens->produce(stack, lineLength);
 				STOP = true;
 				return;
 			}
 		} else {
 			// We matched a rule!
-			const _rule = grammar->getRule(matchedRuleId);
+			auto _rule = grammar->getRule(matchedRuleId);
 
-			lineTokens.produce(stack, captureIndices[0].start);
+			lineTokens->produce(stack, captureIndices[0].start);
 
-			const beforePush = stack;
+			auto beforePush = stack;
 			// push it on the stack rule
-			const scopeName = _rule.getName(lineText.content, captureIndices);
-			const nameScopesList = stack.contentNameScopesList.pushAttributed(
+			ScopePath scopeName = _rule.getName(lineText.content, captureIndices);
+			AttributedScopeStack nameScopesList = stack->contentNameScopesList->pushAttributed(
 				scopeName,
 				grammar
 			);
@@ -4328,7 +4334,7 @@ TokenizeStringResult _tokenizeString(
 					pushedRule.beginCaptures,
 					captureIndices
 				);
-				lineTokens.produce(stack, captureIndices[0].end);
+				lineTokens->produce(stack, captureIndices[0].end);
 				anchorPosition = captureIndices[0].end;
 
 				const contentName = pushedRule.getContentName(
@@ -4358,7 +4364,7 @@ TokenizeStringResult _tokenizeString(
 						);
 					}
 					stack = stack.pop();
-					lineTokens.produce(stack, lineLength);
+					lineTokens->produce(stack, lineLength);
 					STOP = true;
 					return;
 				}
@@ -4377,7 +4383,7 @@ TokenizeStringResult _tokenizeString(
 					pushedRule.beginCaptures,
 					captureIndices
 				);
-				lineTokens.produce(stack, captureIndices[0].end);
+				lineTokens->produce(stack, captureIndices[0].end);
 				anchorPosition = captureIndices[0].end;
 				const contentName = pushedRule.getContentName(
 					lineText.content,
@@ -4406,7 +4412,7 @@ TokenizeStringResult _tokenizeString(
 						);
 					}
 					stack = stack.pop();
-					lineTokens.produce(stack, lineLength);
+					lineTokens->produce(stack, lineLength);
 					STOP = true;
 					return;
 				}
@@ -4430,7 +4436,7 @@ TokenizeStringResult _tokenizeString(
 					matchingRule.captures,
 					captureIndices
 				);
-				lineTokens.produce(stack, captureIndices[0].end);
+				lineTokens->produce(stack, captureIndices[0].end);
 
 				// pop rule immediately since it is a MatchRule
 				stack = stack.pop();
@@ -4443,7 +4449,7 @@ TokenizeStringResult _tokenizeString(
 						);
 					}
 					stack = stack.safePop();
-					lineTokens.produce(stack, lineLength);
+					lineTokens->produce(stack, lineLength);
 					STOP = true;
 					return;
 				}
