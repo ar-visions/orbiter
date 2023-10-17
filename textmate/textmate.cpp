@@ -1434,6 +1434,15 @@ struct OnigLib:mx {
 	mx_basic(OnigLib)
 };
 
+static OnigLib oni_lib = OnigLib::members {
+	.createOnigScanner = [](array<str> sources) -> OnigScanner {
+		return OnigScanner(sources);
+	},
+	.createOnigString = [](str string) -> OnigString {
+		return string;
+	}
+};
+
 // This is a special constant to indicate that the end regexp matched.
 static const num endRuleId = -1;
 
@@ -1496,7 +1505,7 @@ struct CompiledRule:mx {
 
 	CompiledRule(null_t) : CompiledRule() { }
 
-	CompiledRule(OnigLib oni_lib, array<utf16> regExps, array<RuleId> rules) : CompiledRule() {
+	CompiledRule(array<utf16> regExps, array<RuleId> rules) : CompiledRule() {
 		data->scanner = oni_lib->createOnigScanner(regExps);
 		data->regExps = regExps;
 		data->rules   = rules;
@@ -1731,11 +1740,11 @@ struct RegExpSourceList:mx {
 			}
 		}
 
-		CompiledRule _resolveAnchors(OnigLib oni_lib, bool allowA, bool allowG) {
+		CompiledRule _resolveAnchors(bool allowA, bool allowG) {
 			array<utf16> regExps = _items.map<utf16>([&](RegExpSource e) -> utf16 {
 				return e->resolveAnchors(allowA, allowG);
 			});
-			return CompiledRule(oni_lib, regExps, _items.map<RuleId>([](RegExpSource &e) -> RuleId {
+			return CompiledRule(regExps, _items.map<RuleId>([](RegExpSource &e) -> RuleId {
 				return e->ruleId;
 			}));
 		}
@@ -1744,14 +1753,14 @@ struct RegExpSourceList:mx {
 	mx_basic(RegExpSourceList)
 
 
-	CompiledRule compile(OnigLib oni_lib) {
+	CompiledRule compile() {
 		if (!data->_cached) {
 			array<utf16> regExps = data->_items.map<utf16>(
 				[](RegExpSource e) -> utf16 {
 					return e->source;
 				}
 			);
-			data->_cached = CompiledRule(oni_lib, regExps, data->_items.map<RuleId>(
+			data->_cached = CompiledRule(regExps, data->_items.map<RuleId>(
 				[](RegExpSource e) -> RuleId {
 					return e->ruleId;
 				}
@@ -1760,31 +1769,31 @@ struct RegExpSourceList:mx {
 		return data->_cached;
 	}
 
-	CompiledRule compileAG(OnigLib oni_lib, bool allowA, bool allowG) {
+	CompiledRule compileAG(bool allowA, bool allowG) {
 		if (!data->_hasAnchors) {
-			return compile(oni_lib);
+			return compile();
 		} else {
 			if (allowA) {
 				if (allowG) {
 					if (!data->_anchorCache.A1_G1) {
-						data->_anchorCache.A1_G1 = data->_resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A1_G1 = data->_resolveAnchors(allowA, allowG);
 					}
 					return data->_anchorCache.A1_G1;
 				} else {
 					if (!data->_anchorCache.A1_G0) {
-						data->_anchorCache.A1_G0 = data->_resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A1_G0 = data->_resolveAnchors(allowA, allowG);
 					}
 					return data->_anchorCache.A1_G0;
 				}
 			} else {
 				if (allowG) {
 					if (!data->_anchorCache.A0_G1) {
-						data->_anchorCache.A0_G1 = data->_resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A0_G1 = data->_resolveAnchors(allowA, allowG);
 					}
 					return data->_anchorCache.A0_G1;
 				} else {
 					if (!data->_anchorCache.A0_G0) {
-						data->_anchorCache.A0_G0 = data->_resolveAnchors(oni_lib, allowA, allowG);
+						data->_anchorCache.A0_G0 = data->_resolveAnchors(allowA, allowG);
 					}
 					return data->_anchorCache.A0_G0;
 				}
@@ -1814,23 +1823,6 @@ struct Rule:mx {
 				return fmt {"{0}:{1}", { basename(_location->filename), _location->line }};
 			return str("unknown");
 		}
-
-		utf16 getName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-			if (!_nameIsCapturing || !_name || !lineText || !captureIndices) {
-				return _name;
-			}
-			/// not used in cpp.json
-			return RegexSource::replaceCaptures(_name, lineText, captureIndices);
-		}
-
-		utf16 getContentName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-			if (!_contentNameIsCapturing || !_contentName) {
-				return _contentName;
-			}
-			/// not used in cpp.json
-			return RegexSource::replaceCaptures(_contentName, lineText, captureIndices);
-		}
-
 	};
 
 	mx_basic(Rule);
@@ -1846,6 +1838,22 @@ struct Rule:mx {
 
 	Rule(ILocation &_location, RuleId id, utf16 name, utf16 contentName) : Rule() {
 		init(_location, id, name, contentName);
+	}
+
+	utf16 getName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+		if (!data->_nameIsCapturing || !data->_name || !lineText || !captureIndices) {
+			return data->_name;
+		}
+		/// not used in cpp.json
+		return RegexSource::replaceCaptures(data->_name, lineText, captureIndices);
+	}
+
+	utf16 getContentName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+		if (!data->_contentNameIsCapturing || !data->_contentName) {
+			return data->_contentName;
+		}
+		/// not used in cpp.json
+		return RegexSource::replaceCaptures(data->_contentName, lineText, captureIndices);
 	}
 
 	virtual void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) { };
@@ -1958,12 +1966,12 @@ struct MatchRule:Rule {
 		out->push(data->_match);
 	}
 
-	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
-		return data->_getCachedCompiledPatterns(grammar).compile(oni_lib);
+	CompiledRule compile(RuleRegistry grammar, utf16 endRegexSource) {
+		return data->_getCachedCompiledPatterns(grammar).compile();
 	}
 
-	CompiledRule compileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return data->_getCachedCompiledPatterns(grammar).compileAG(oni_lib, allowA, allowG);
+	CompiledRule compileAG(RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+		return data->_getCachedCompiledPatterns(grammar).compileAG(allowA, allowG);
 	}
 };
 
@@ -2007,12 +2015,12 @@ struct IncludeOnlyRule:Rule {
 		}
 	}
 
-	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
-		return data->_getCachedCompiledPatterns(grammar).compile(oni_lib);
+	CompiledRule compile(RuleRegistry grammar, utf16 endRegexSource) {
+		return data->_getCachedCompiledPatterns(grammar).compile();
 	}
 
-	CompiledRule compileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return data->_getCachedCompiledPatterns(grammar).compileAG(oni_lib, allowA, allowG);
+	CompiledRule compileAG(RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+		return data->_getCachedCompiledPatterns(grammar).compileAG(allowA, allowG);
 	}
 };
 
@@ -2097,12 +2105,12 @@ struct BeginEndRule:Rule {
 		out->push(data->_begin);
 	}
 
-	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
-		return data->_getCachedCompiledPatterns(grammar, endRegexSource).compile(oni_lib);
+	CompiledRule compile(RuleRegistry grammar, utf16 endRegexSource) {
+		return data->_getCachedCompiledPatterns(grammar, endRegexSource).compile();
 	}
 
-	CompiledRule compileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return data->_getCachedCompiledPatterns(grammar, endRegexSource).compileAG(oni_lib, allowA, allowG);
+	CompiledRule compileAG(RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+		return data->_getCachedCompiledPatterns(grammar, endRegexSource).compileAG(allowA, allowG);
 	}
 };
 
@@ -2155,15 +2163,15 @@ struct BeginWhileRule : Rule {
 			return _cachedCompiledPatterns;
 		}
 
-		CompiledRule compileWhile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
-			return _getCachedCompiledWhilePatterns(oni_lib, endRegexSource).compile(oni_lib);
+		CompiledRule compileWhile(RuleRegistry grammar, utf16 endRegexSource) {
+			return _getCachedCompiledWhilePatterns(endRegexSource).compile();
 		}
 
-		CompiledRule compileWhileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-			return _getCachedCompiledWhilePatterns(oni_lib, endRegexSource).compileAG(oni_lib, allowA, allowG);
+		CompiledRule compileWhileAG(RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+			return _getCachedCompiledWhilePatterns(endRegexSource).compileAG(allowA, allowG);
 		}
 
-		RegExpSourceList _getCachedCompiledWhilePatterns(OnigLib oni_lib, utf16 endRegexSource) {
+		RegExpSourceList _getCachedCompiledWhilePatterns(utf16 endRegexSource) {
 			if (!_cachedCompiledWhilePatterns) {
 				_cachedCompiledWhilePatterns = RegExpSourceList();
 				_cachedCompiledWhilePatterns->push(_while->hasBackReferences ? _while->clone() : _while);
@@ -2199,12 +2207,12 @@ struct BeginWhileRule : Rule {
 		out->push(data->_begin);
 	}
 
-	CompiledRule compile(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource) {
-		return data->_getCachedCompiledPatterns(grammar).compile(oni_lib);
+	CompiledRule compile(RuleRegistry grammar, utf16 endRegexSource) {
+		return data->_getCachedCompiledPatterns(grammar).compile();
 	}
 
-	CompiledRule compileAG(OnigLib oni_lib, RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
-		return data->_getCachedCompiledPatterns(grammar).compileAG(oni_lib, allowA, allowG);
+	CompiledRule compileAG(RuleRegistry grammar, utf16 endRegexSource, bool allowA, bool allowG) {
+		return data->_getCachedCompiledPatterns(grammar).compileAG(allowA, allowG);
 	}
 };
 
@@ -2552,7 +2560,7 @@ struct BasicScopeAttributesProvider:mx {
 		}
 
 		static OptionalStandardTokenType _toStandardTokenType(ScopeName scopeName) { /// shouldnt need utf16 here
-			array<str> m = BasicScopeAttributesProvider::STANDARD_TOKEN_TYPE_REGEXP.exec(scopeName);
+			array<str> m = BasicScopeAttributesProvider::members::STANDARD_TOKEN_TYPE_REGEXP.exec(scopeName);
 			if (!m)
 				return OptionalStandardTokenType::NotSet;
 			
@@ -2721,6 +2729,7 @@ struct AttributedScopeStack:mx {
 
 struct StateStackImpl:mx {
 	struct members {
+		mx   self;
 		mx   parent;
 		num _enterPos;
 		num _anchorPos;
@@ -2754,7 +2763,7 @@ struct StateStackImpl:mx {
 			if (!other) {
 				return false;
 			}
-			return StateStackImpl::_equals(*this, other);
+			return StateStackImpl::members::_equals(*this, other);
 		}
 
 		static bool _equals(StateStackImpl a, StateStackImpl b) {
@@ -2805,7 +2814,8 @@ struct StateStackImpl:mx {
 		}
 
 		void reset() {
-			StateStackImpl::_reset(*this);
+			StateStackImpl s = self.grab();
+			StateStackImpl::members::_reset(s);
 		}
 
 		StateStackImpl pop() {
@@ -2829,7 +2839,7 @@ struct StateStackImpl:mx {
 			AttributedScopeStack contentNameScopesList
 		) {
 			return StateStackImpl(
-				*this,
+				self,
 				ruleId,
 				enterPos,
 				anchorPos,
@@ -2861,7 +2871,7 @@ struct StateStackImpl:mx {
 		num _writeString(array<utf16> res, num outIndex) {
 			if (parent) {
 				StateStackImpl s = parent.grab();
-				outIndex = s._writeString(res, outIndex);
+				outIndex = s->_writeString(res, outIndex);
 			}
 
 			utf16 f = fmt {"({0}, {1}, {2})", {
@@ -2877,7 +2887,7 @@ struct StateStackImpl:mx {
 			if (contentNameScopesList == contentNameScopeStack)
 				return *this;
 			StateStackImpl p = parent.grab();
-			return p.push(
+			return p->push(
 				ruleId,
 				_enterPos,
 				_anchorPos,
@@ -2919,7 +2929,7 @@ struct StateStackImpl:mx {
 		StateStackFrame toStateStackFrame() {
 			StateStackImpl parent = parent.grab();
 			AttributedScopeStack scope_list = nameScopesList ? 
-					nameScopesList.getExtensionIfDefined(
+					nameScopesList->getExtensionIfDefined(
 						bool(parent) ? parent->nameScopesList : null) : null;
 			
 			return StateStackFrame::members {
@@ -2928,7 +2938,7 @@ struct StateStackImpl:mx {
 				.endRule 				= endRule,
 				.nameScopesList 		= scope_list,
 				.contentNameScopesList 	= contentNameScopesList ? 
-					contentNameScopesList.getExtensionIfDefined(nameScopesList) : null,
+					contentNameScopesList->getExtensionIfDefined(nameScopesList) : null,
 			};
 		}
 		
@@ -2952,6 +2962,7 @@ struct StateStackImpl:mx {
 		AttributedScopeStack contentNameScopesList) : StateStackImpl() {
 		assert(parent.type() == typeof(StateStackImpl));
 
+		data->self = mem;
 		data->parent = parent.grab();
 		if (data->parent) {
 			StateStackImpl parent = parent.grab();
@@ -3284,7 +3295,7 @@ struct LineTokens:mx {
 			   !data->balancedBracketSelectors.matchesAlways() && 
 			   !data->balancedBracketSelectors.matchesNever())) {
 				// Only generate scope array when required to improve performance
-				array<ScopeName> scopes = scopesList ? scopesList.getScopeNames() : array<ScopeName>();
+				array<ScopeName> scopes = scopesList ? scopesList->getScopeNames() : array<ScopeName>();
 				for (auto &tokenType: data->_tokenTypeOverrides) {
 					if (tokenType.matcher(scopes)) {
 						metadata = EncodedTokenAttributes::set(
@@ -3322,7 +3333,7 @@ struct LineTokens:mx {
 			}
 
 			if (is_debug()) {
-				array<str> scopes = scopesList ? scopesList.getScopeNames() : array<str>();
+				array<str> scopes = scopesList ? scopesList->getScopeNames() : array<str>();
 				RegEx      regex  = RegEx(R"(\n$)");
 				utf16      txt    = data->_lineText.mid(data->_lastTokenEndIndex, endIndex - data->_lastTokenEndIndex);
 				console.log("  token: |{0}|", { regex.replace(txt, "\\n") });
@@ -3452,14 +3463,13 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		ThemeProvider 			 theme_provider;
 		var 					_grammar;
 		array<Injection>		_injections;
-		OnigLib					oni_lib;
 		
 		BasicScopeAttributesProvider _basicScopeAttributesProvider;
 		array<TokenTypeMatcher> 	 _tokenTypeMatchers;
 
 
 		BasicScopeAttributes getMetadataForScope(str scope) {
-			return _basicScopeAttributesProvider.getBasicScopeAttributes(scope);
+			return _basicScopeAttributesProvider->getBasicScopeAttributes(scope);
 		}
 
 		bool nameMatcher(array<ScopeName> identifers, array<ScopeName> scopes) {
@@ -3485,9 +3495,9 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				Injection inj = Injection::members {
 					.debugSelector = selector,
 					.matcher = matcher->matcher,
+					.priority = matcher->priority,
 					.ruleId = ruleId,
-					.grammar = grammar,
-					.priority = matcher->priority
+					.grammar = grammar
 				};
 				result.push(inj);
 			}
@@ -3612,6 +3622,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			bool emitBinaryTokens,
 			num timeLimit
 		) {
+			Grammar gself = self.grab();
 			if (_rootId == -1) {
 				mx r = _grammar["repository"];
 				mx s = _grammar["repository"]["$self"]; /// todo: debug this
@@ -3625,7 +3636,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			}
 
 			bool isFirstLine;
-			if (!prevState || prevState == StateStackImpl::members::NULL) {
+			if (!prevState) { /// was checking for token NULL here (not present)
 				isFirstLine = true;
 				//const rawDefaultMetadata =
 				//	_basicScopeAttributesProvider.getDefaultAttributes();
@@ -3640,9 +3651,9 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 					defaultStyle->backgroundId
 				);
 
-				auto rootScopeName = getRule(_rootId).getName(
-					null,
-					null
+				auto rootScopeName = helper->rule_reg->getRule(_rootId).getName(
+					utf16(),
+					{}
 				);
 
 				AttributedScopeStack scopeList;
@@ -3650,7 +3661,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 					scopeList = AttributedScopeStack::members::createRootAndLookUpScopeName(
 						rootScopeName,
 						defaultMetadata,
-						this
+						gself
 					);
 				} else {
 					scopeList = AttributedScopeStack::members::createRoot(
@@ -3675,7 +3686,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			}
 
 			lineText = lineText + "\n";
-			num   lineLength = lineText.len()
+			num   lineLength = lineText.len();
 			auto lineTokens = LineTokens(
 				emitBinaryTokens,
 				lineText,
@@ -3685,7 +3696,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			Grammar g = self.grab();
 			auto r = _tokenizeString(
 				g,
-				onigLineText,
+				lineText,
 				isFirstLine,
 				0,
 				prevState,
@@ -3702,13 +3713,6 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		}
 
 		void init() {
-			oni_lib->createOnigScanner = [](array<str> sources) -> OnigScanner {
-				return OnigScanner(sources);
-			};
-			oni_lib->createOnigString = [](str string) -> OnigString {
-				return string;
-			};
-
 			helper->grammar_reg->getExternalGrammar = [&](str scopeName, RawRepository repository) -> RawGrammar {
 				if (_includedGrammars[scopeName]) {
 					return _includedGrammars[scopeName];
@@ -3751,8 +3755,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		EmbeddedLanguagesMap     embeddedLanguages,
 		TokenTypeMap 			 tokenTypes,
 		BalancedBracketSelectors balancedBracketSelectors,
-		GrammarRepository 		 grammar_repo,
-		OnigLib 			     oni_lib
+		GrammarRepository 		 grammar_repo
 		)
 	{
 		data->self = mem;
@@ -3769,7 +3772,6 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		data->_grammar 					= grammar;
 		data->balancedBracketSelectors 	= balancedBracketSelectors;
 		data->grammar_repo 				= grammar_repo; /// this needs to be mx with SyncRegistry
-		data->oni_lib 					= oni_lib;
 
 		if (tokenTypes) {
 			array<str> keys = tokenTypes.keys<str>();
@@ -3822,19 +3824,21 @@ AttributedScopeStack AttributedScopeStack::members::createRootAndLookUpScopeName
 AttributedScopeStack AttributedScopeStack::members::_pushAttributed(
 	AttributedScopeStack target,
 	ScopeName scopeName,
-	Grammar &grammar,
-) {
+	Grammar &grammar) {
 	auto rawMetadata = grammar->getMetadataForScope(scopeName);
 
 	auto newPath = target->scopePath.push(scopeName);
 	auto scopeThemeMatchResult =
 		grammar->theme_provider->themeMatch(newPath);
 	auto metadata = AttributedScopeStack::members::mergeAttributes(
-		target.tokenAttributes,
+		target->tokenAttributes,
 		rawMetadata,
 		scopeThemeMatchResult
 	);
-	return AttributedScopeStack(target, newPath, metadata);
+	return AttributedScopeStack(
+		AttributedScopeStack::members {
+			target, newPath, metadata
+		});
 }
 
 struct StackDiff {
@@ -3859,8 +3863,9 @@ StackDiff diffStateStacksRefEq(StateStackImpl first, StateStackImpl second) {
 		} else {
 			// curSecond is certainly not contained in curFirst.
 			// Also, curSecond must be defined, as otherwise a previous case would match
-			newFrames.push(curSecond.toStateStackFrame());
-			curSecond = curSecond->parent;
+			StateStackFrame f = curSecond->toStateStackFrame();
+			newFrames.push(f);
+			curSecond = curSecond->parent.grab();
 		}
 	}
 	return {
@@ -3887,8 +3892,7 @@ Grammar createGrammar(
 	EmbeddedLanguagesMap embeddedLanguages,
 	TokenTypeMap tokenTypes,
 	BalancedBracketSelectors balancedBracketSelectors,
-	GrammarRepository grammar_repo,
-	OnigLib oni_lib
+	GrammarRepository grammar_repo
 ) {
 	return Grammar(
 		scopeName,
@@ -3897,19 +3901,19 @@ Grammar createGrammar(
 		embeddedLanguages,
 		tokenTypes,
 		balancedBracketSelectors,
-		grammar_repo,
-		oni_lib
+		grammar_repo
 	); //TODO
 }
 
 struct SyncRegistry : mx {
 	struct members {
-		GrammarRepository grammar_repo;
-		ion::map<Grammar> _grammars;
-		ion::map<RawGrammar> _rawGrammars; /// must be allocated and stored unless this is primary store
-		ion::map<array<ScopeName>> _injectionGrammars;
-		Theme _theme;
-		ThemeProvider theme_provider;
+		GrammarRepository 	grammar_repo;
+		map<Grammar> 		_grammars;
+		map<RawGrammar> 	_rawGrammars; /// must be allocated and stored unless this is primary store
+		map<array<ScopeName>> _injectionGrammars;
+		Theme 				_theme;
+		ThemeProvider 		theme_provider;
+
 		register(members)
 
 		void setTheme(Theme theme) {
@@ -3917,7 +3921,7 @@ struct SyncRegistry : mx {
 		}
 
 		array<str> getColorMap() {
-			return _theme.getColorMap();
+			return _theme->getColorMap();
 		}
 
 		/**
@@ -3933,34 +3937,34 @@ struct SyncRegistry : mx {
 		/**
 		 * Lookup a grammar.
 		 */
-		Grammar &grammarForScopeName(
+		Grammar grammarForScopeName(
 			ScopeName 					scopeName,
 			num 						initialLanguage,
 			EmbeddedLanguagesMap 		embeddedLanguages,
 			TokenTypeMap 				tokenTypes,
 			BalancedBracketSelectors 	balancedBracketSelectors
 		) {
-			if (!_grammars.has(scopeName)) {
-				auto rawGrammar = _rawGrammars.get(scopeName);
-				if (!rawGrammar) {
-					return null;
+			if (!_grammars->count(scopeName)) {
+				field<RawGrammar> *f = _rawGrammars->lookup(scopeName);
+				if (!f) {
+					return Grammar {};
 				}
-				_grammars.set(scopeName, createGrammar(
+				_grammars[scopeName] = createGrammar(
 					scopeName,
-					rawGrammar,
+					f->value,
 					initialLanguage,
 					embeddedLanguages,
 					tokenTypes,
 					balancedBracketSelectors,
-					this
-				));
+					grammar_repo
+				);
 			}
 			return _grammars[scopeName];
 		}
 
 		void init() {
 			grammar_repo->lookup = [&](ScopeName scopeName) -> RawGrammar {
-				field<RawGrammar> *f = _rawGrammars.lookup(scopeName);
+				field<RawGrammar> *f = _rawGrammars->lookup(scopeName);
 				return f ? f->value : null;
 			};
 
@@ -3983,7 +3987,121 @@ struct SyncRegistry : mx {
 	SyncRegistry(Theme theme):SyncRegistry() {
 		data->_theme = theme;
 	}
+};
+
+struct IMatchInjectionsResult {
+	bool priorityMatch;
+	array<IOnigCaptureIndex> captureIndices;
+	RuleId matchedRuleId;
+};
+
+struct RuleSearch {
+	CompiledRule ruleScanner;
+	num findOptions;
+};
+
+RuleSearch prepareRuleSearch(Rule rule, Grammar grammar, str endRegexSource, bool allowA, bool allowG) {
+	CompiledRule ruleScanner = rule.compileAG(grammar->helper->rule_reg, endRegexSource, allowA, allowG);
+	return RuleSearch { ruleScanner, FindOption::None };
 }
+
+RuleSearch prepareRuleWhileSearch(BeginWhileRule rule, Grammar grammar, str endRegexSource, bool allowA, bool allowG) {
+	CompiledRule ruleScanner = rule->compileWhileAG(grammar->helper->rule_reg, endRegexSource, allowA, allowG);
+	return RuleSearch { ruleScanner, FindOption::None };
+}
+
+num getFindOptions(bool allowA, bool allowG) {
+	num options = (num)FindOption::None;
+	if (!allowA) {
+		options |= (num)FindOption::NotBeginString;
+	}
+	if (!allowG) {
+		options |= (num)FindOption::NotBeginPosition;
+	}
+	return options;
+}
+
+struct LocalStackElement {
+	AttributedScopeStack scopes;
+	num endPos;
+};
+
+void handleCaptures(Grammar grammar, OnigString lineText, 
+		bool isFirstLine, StateStackImpl stack, LineTokens lineTokens,
+		array<CaptureRule> captures, array<IOnigCaptureIndex> captureIndices) {
+	if (captures.len() == 0) {
+		return;
+	}
+	str lineTextContent = lineText;
+
+	size_t len = math::min(captures.len(), captureIndices.len());
+	array<LocalStackElement> localStack;
+	num maxEnd = captureIndices[0].end;
+
+	for (size_t i = 0; i < len; i++) {
+		CaptureRule &captureRule = captures[i];
+		if (!captureRule) {
+			// Not interested
+			continue;
+		}
+
+		IOnigCaptureIndex &captureIndex = captureIndices[i];
+
+		if (captureIndex.length == 0) {
+			// Nothing really captured
+			continue;
+		}
+
+		if (captureIndex.start > maxEnd) {
+			// Capture going beyond consumed string
+			break;
+		}
+
+		// pop captures while needed
+		while (localStack.len() > 0 && localStack[localStack.len() - 1].endPos <= captureIndex.start) {
+			// pop!
+			lineTokens.produceFromScopes(localStack[localStack.len() - 1].scopes, localStack[localStack.len() - 1].endPos);
+			localStack.pop();
+		}
+
+		if (localStack.len() > 0) {
+			lineTokens.produceFromScopes(localStack[localStack.len() - 1].scopes, captureIndex.start);
+		} else {
+			lineTokens.produce(stack, captureIndex.start);
+		}
+
+		if (captureRule->retokenizeCapturedWithRuleId) {
+			// the capture requires additional matching
+			utf16 scopeName = captureRule.getName(lineTextContent, captureIndices);
+			auto nameScopesList = stack->contentNameScopesList->pushAttributed(scopeName, grammar);
+			auto contentName = captureRule.getContentName(lineTextContent, captureIndices);
+			auto contentNameScopesList = nameScopesList->pushAttributed(contentName, grammar); /// todo: utf16 vs str here
+
+			auto stackClone = stack->push(captureRule->retokenizeCapturedWithRuleId,
+				captureIndex.start, -1, false, null, nameScopesList, contentNameScopesList);
+			auto onigSubStr = oni_lib->createOnigString(lineTextContent.mid(0, captureIndex.end));
+			_tokenizeString(grammar, onigSubStr, (isFirstLine && captureIndex.start == 0),
+				captureIndex.start, stackClone, lineTokens, false, /* no time limit */0);
+			//disposeOnigString(onigSubStr);
+			continue;
+		}
+
+		const captureRuleScopeName = captureRule.getName(lineTextContent, captureIndices);
+		if (captureRuleScopeName != null) {
+			// push
+			auto base = localStack.len() > 0 ? localStack[localStack.len() - 1].scopes : stack->contentNameScopesList;
+			auto captureRuleScopesList = base->pushAttributed(captureRuleScopeName, grammar);
+			localStack.push(LocalStackElement(captureRuleScopesList, captureIndex.end));
+		}
+	}
+
+	while (localStack.len() > 0) {
+		lineTokens->produceFromScopes(localStack[localStack.len() - 1].scopes, localStack[localStack.len() - 1].endPos);
+		localStack.pop();
+	}
+}
+
+
 
 struct IWhileStack:mx {
 	struct members {
@@ -3994,14 +4112,21 @@ struct IWhileStack:mx {
 	mx_basic(IWhileStack);
 };
 
+struct IWhileCheckResult {
+	StateStackImpl stack;
+	num linePos;
+	num anchorPosition;
+	bool isFirstLine;
+};
+
 IWhileCheckResult _checkWhileConditions(
 		Grammar &grammar, utf16 &lineText, bool isFirstLine,
 		num linePos, StateStackImpl stack, LineTokens &lineTokens) {
-	num anchorPosition = (stack.beginRuleCapturedEOL ? 0 : -1);
+	num anchorPosition = (stack->beginRuleCapturedEOL ? 0 : -1);
 
 	array<IWhileStack> whileRules;
 
-	for (StateStackImpl node = stack; node; node = node.pop()) {
+	for (StateStackImpl node = stack; node; node = node->pop()) {
 		mx nodeRule = node.getRule(grammar);
 		if (nodeRule.type() == typeof(BeginWhileRule)) {
 			whileRules.push(IWhileStack {
@@ -4011,8 +4136,10 @@ IWhileCheckResult _checkWhileConditions(
 		}
 	}
 
-	for (auto whileRule = whileRules.pop(); whileRules.len(); whileRule = whileRules.pop()) {
-		const { ruleScanner, findOptions } = prepareRuleWhileSearch(whileRule.rule, grammar, whileRule.stack.endRule, isFirstLine, linePos == anchorPosition);
+	/// simple iteration from last to 0
+	for (int i = int(whileRules.len()) - 1; i >= 0; i--) {
+		IWhileStack &whileRule = whileRules[i];
+		const { ruleScanner, findOptions } = prepareRuleWhileSearch(whileRule.rule, grammar, whileRule.stack->endRule, isFirstLine, linePos == anchorPosition);
 		const r = ruleScanner.findNextMatchSync(lineText, linePos, findOptions);
 		if (DebugFlags.InDebugMode) {
 			console.log('  scanning for while rule');
@@ -4023,25 +4150,25 @@ IWhileCheckResult _checkWhileConditions(
 			const matchedRuleId = r.ruleId;
 			if (matchedRuleId != whileRuleId) {
 				// we shouldn't end up here
-				stack = whileRule.stack.pop();
+				stack = whileRule.stack->pop();
 				break;
 			}
 			if (r.captureIndices && r.captureIndices.len()) {
-				lineTokens.produce(whileRule.stack, r.captureIndices[0].start);
-				handleCaptures(grammar, lineText, isFirstLine, whileRule.stack, lineTokens, whileRule.rule.whileCaptures, r.captureIndices);
-				lineTokens.produce(whileRule.stack, r.captureIndices[0].end);
-				anchorPosition = r.captureIndices[0].end;
-				if (r.captureIndices[0].end > linePos) {
-					linePos = r.captureIndices[0].end;
+				lineTokens.produce(whileRule.stack, r.captureIndices[0]->start);
+				handleCaptures(grammar, lineText, isFirstLine, whileRule.stack, lineTokens, whileRule.rule->whileCaptures, r.captureIndices);
+				lineTokens.produce(whileRule.stack, r.captureIndices[0]->end);
+				anchorPosition = r.captureIndices[0]->end;
+				if (r.captureIndices[0]->end > linePos) {
+					linePos = r.captureIndices[0]->end;
 					isFirstLine = false;
 				}
 			}
 		} else {
-			if (DebugFlags.InDebugMode) {
-				console.log('  popping ' + whileRule.rule.debugName() + ' - ' + whileRule.rule.debugWhileRegExp);
+			if (is_debug()) {
+				console.log("  popping {0} - {1}", { whileRule.rule->debugName(), whileRule.rule->debugWhileRegExp });
 			}
 
-			stack = whileRule.stack.pop();
+			stack = whileRule.stack->pop();
 			break;
 		}
 	}
@@ -4074,7 +4201,7 @@ TokenizeStringResult _tokenizeString(
 		anchorPosition = whileCheckResult.anchorPosition;
 	}
 
-	const startTime = Date.now();
+	auto startTime = millis();
 	auto scanNext = [&] () -> void {
 		if (is_debug()) {
 			console.log("");
@@ -4325,14 +4452,14 @@ TokenizeStringResult _tokenizeString(
 
 		if (captureIndices[0].end > linePos) {
 			// Advance stream
-			linePos = captureIndices[0].end;
+			linePos = captureIndices[0]->end;
 			isFirstLine = false;
 		}
 	};
 
 	while (!STOP) {
 		if (timeLimit != 0) {
-			const elapsedTime = Date.now() - startTime;
+			i64 elapsedTime = millis() - startTime;
 			if (elapsedTime > timeLimit) {
 				return TokenizeStringResult(stack, true);
 			}
@@ -4341,12 +4468,13 @@ TokenizeStringResult _tokenizeString(
 	}
 
 	return TokenizeStringResult(stack, false);
-}
+};
 
 struct Registry:mx {
 	struct members {
 		RegistryOptions _options;
 		SyncRegistry _syncRegistry;
+		
 		register(members)
 
 		void dispose() {
@@ -4468,7 +4596,7 @@ struct Registry:mx {
 			TokenTypeMap tokenTypes = null,
 			BalancedBracketSelectors balancedBracketSelectors = null
 		) {
-			return _syncRegistry.grammarForScopeName(
+			return _syncRegistry->grammarForScopeName(
 				scopeName,
 				initialLanguage,
 				embeddedLanguages,
