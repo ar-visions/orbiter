@@ -1,8 +1,6 @@
 #include <textmate/textmate.hpp>
 #include <regex/regex.hpp>
 
-#if 1
-
 namespace orbiter {
 
 using namespace ion;
@@ -479,7 +477,7 @@ struct ScopeStack:mx {
 	}
 
 	str toString() {
-		return getSegments().join(' ');
+		return getSegments().join(" ");
 	}
 
 	bool extends(ScopeStack other) {
@@ -600,7 +598,7 @@ array<ParsedThemeRule> parseTheme(IRawTheme &source) {
 			// remove trailing commans
 			_scope = _scope.replace(R"([,]+$)", "");
 
-			scopes = _scope.split(',');
+			scopes = _scope.split(",");
 		} else if (entry.scope.type()->traits & traits::array) {
 			scopes = entry.scope.grab();
 		} else {
@@ -4103,8 +4101,8 @@ void handleCaptures(Grammar grammar, OnigString lineText,
 		if (captureRuleScopeName) {
 			// push
 			auto base = localStack.len() > 0 ? localStack[localStack.len() - 1].scopes : stack->contentNameScopesList;
-			auto captureRuleScopesList = base->pushAttributed(captureRuleScopeName, grammar);
-			auto ls = LocalStackElement(captureRuleScopesList, captureIndex.end);
+			AttributedScopeStack captureRuleScopesList = base->pushAttributed(captureRuleScopeName, grammar);
+			auto ls = LocalStackElement { captureRuleScopesList, captureIndex.end };
 			localStack.push(ls);
 		}
 	}
@@ -4316,7 +4314,7 @@ MatchResult matchRuleOrInjections(Grammar grammar, OnigString lineText,
 		return matchResult;
 	}
 
-	IMatchInjectionsResult injectionResult = matchInjections(injections, grammar, lineText, isFirstLine, linePos, stack, anchorPosition);
+	MatchInjectionsResult injectionResult = matchInjections(injections, grammar, lineText, isFirstLine, linePos, stack, anchorPosition);
 	if (!injectionResult) {
 		// No injections matched => early return
 		return matchResult;
@@ -4328,10 +4326,10 @@ MatchResult matchRuleOrInjections(Grammar grammar, OnigString lineText,
 	}
 
 	// Decide if `matchResult` or `injectionResult` should win
-	auto matchResultScore = matchResult.captureIndices[0].start;
-	auto injectionResultScore = injectionResult.captureIndices[0].start;
+	auto matchResultScore = matchResult->captureIndices[0].start;
+	auto injectionResultScore = injectionResult->captureIndices[0].start;
 
-	if (injectionResultScore < matchResultScore || (injectionResult.priorityMatch && injectionResultScore == matchResultScore)) {
+	if (injectionResultScore < matchResultScore || (injectionResult->priorityMatch && injectionResultScore == matchResultScore)) {
 		// injection won!
 		return injectionResult;
 	}
@@ -4392,8 +4390,8 @@ TokenizeStringResult _tokenizeString(
 			return;
 		}
 
-		array<IOnigCaptureIndex> captureIndices = r.captureIndices;
-		auto matchedRuleId = r.matchedRuleId;
+		array<IOnigCaptureIndex> captureIndices = r->captureIndices;
+		auto matchedRuleId = r->matchedRuleId;
 
 		auto hasAdvanced =
 			captureIndices && captureIndices.len() > 0
@@ -4406,12 +4404,12 @@ TokenizeStringResult _tokenizeString(
 
 			if (is_debug()) {
 				console.log(
-					"  popping {0} - {1}", { poppedRule->debugName, poppedRule->debugEndRegExp }
+					"  popping {0} - {1}", { poppedRule.debugName(), poppedRule->debugEndRegExp() }
 				);
 			}
 
 			lineTokens->produce(stack, captureIndices[0].start);
-			stack = stack.withContentNameScopesList(stack->nameScopesList);
+			stack = stack->withContentNameScopesList(stack->nameScopesList);
 			handleCaptures(
 				grammar,
 				lineText,
@@ -4446,32 +4444,34 @@ TokenizeStringResult _tokenizeString(
 			}
 		} else {
 			// We matched a rule!
-			auto _rule = grammar->getRule(matchedRuleId);
+			auto _rule = grammar->helper->rule_reg->getRule(matchedRuleId);
 
 			lineTokens->produce(stack, captureIndices[0].start);
 
-			auto beforePush = stack;
+			StateStackImpl beforePush = stack;
 			// push it on the stack rule
-			ScopePath scopeName = _rule->getName(lineText.content, captureIndices);
+			ScopePath scopeName = _rule.getName(lineText, captureIndices);
 			AttributedScopeStack nameScopesList = stack->contentNameScopesList->pushAttributed(
 				scopeName,
 				grammar
 			);
-			stack = stack.push(
+			stack = stack->push(
 				matchedRuleId,
 				linePos,
 				anchorPosition,
 				captureIndices[0].end == lineLength,
-				null,
+				utf16(),
 				nameScopesList,
 				nameScopesList
 			);
 
 			if (_rule.type() == typeof(BeginEndRule)) { /// operator overload at static, at the class is nice for address of type or to check against type
 				auto pushedRule = _rule;
-				if (DebugFlags.InDebugMode) {
+				BeginEndRule  b = _rule.grab();
+				if (is_debug()) {
+					
 					console.log(
-						"  pushing {0} - {1}", { pushedRule.debugName, pushedRule.debugBeginRegExp }
+						"  pushing {0} - {1}", { b.debugName(), b->debugBeginRegExp() }
 					);
 				}
 
@@ -4481,13 +4481,13 @@ TokenizeStringResult _tokenizeString(
 					isFirstLine,
 					stack,
 					lineTokens,
-					pushedRule.beginCaptures,
+					b->beginCaptures,
 					captureIndices
 				);
 				lineTokens->produce(stack, captureIndices[0].end);
 				anchorPosition = captureIndices[0].end;
 
-				auto contentName = pushedRule->getContentName(
+				auto contentName = b.getContentName(
 					lineText, captureIndices
 				);
 				auto contentNameScopesList = nameScopesList->pushAttributed(
@@ -4496,30 +4496,30 @@ TokenizeStringResult _tokenizeString(
 				);
 				stack = stack->withContentNameScopesList(contentNameScopesList);
 
-				if (pushedRule->endHasBackReferences) {
+				if (b->endHasBackReferences) {
 					stack = stack->withEndRule(
-						pushedRule->getEndWithResolvedBackReferences(
+						b->getEndWithResolvedBackReferences(
 							lineText, captureIndices
 						)
 					);
 				}
 
-				if (!hasAdvanced && beforePush.hasSameRuleAs(stack)) {
+				if (!hasAdvanced && beforePush->hasSameRuleAs(stack)) {
 					// Grammar pushed the same rule without advancing
-					if (DebugFlags.InDebugMode) {
+					if (is_debug()) {
 						console.error(
 							"[2] - Grammar is in an endless loop - Grammar pushed the same rule without advancing"
 						);
 					}
-					stack = stack.pop();
+					stack = stack->pop();
 					lineTokens->produce(stack, lineLength);
 					STOP = true;
 					return;
 				}
 			} else if (_rule.type() == typeof(BeginWhileRule)) {
 				BeginWhileRule pushedRule = BeginWhileRule(_rule.grab());
-				if (DebugFlags.InDebugMode) {
-					console.log("  pushing " + pushedRule.debugName());
+				if (is_debug()) {
+					console.log("  pushing {0}", { pushedRule.debugName() });
 				}
 
 				handleCaptures(
@@ -4528,25 +4528,25 @@ TokenizeStringResult _tokenizeString(
 					isFirstLine,
 					stack,
 					lineTokens,
-					pushedRule.beginCaptures,
+					pushedRule->beginCaptures,
 					captureIndices
 				);
 				lineTokens->produce(stack, captureIndices[0].end);
 				anchorPosition = captureIndices[0].end;
 				auto contentName = pushedRule.getContentName(
-					lineText.content,
+					lineText,
 					captureIndices
 				);
-				auto contentNameScopesList = nameScopesList.pushAttributed(
+				auto contentNameScopesList = nameScopesList->pushAttributed(
 					contentName,
 					grammar
 				);
 				stack = stack->withContentNameScopesList(contentNameScopesList);
 
-				if (pushedRule.whileHasBackReferences) {
+				if (pushedRule->whileHasBackReferences) {
 					stack = stack->withEndRule(
-						pushedRule.getWhileWithResolvedBackReferences(
-							lineText.content,
+						pushedRule->getWhileWithResolvedBackReferences(
+							lineText,
 							captureIndices
 						)
 					);
@@ -4559,18 +4559,18 @@ TokenizeStringResult _tokenizeString(
 							"[3] - Grammar is in an endless loop - Grammar pushed the same rule without advancing"
 						);
 					}
-					stack = stack.pop();
+					stack = stack->pop();
 					lineTokens->produce(stack, lineLength);
 					STOP = true;
 					return;
 				}
 			} else {
 				MatchRule matchingRule = MatchRule(_rule.grab());
-				if (is_debig()) {
+				if (is_debug()) {
 					console.log(
 						"  matched {0} - {1}", {
 							matchingRule.debugName(),
-							matchingRule.debugMatchRegExp
+							matchingRule->debugMatchRegExp()
 						}
 					);
 				}
@@ -4581,7 +4581,7 @@ TokenizeStringResult _tokenizeString(
 					isFirstLine,
 					stack,
 					lineTokens,
-					matchingRule.captures,
+					matchingRule->captures,
 					captureIndices
 				);
 				lineTokens->produce(stack, captureIndices[0].end);
@@ -4615,13 +4615,20 @@ TokenizeStringResult _tokenizeString(
 		if (timeLimit != 0) {
 			i64 elapsedTime = millis() - startTime;
 			if (elapsedTime > timeLimit) {
-				return TokenizeStringResult(stack, true);
+				return TokenizeStringResult { stack, true };
 			}
 		}
 		scanNext(); // potentially modifies linePos && anchorPosition
 	}
 
-	return TokenizeStringResult(stack, false);
+	return TokenizeStringResult { stack, false };
+};
+
+struct IGrammarConfiguration {
+	EmbeddedLanguagesMap embeddedLanguages;
+	TokenTypeMap tokenTypes;
+	array<str> balancedBracketSelectors;
+	array<str> unbalancedBracketSelectors;
 };
 
 struct Registry:mx {
@@ -4640,7 +4647,7 @@ struct Registry:mx {
 		 * Change the theme. Once called, no previous `ruleStack` should be used anymore.
 		 */
 		void setTheme(IRawTheme &theme, array<str> colorMap = {}) {
-			_syncRegistry->setTheme(Theme.createFromRawTheme(theme, colorMap));
+			_syncRegistry->setTheme(Theme::members::createFromRawTheme(theme, colorMap));
 		}
 
 		/**
@@ -4657,9 +4664,12 @@ struct Registry:mx {
 		Grammar loadGrammarWithEmbeddedLanguages(
 			ScopeName initialScopeName,
 			num initialLanguage,
-			EmbeddedLanguagesMap &embeddedLanguages // never pass the structs
+			EmbeddedLanguagesMap &embeddedLanguages // output
 		) {
-			return loadGrammarWithConfiguration(initialScopeName, initialLanguage, { embeddedLanguages });
+			IGrammarConfiguration gc = IGrammarConfiguration {
+				.embeddedLanguages = embeddedLanguages 
+			};
+			return loadGrammarWithConfiguration(initialScopeName, initialLanguage, gc);
 		}
 
 		/**
@@ -4683,23 +4693,20 @@ struct Registry:mx {
 			);
 		}
 
-		/**
-		 * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
-		 */
-		Grammar loadGrammar(ScopeName initialScopeName) {
-			return _loadGrammar(initialScopeName, 0, null, null, null);
-		}
-
 		Grammar _loadGrammar(
 			ScopeName 					initialScopeName,
 			num 						initialLanguage,
-			EmbeddedLanguagesMap 	   &embeddedLanguages,
-			TokenTypeMap 			   &tokenTypes,
+			EmbeddedLanguagesMap 	    embeddedLanguages,
+			TokenTypeMap 			    tokenTypes,
 			BalancedBracketSelectors 	balancedBracketSelectors
 		) {
 			ScopeDependencyProcessor dependencyProcessor(_syncRegistry, initialScopeName);
-			while (dependencyProcessor.Q.length > 0) {
-				await Promise.all(dependencyProcessor->Q->map((request) => _loadSingleGrammar(request.scopeName)));
+			while (dependencyProcessor->Q.len() > 0) {
+				dependencyProcessor->Q.map<Grammar>(
+					[&](TopLevelRuleReference request) -> Grammar {
+						return _loadSingleGrammar(request->scopeName);
+					}
+				);
 				dependencyProcessor->processQueue();
 			}
 
@@ -4712,6 +4719,14 @@ struct Registry:mx {
 			);
 		}
 
+		/**
+		 * Load the grammar for `scopeName` and all referenced included grammars asynchronously.
+		 */
+		Grammar loadGrammar(ScopeName initialScopeName) {
+			return _loadGrammar(initialScopeName, 0, EmbeddedLanguagesMap(), TokenTypeMap(),
+				BalancedBracketSelectors());
+		}
+
 		/// convert all async functions to sync; not a problem
 
 		Grammar _loadSingleGrammar(ScopeName scopeName) {
@@ -4722,22 +4737,22 @@ struct Registry:mx {
 			Grammar grammar = _options.loadGrammar(scopeName);
 			lambda<array<ScopeName>(ScopeName)> injections =
 				_options.getInjections.type() == typeof(lambda<array<ScopeName>(ScopeName)>) ?
-					_options.getInjections(scopeName) : {};
-			_syncRegistry.addGrammar(grammar, injections);
+					_options.getInjections(scopeName) : array<ScopeName> {};
+			_syncRegistry->addGrammar(grammar, injections);
 			return grammar;
 		}
 
 		/**
 		 * Adds a rawGrammar.
 		 */
-		void addGrammar(
+		Grammar addGrammar(
 			RawGrammar rawGrammar,
 			array<str> injections = {},
 			num initialLanguage = 0,
-			EmbeddedLanguagesMap embeddedLanguages = null)
+			EmbeddedLanguagesMap embeddedLanguages = {})
 		{
-			_syncRegistry.addGrammar(rawGrammar, injections);
-			return _grammarForScopeName(rawGrammar.scopeName, initialLanguage, embeddedLanguages);
+			_syncRegistry->addGrammar(rawGrammar, injections);
+			return _grammarForScopeName(rawGrammar->scopeName, initialLanguage, embeddedLanguages);
 		}
 
 		/**
@@ -4746,9 +4761,9 @@ struct Registry:mx {
 		Grammar _grammarForScopeName(
 			str scopeName,
 			num initialLanguage = 0,
-			EmbeddedLanguagesMap embeddedLanguages = null,
-			TokenTypeMap tokenTypes = null,
-			BalancedBracketSelectors balancedBracketSelectors = null
+			EmbeddedLanguagesMap embeddedLanguages = {},
+			TokenTypeMap tokenTypes = {},
+			BalancedBracketSelectors balancedBracketSelectors = {}
 		) {
 			return _syncRegistry->grammarForScopeName(
 				scopeName,
@@ -4766,39 +4781,6 @@ struct Registry:mx {
 		data->_options = options;
 		data->_syncRegistry = SyncRegistry(Theme::members::createFromRawTheme(options.theme, options.colorMap));
 	}
-}
-
-#endif
-
-
-
-struct View:Element {
-    struct props {
-        int         sample;
-        int         sample2;
-        int         test_set;
-        callback    clicked;
-        ///
-        doubly<prop> meta() {
-            return {
-                prop { "sample",   sample   },
-                prop { "sample2",  sample2  },
-                prop { "test_set", test_set },
-                prop { "clicked",  clicked  }
-            };
-        }
-        type_register(props);
-    };
-
-    component(View, Element, props);
-
-    node update() {
-        return array<node> {
-            Edit {
-                { "content", "Multiline edit test" }
-            }
-        };
-    }
 };
 
 #if 0
@@ -4915,3 +4897,5 @@ template <> struct com <> : mx { };
 
 }
 #endif
+
+}
