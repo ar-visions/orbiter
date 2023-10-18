@@ -33,7 +33,6 @@
             "cwd": "${workspaceFolder}/../orbiter/build",
             "environment": [],
             "MIMode": "gdb",
-            "preLaunchTask": "build-textmate-test",
             "presentation": {
                 "hidden": false,
                 "group": "",
