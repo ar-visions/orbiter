@@ -4199,7 +4199,7 @@ struct MatchResult:mx {
 	};
 	mx_basic(MatchResult)
 	operator bool() {
-		return matchedRuleId >= 0; /// they use this as a truthy assert on return of IMatchInjectionsResult
+		return data->matchedRuleId >= 0; /// they use this as a truthy assert on return of IMatchInjectionsResult
 	}
 };
 
@@ -4233,8 +4233,10 @@ mx matchRule(
 
 	if (r) {
 		return MatchResult { /// this one is the same as the injection type minus the boolean
-			.captureIndices = r.captureIndices,
-			.matchedRuleId  = r.ruleId
+			MatchResult::members {
+				.captureIndices = r.captureIndices,
+				.matchedRuleId  = r.ruleId
+			}
 		};
 	}
 	return MatchResult {};
