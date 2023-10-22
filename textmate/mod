@@ -1,9 +1,7 @@
 cpp(20)
-dep(ion:ux vulkan:vk mx:async)
+dep(ion:ux vulkan:vk @Vulkan mx:async)
 if (MSVC)
-    # when a third party lib, on windows has linker issues best to switch the build to shared
-    # will have an easier go at this in that process rather than trying to get it and everyone else it uses to MT/d, MD/d
-    cflags(/MT)
+    cflags(/MT /bigobj)
 else()
     cflags(+-Wno-writable-strings
            +-Wno-pointer-bool-conversion
