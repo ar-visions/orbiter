@@ -21,6 +21,11 @@
                 "group": "",
                 "order": 1,
             },
+            "windows":{
+                "type": "cppvsdbg",
+                "program": "${workspaceFolder}/../orbiter/build/Debug/agent",
+                "cwd": "${workspaceFolder}/../orbiter/build"
+            },
             "osx": { "MIMode":  "lldb" }
         },
         {

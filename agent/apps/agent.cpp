@@ -42,17 +42,17 @@ namespace std {
 }
 
 struct Light {
-    alignas(16) vec4f pos;
-    alignas(16) vec4f color;
+    alignas(16) glm::vec4 pos;
+    alignas(16) glm::vec4 color;
 };
 
 /// uniform has an update method with a pipeline arg
 struct UniformBufferObject {
-    alignas(16) m44f  model;
-    alignas(16) m44f  view;
-    alignas(16) m44f  proj;
-    alignas(16) vec3f eye;
-    alignas(16) Light lights[MAX_PBR_LIGHTS];
+    alignas(16) glm::mat4  model;
+    alignas(16) glm::mat4  view;
+    alignas(16) glm::mat4  proj;
+    alignas(16) glm::vec3  eye;
+    alignas(16) Light      lights[MAX_PBR_LIGHTS];
 
     void update(Pipeline::impl *pipeline) {
         VkExtent2D &ext = pipeline->device->swapChainExtent;
@@ -61,24 +61,24 @@ struct UniformBufferObject {
         auto        currentTime = std::chrono::high_resolution_clock::now();
         float       time        = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
         
-        eye   = vec3f(0.0f, 4.0f, 6.0f);
-        model = glm::rotate(m44f(1.0f), time * glm::radians(90.0f) * 0.5f, vec3f(0.0f, 0.0f, 1.0f));
-        view  = glm::lookAt(eye, vec3f(0.0f, 0.0f, 0.0f), vec3f(0.0f, 0.0f, 1.0f));
+        eye   = glm::vec3(0.0f, 4.0f, 6.0f);
+        model = glm::rotate(m44f(1.0f), time * glm::radians(90.0f) * 0.5f, glm::vec3(0.0f, 0.0f, 1.0f));
+        view  = glm::lookAt(eye, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         proj  = glm::perspective(glm::radians(22.0f), ext.width / (float) ext.height, 0.1f, 10.0f);
         proj[1][1] *= -1;
 
         /// setup some scene lights
         lights[0] = {
-            vec4f(vec3f(2.0f, 0.0f, 4.0f), 25.0f),
-            vec4f(1.0, 1.0, 1.0, 1.0)
+            glm::vec4(glm::vec3(2.0f, 0.0f, 4.0f), 25.0f),
+            glm::vec4(1.0, 1.0, 1.0, 1.0)
         };
         lights[1] = {
-            vec4f(vec3f(0.0f, 0.0f, -5.0f), 100.0f),
-            vec4f(1.0, 1.0, 1.0, 1.0)
+            glm::vec4(glm::vec3(0.0f, 0.0f, -5.0f), 100.0f),
+            glm::vec4(1.0, 1.0, 1.0, 1.0)
         };
         lights[2] = {
-            vec4f(vec3f(0.0f, 0.0f, -5.0f), 100.0f),
-            vec4f(1.0, 1.0, 1.0, 1.0)
+            glm::vec4(glm::vec3(0.0f, 0.0f, -5.0f), 100.0f),
+            glm::vec4(1.0, 1.0, 1.0, 1.0)
         };
     }
 };
@@ -89,7 +89,7 @@ struct GardenView:mx {
     struct impl {
         Vulkan    vk { 1, 0 }; /// this lazy loads 1.0 when GPU performs that action [singleton data]
         vec2i     sz;          /// store current window size
-        GPU       gpu;         /// GPU class, responsible for holding onto GPU, Surface and GLFWwindow
+        Window    gpu;         /// GPU class, responsible for holding onto GPU, Surface and GLFWwindow
         Device    device;      /// Device created with GPU
         lambda<void()> reloading;
 
@@ -101,7 +101,7 @@ struct GardenView:mx {
         }
 
         void init(vec2i &sz) {
-            gpu      = GPU::select(sz, ResizeFn(resized), this);
+            gpu      = Window::select(sz, ResizeFn(resized), this);
             device   = Device::create(gpu);
             pipeline = Pipeline(Graphics<UniformBufferObject, Vertex>(device, MODEL_NAME));
         }
@@ -110,7 +110,8 @@ struct GardenView:mx {
             while (!glfwWindowShouldClose(gpu->window)) {
                 glfwPollEvents();
                 device->mtx.lock();
-                device->drawFrame(pipeline);
+                array<Pipeline> pipes = { pipeline };
+                device->drawFrame(pipes);
                 device->mtx.unlock();
             }
             vkDeviceWaitIdle(device);
@@ -139,5 +140,5 @@ struct GardenView:mx {
 };
 
 int main() {
-    return GardenView({ WIDTH, HEIGHT });
+    return GardenView(vec2i { WIDTH, HEIGHT });
 }

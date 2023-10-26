@@ -4,7 +4,6 @@
         {
             "label": "build-agent",
             "type": "shell",
-            "command": "make agent -j8",
             "options": {
                 "cwd": "${workspaceFolder}/../orbiter/build"
             },
@@ -19,7 +18,19 @@
                 "clear": true
             },
             "isBackground": false,
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": ["$gcc"],
+            "windows": {
+                "command": "msbuild orbiter.sln /t:agent"
+            },
+            "osx": {
+                "command": "make agent -j10"
+            },
+            "linux": {
+                "command": "make agent -j16",
+                "options":{
+                    "env":{"VERBOSE":"1"}
+                }
+            }
         }
     ]
 }
