@@ -339,13 +339,13 @@ struct RawRule;
 using RawCaptures    = map<mx>; // not wanting to use ILocatable metadata
 
 struct RawRepository:mx {
-	struct members {
+	struct M {
 		map<mx>			 props; /// of type RawRule
 		void init() {
 			props["$self"] = mx();
 			props["$base"] = mx();
 		}
-		register(members)
+		register(M)
 	};
 	mx_basic(RawRepository);
 	operator bool();
@@ -353,7 +353,7 @@ struct RawRepository:mx {
 };
 
 struct RawRule:mx {
-	struct members {
+	struct M {
 		ILocation			_vscodeTextmateLocation;
 		RuleId 				id; // This is not part of the spec only used internally
 		str 				include;
@@ -377,7 +377,7 @@ struct RawRule:mx {
 };
 
 struct RawGrammar:mx {
-	struct members {
+	struct M {
 		ILocation 			_vscodeTextmateLocation;
 	    RawRepository 		repository;
 		ScopeName 			scopeName;
@@ -387,7 +387,7 @@ struct RawGrammar:mx {
 		array<str> 			fileTypes;
 		str 				name;
 		str 				firstLineMatch;
-		register(members)
+		register(M)
 	};
 	mx_basic(RawGrammar);
 
@@ -406,7 +406,7 @@ struct RawGrammar:mx {
 struct ScopeStack;
 
 struct GrammarRepository:mx {
-	struct members {
+	struct M {
 		lambda<RawGrammar(ScopeName)> 		lookup;
 		lambda<array<ScopeName>(ScopeName)> injections;
 	};
@@ -414,11 +414,11 @@ struct GrammarRepository:mx {
 };
 
 struct RawThemeStyles:mx {
-	struct members {
+	struct M {
 		str fontStyle;
 		str foreground;
 		str background;
-		register(members)
+		register(M)
 	};
 	mx_basic(RawThemeStyles);
 };
@@ -443,10 +443,10 @@ struct RegistryOptions {
 };
 
 struct ScopeStack:mx {
-	struct members {
+	struct M {
 		mx 			parent;
 		ScopeName 	scopeName;
-		register(members)
+		register(M)
 	};
 
 	mx_basic(ScopeStack);
@@ -531,7 +531,7 @@ bool _scopePathMatchesParentScopes(ScopeStack scopePath, array<ScopeName> parent
 };
 
 struct StyleAttributes:mx {
-	struct members {
+	struct M {
 		states<FontStyle> fontStyle;
 		num foregroundId;
 		num backgroundId;
@@ -540,7 +540,7 @@ struct StyleAttributes:mx {
 		operator  bool() { return !is_null; }
 		bool operator!() { return  is_null; }
 		
-		register(members)
+		register(M)
 	};
 	mx_basic(StyleAttributes);
 
@@ -556,7 +556,7 @@ struct StyleAttributes:mx {
 };
 
 struct ThemeProvider:mx {
-	struct members {
+	struct M {
 		lambda<StyleAttributes(ScopeStack&)> themeMatch; /// ThemeProvider
 		lambda<StyleAttributes()> getDefaults; /// ThemeProvider
 	};
@@ -568,14 +568,14 @@ struct ThemeProvider:mx {
  */
 
 struct ParsedThemeRule:mx {
-	struct members {
+	struct M {
 		ScopeName 			scope;
 		array<ScopeName> 	parentScopes;
 		num 				index;
 		states<FontStyle>	fontStyle;
 		str 				foreground;
 		str 				background;
-		register(members)
+		register(M)
 	};
 	mx_basic(ParsedThemeRule);
 };
@@ -641,7 +641,7 @@ array<ParsedThemeRule> parseTheme(IRawTheme &source) {
 				parentScopes = segments.slice(0, segments.len() - 1);
 				parentScopes.reverse();
 			}
-			ParsedThemeRule p = ParsedThemeRule::members {
+			ParsedThemeRule p = ParsedThemeRule::M {
 				scope,
 				parentScopes,
 				i,
@@ -686,7 +686,7 @@ str fontStyleToString(states<FontStyle> fontStyle) {
 
 
 struct ColorMap:mx {
-	struct members {
+	struct M {
 		bool 		_isFrozen;
 		num 		_lastColorId;
 		array<str> 	_id2color;
@@ -713,7 +713,7 @@ struct ColorMap:mx {
 		array<str> getColorMap() {
 			return _id2color.slice(0, _id2color.len());
 		}
-		register(members)
+		register(M)
 	};
 
 	mx_basic(ColorMap);
@@ -734,7 +734,7 @@ struct ColorMap:mx {
 };
 
 struct ThemeTrieElementRule:mx {
-	struct members {
+	struct M {
 		num 				scopeDepth;
 		array<ScopeName> 	parentScopes;
 		FontStyle 			fontStyle;
@@ -745,7 +745,7 @@ struct ThemeTrieElementRule:mx {
 		bool operator!() { return  is_null; }
 
 		ThemeTrieElementRule clone() {
-			return members {
+			return M {
 				scopeDepth, parentScopes, fontStyle, foreground, background
 			};
 		}
@@ -776,7 +776,7 @@ struct ThemeTrieElementRule:mx {
 			}
 		}
 		
-		register(members)
+		register(M)
 	};
 	mx_basic(ThemeTrieElementRule);
 
@@ -789,7 +789,7 @@ struct ThemeTrieElementRule:mx {
 struct ThemeTrieElement:mx {
 	using ITrieChildrenMap = map<ThemeTrieElement>;
 
-	struct members {
+	struct M {
 		mx self;
 		ThemeTrieElementRule 		_mainRule;
 		array<ThemeTrieElementRule> _rulesWithParentScopes;
@@ -867,13 +867,13 @@ struct ThemeTrieElement:mx {
 				background = _mainRule->background;
 			}
 
-			ThemeTrieElementRule tt = ThemeTrieElementRule::members {
+			ThemeTrieElementRule tt = ThemeTrieElementRule::M {
 				scopeDepth, parentScopes, fontStyle, foreground, background
 			};
 			_rulesWithParentScopes.push(tt);
 		}
 		
-		register(members)
+		register(M)
 	};
 
 	mx_basic(ThemeTrieElement);
@@ -917,7 +917,7 @@ struct ThemeTrieElement:mx {
 
 
 struct Theme:mx {
-	struct members {
+	struct M {
 		ColorMap 			_colorMap;
 		StyleAttributes	 	_defaults;
 		ThemeTrieElement 	_root;
@@ -954,7 +954,7 @@ struct Theme:mx {
 			);
 		}
 
-		register(members)
+		register(M)
 
 		static Theme createFromRawTheme(
 			IRawTheme source,
@@ -1008,14 +1008,14 @@ struct Theme:mx {
 			ColorMap 		colorMap = ColorMap(_colorMap);
 			StyleAttributes defaults = StyleAttributes(defaultFontStyle, colorMap->getId(defaultForeground), colorMap->getId(defaultBackground));
 
-			ThemeTrieElement root    = ThemeTrieElement(ThemeTrieElementRule::members { 0, null, FontStyle::_NotSet, 0, 0 }, {});
+			ThemeTrieElement root    = ThemeTrieElement(ThemeTrieElementRule::M { 0, null, FontStyle::_NotSet, 0, 0 }, {});
 			for (num i = 0, len = parsedThemeRules.len(); i < len; i++) {
 				ParsedThemeRule rule = parsedThemeRules[i];
 				root->insert(0, rule->scope, rule->parentScopes,
 					rule->fontStyle, colorMap->getId(rule->foreground), colorMap->getId(rule->background));
 			}
 
-			return Theme::members { colorMap, defaults, root };
+			return Theme::M { colorMap, defaults, root };
 		}
 
 		/// this is so you can trivially construct and still get logic to initialize from there
@@ -1037,11 +1037,11 @@ enums(IncludeReferenceKind, Base,
 	TopLevelRepositoryReference);
 
 struct IncludeReference:mx {
-	struct members {
+	struct M {
 		IncludeReferenceKind kind;
 		str ruleName;
 		str scopeName; // not needed
-		register(members)
+		register(M)
 	};
 	IncludeReference(IncludeReferenceKind::etype kind) : IncludeReference() {
 		data->kind = kind;
@@ -1100,9 +1100,9 @@ IncludeReference parseInclude(utf16 include) {
 
 
 struct TopLevelRuleReference:mx {
-	struct members {
+	struct M {
 		ScopeName scopeName;
-		register(members)
+		register(M)
 	};
 	mx_basic(TopLevelRuleReference)
 	
@@ -1119,9 +1119,9 @@ struct TopLevelRuleReference:mx {
  * References a rule of a grammar in the top level repository section with the given name.
 */
 struct TopLevelRepositoryRuleReference:TopLevelRuleReference {
-	struct members {
+	struct M {
 		str ruleName;
-		register(members)
+		register(M)
 	};
 
 	TopLevelRepositoryRuleReference(
@@ -1141,11 +1141,11 @@ struct TopLevelRepositoryRuleReference:TopLevelRuleReference {
 };
 
 struct ExternalReferenceCollector:mx {
-	struct members {
+	struct M {
 		array<TopLevelRuleReference> references;
 		array<str>					 seenReferenceKeys;
 		array<RawRule> 			 	 visitedRule;
-		register(members)
+		register(M)
 	};
 
 	mx_basic(ExternalReferenceCollector)
@@ -1300,10 +1300,10 @@ void collectReferencesOfReference(
 
 /// the interfaces we use multiple inheritence on the data member; thus isolating diamonds.
 struct Context:mx {
-	struct members {
+	struct M {
 		RawGrammar baseGrammar;
 		RawGrammar selfGrammar;
-		register(members)
+		register(M)
 	};
 	mx_basic(Context);
 };
@@ -1329,7 +1329,7 @@ void collectExternalReferencesInTopLevelRepositoryRule(
 }
 
 struct ScopeDependencyProcessor:mx {
-	struct members {
+	struct M {
 		GrammarRepository grammar_repo;
 		ScopeName initialScopeName;
 		array<ScopeName> seenFullScopeRequests;
@@ -1368,7 +1368,7 @@ struct ScopeDependencyProcessor:mx {
 				}
 			}
 		}
-		register(members)
+		register(M)
 	};
 
 	mx_basic(ScopeDependencyProcessor);
@@ -1398,9 +1398,9 @@ struct IOnigMatch {
 
 /// renamed to IOnigScanner
 struct OnigScanner:mx {
-	struct members {
+	struct M {
 		RegEx regex;
-		register(members)
+		register(M)
 
 		IOnigMatch findNextMatchSync(str string, num startPosition, states<FindOption> options) {
 			regex.set_cursor(startPosition);
@@ -1430,14 +1430,14 @@ struct OnigScanner:mx {
 };
 
 struct OnigLib:mx {
-	struct members {
+	struct M {
 		lambda<OnigScanner(array<str>)> createOnigScanner;
 		lambda<OnigString(str)> 		createOnigString;
 	};
 	mx_basic(OnigLib)
 };
 
-static OnigLib oni_lib = OnigLib::members {
+static OnigLib oni_lib = OnigLib::M {
 	.createOnigScanner = [](array<str> sources) -> OnigScanner {
 		return OnigScanner(sources);
 	},
@@ -1469,14 +1469,14 @@ struct IFindNextMatchResult {
 };
 
 struct CompiledRule:mx {
-	struct members {
+	struct M {
 		OnigScanner scanner;
 		array<utf16> regExps;
 		array<RuleId> rules;
 		operator  bool() { return regExps.len() >  0; }
 		bool operator!() { return regExps.len() == 0; }
 
-		register(members)
+		register(M)
 
 		utf16 toString() {
 			array<utf16> r;
@@ -1528,13 +1528,13 @@ struct IRegExpSourceAnchorCache {
 };
 
 struct RegExpSource:mx {
-	struct members {
+	struct M {
 		utf16 		source;
 		RuleId 		ruleId;
 		bool 		hasAnchor;
 		bool 		hasBackReferences;
 		IRegExpSourceAnchorCache _anchorCache;
-		register(members)
+		register(M)
 
 		RegExpSource clone() {
 			return RegExpSource(source, ruleId);
@@ -1701,12 +1701,12 @@ struct IRegExpSourceListAnchorCache {
 };
 
 struct RegExpSourceList:mx {
-	struct members {
+	struct M {
 		array<RegExpSource> 			_items;
 		bool 							_hasAnchors;
 		CompiledRule 					_cached;
 		IRegExpSourceListAnchorCache 	_anchorCache;
-		register(members)
+		register(M)
 
 		void dispose() {
 			_disposeCaches();
@@ -1809,7 +1809,7 @@ struct RegExpSourceList:mx {
 struct RuleRegistry;
 
 struct Rule:mx {
-	struct members {
+	struct M {
 		ILocation      *_location;
 		RuleId          id;
 		bool 	        _nameIsCapturing;
@@ -1818,7 +1818,7 @@ struct Rule:mx {
 		utf16  	        _contentName;
 		array<RuleId>	patterns;
 		bool 	  		hasMissingPatterns; /// there was duck typing in ts for this one
-		register(members)
+		register(M)
 	};
 
 	mx_basic(Rule);
@@ -1872,7 +1872,7 @@ struct Rule:mx {
 };
 
 struct RuleRegistry:mx {
-	struct members {
+	struct M {
 		lambda<Rule(RuleId)> getRule;
 		lambda<Rule(lambda<Rule(RuleId)>)> registerRule;
 	};
@@ -1880,14 +1880,14 @@ struct RuleRegistry:mx {
 };
 
 struct GrammarRegistry:mx {
-	struct members {
+	struct M {
 		lambda<RawGrammar(str, RawRepository)> getExternalGrammar;
 	};
 	mx_basic(GrammarRegistry)
 };
 
 struct RuleFactoryHelper:mx {
-	struct members {
+	struct M {
 		RuleRegistry 	rule_reg;
 		GrammarRegistry grammar_reg;
 	};
@@ -1900,9 +1900,9 @@ struct ICompilePatternsResult {
 };
 
 struct CaptureRule : Rule {
-	struct members {
+	struct M {
 		RuleId retokenizeCapturedWithRuleId;
-		register(members)
+		register(M)
 	};
 	mx_object(CaptureRule, Rule, members);
 
@@ -1934,12 +1934,12 @@ struct CaptureRule : Rule {
 };
 
 struct MatchRule:Rule {
-	struct members {
+	struct M {
 		mx self;
 		RegExpSource 		_match;
 		array<CaptureRule> 	captures;
 		RegExpSourceList 	_cachedCompiledPatterns;
-		register(members)
+		register(M)
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
@@ -1986,10 +1986,10 @@ struct MatchRule:Rule {
 };
 
 struct IncludeOnlyRule:Rule {
-	struct members {
+	struct M {
 		mx self;
 		RegExpSourceList _cachedCompiledPatterns;
-		register(members)
+		register(M)
 		
 		void dispose() {
 			if (_cachedCompiledPatterns) {
@@ -2035,7 +2035,7 @@ struct IncludeOnlyRule:Rule {
 };
 
 struct BeginEndRule:Rule {
-	struct members {
+	struct M {
 		mx self;
 		RegExpSource 	_begin;
 		array<CaptureRule> 	beginCaptures;
@@ -2045,7 +2045,7 @@ struct BeginEndRule:Rule {
 		bool 			applyEndPatternLast;
 		array<RuleId>	patterns;
 		RegExpSourceList _cachedCompiledPatterns;
-		register(members)
+		register(M)
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
@@ -2125,7 +2125,7 @@ struct BeginEndRule:Rule {
 };
 
 struct BeginWhileRule : Rule {
-	struct members {
+	struct M {
 		mx self;
 		RegExpSource 		_begin;
 		array<CaptureRule> 	beginCaptures;
@@ -2136,7 +2136,7 @@ struct BeginWhileRule : Rule {
 		RegExpSourceList 	_cachedCompiledPatterns;
 		RegExpSourceList 	_cachedCompiledWhilePatterns;
 
-		register(members)
+		register(M)
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
@@ -2256,7 +2256,7 @@ struct RuleFactory {
 					}
 					array<RawRule> patterns = desc->patterns;
 					if (!patterns && desc->include) { /// this checked against undefined on patterns; empty should be the same
-						RawRule r = RawRule::members {
+						RawRule r = RawRule::M {
 							.include = desc->include
 						};
 						patterns = array<RawRule> { r };
@@ -2446,7 +2446,7 @@ struct AttributedScopeStackFrame {
 };
 
 struct StateStackFrame:mx {
-	struct members {
+	struct M {
 		num 	ruleId;
 		num 	enterPos;
 		num 	anchorPos;
@@ -2474,7 +2474,7 @@ struct IToken {
 };
 
 struct BasicScopeAttributes:mx {
-	struct members {
+	struct M {
 		num languageId;
 		OptionalStandardTokenType tokenType;
 	};
@@ -2483,11 +2483,11 @@ struct BasicScopeAttributes:mx {
 
 
 struct ScopeMatcher:mx {
-	struct members {
+	struct M {
 		EmbeddedLanguagesMap values;
 		RegEx scopesRegExp;
 
-		register(members)
+		register(M)
 
 		num match(ScopeName scope) {
 			if (!scopesRegExp) {
@@ -2536,14 +2536,14 @@ struct ScopeMatcher:mx {
 };
 
 struct BasicScopeAttributesProvider:mx {
-	struct members {
+	struct M {
 		BasicScopeAttributes _defaultAttributes;
 		ScopeMatcher _embeddedLanguagesMatcher;
 
 		static BasicScopeAttributes _getBasicScopeAttributes(ScopeMatcher &scope_matcher, ScopeName scopeName) {
 			num languageId = _scopeToLanguage(scope_matcher, scopeName);
 			OptionalStandardTokenType standardTokenType = _toStandardTokenType(scopeName);
-			return BasicScopeAttributes(BasicScopeAttributes::members { languageId, standardTokenType });
+			return BasicScopeAttributes(BasicScopeAttributes::M { languageId, standardTokenType });
 		};
 
 		inline static BasicScopeAttributes _NULL_SCOPE_METADATA = BasicScopeAttributes();
@@ -2586,7 +2586,7 @@ struct BasicScopeAttributesProvider:mx {
 
 	BasicScopeAttributesProvider(num initialLanguageId, EmbeddedLanguagesMap embeddedLanguages) : BasicScopeAttributesProvider() {
 		data->_defaultAttributes = BasicScopeAttributes(
-			BasicScopeAttributes::members {
+			BasicScopeAttributes::M {
 				initialLanguageId, OptionalStandardTokenType::NotSet
 			}
 		);
@@ -2599,11 +2599,11 @@ struct BasicScopeAttributesProvider:mx {
 struct Grammar;
 
 struct AttributedScopeStack:mx {
-	struct members {
+	struct M {
 		mx parent; /// use mx instead of pointer; use this for management of typed access; dependency order quirks as well.
 		ScopeStack scopePath;
 		EncodedTokenAttr tokenAttributes;
-		register(members)
+		register(M)
 
 		static AttributedScopeStack fromExtension(AttributedScopeStack namesScopeList, array<AttributedScopeStackFrame> contentNameScopesList) {
 			AttributedScopeStack current = namesScopeList;
@@ -2611,7 +2611,7 @@ struct AttributedScopeStack:mx {
 				namesScopeList->scopePath : ScopeStack {};
 			for (AttributedScopeStackFrame &frame: contentNameScopesList) {
 				scopeNames = ScopeStack::push(scopeNames, frame.scopeNames);
-				current = AttributedScopeStack(AttributedScopeStack::members {
+				current = AttributedScopeStack(AttributedScopeStack::M {
 					current, scopeNames, frame.encodedTokenAttributes
 				});
 			}
@@ -2620,7 +2620,7 @@ struct AttributedScopeStack:mx {
 
 		static AttributedScopeStack createRoot(ScopeName scopeName, EncodedTokenAttr tokenAttributes) {
 			return AttributedScopeStack(
-				AttributedScopeStack::members {
+				AttributedScopeStack::M {
 					null, ScopeStack({}, scopeName), tokenAttributes
 				});
 		}
@@ -2738,7 +2738,7 @@ struct AttributedScopeStack:mx {
 };
 
 struct StateStackImpl:mx {
-	struct members {
+	struct M {
 		mx   self;
 		mx   parent;
 		num _enterPos;
@@ -2750,7 +2750,7 @@ struct StateStackImpl:mx {
 		AttributedScopeStack contentNameScopesList;
 		utf16 endRule;
 		bool filled;
-		register(members);
+		register(M);
 
 		static StateStackImpl pushFrame(StateStackImpl self, StateStackFrame &frame) {
 			auto namesScopeList = AttributedScopeStack::members::fromExtension(self ? self->nameScopesList : null, frame->nameScopesList);
@@ -2938,7 +2938,7 @@ struct StateStackImpl:mx {
 					nameScopesList->getExtensionIfDefined(
 						bool(_parent) ? _parent->nameScopesList : null) : null;
 			
-			return StateStackFrame::members {
+			return StateStackFrame::M {
 				.ruleId = ruleIdToNumber(ruleId),
 				.beginRuleCapturedEOL 	= beginRuleCapturedEOL,
 				.endRule 				= endRule,
@@ -2999,10 +2999,10 @@ struct StateStackImpl:mx {
 using NameMatcher = lambda<bool(array<str>, array<str>)>;
 
 struct MatcherWithPriority:mx {
-	struct members {
+	struct M {
 		Matcher matcher;
 		num 	priority; // -1, 0, 1
-		register(members);
+		register(M);
 	};
 	mx_basic(MatcherWithPriority);
 	MatcherWithPriority(Matcher &matcher, num priority) : MatcherWithPriority() {
@@ -3012,7 +3012,7 @@ struct MatcherWithPriority:mx {
 };
 
 struct Tokenizer:mx {
-    struct members {
+    struct M {
 		utf16			input;
 		RegEx		  	regex;
 		array<utf16>    match;
@@ -3166,7 +3166,7 @@ bool scopesAreMatching(str thisScopeName, str scopeName) {
 }
 
 struct BalancedBracketSelectors:mx {
-	struct members {
+	struct M {
 		array<Matcher> balancedBracketScopes;
 		array<Matcher> unbalancedBracketScopes;
 		bool allowAny;
@@ -3256,7 +3256,7 @@ struct BalancedBracketSelectors:mx {
 };
 
 struct LineTokens:mx {
-	struct members {
+	struct M {
 		bool 			_emitBinaryTokens;
 		utf16 			_lineText;
 		array<IToken> 	_tokens;
@@ -3264,7 +3264,7 @@ struct LineTokens:mx {
 		num 			_lastTokenEndIndex;
 		array<TokenTypeMatcher> _tokenTypeOverrides;
 		BalancedBracketSelectors balancedBracketSelectors;
-		register(members);
+		register(M);
 
 		void produce(StateStackImpl stack, num endIndex) {
 			produceFromScopes(stack->contentNameScopesList, endIndex);
@@ -3435,7 +3435,7 @@ TokenizeStringResult _tokenizeString(
 );
 
 struct Injection:mx {
-	struct members {
+	struct M {
 		str debugSelector;
 		Matcher matcher;
 		num priority; // 0 is the default. -1 for 'L' and 1 for 'R'
@@ -3449,7 +3449,7 @@ struct Injection:mx {
 RawGrammar initGrammar(RawGrammar grammar, RawRule base) {
 	grammar = grammar.copy();
 	//grammar->repository = grammar->repository ? grammar->repository : RawRepository {};
-	grammar->repository->props["$self"] = RawRule(RawRule::members {
+	grammar->repository->props["$self"] = RawRule(RawRule::M {
 		._vscodeTextmateLocation = grammar->_vscodeTextmateLocation,
 		.name 					 = grammar->scopeName,
 		.patterns 				 = grammar->patterns
@@ -3459,7 +3459,7 @@ RawGrammar initGrammar(RawGrammar grammar, RawRule base) {
 }
 
 struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
-	struct members {
+	struct M {
 		mx self;
 		str						_rootScopeName;
 		RuleId 					_rootId = -1;
@@ -3502,7 +3502,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			array<MatcherWithPriority> matchers = createMatchers(selector, NameMatcher(this, &members::nameMatcher));
 			RuleId ruleId = RuleFactory::getCompiledRuleId(rule, ruleFactoryHelper, grammar->repository);
 			for (MatcherWithPriority &matcher: matchers) {
-				Injection inj = Injection::members {
+				Injection inj = Injection::M {
 					.debugSelector = selector,
 					.matcher = matcher->matcher,
 					.priority = matcher->priority,
@@ -3514,7 +3514,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		}
 
 		array<Injection> _collectInjections() {
-			GrammarRepository grammar_repo = GrammarRepository::members {
+			GrammarRepository grammar_repo = GrammarRepository::M {
 				.lookup = [&](str scopeName) -> RawGrammar {
 					if (scopeName == _rootScopeName) {
 						return _grammar;
@@ -3752,7 +3752,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			};
 		}
 
-		register(members)
+		register(M)
 
 		//BasicScopeAttributesProvider _basicScopeAttributesProvider;
 	};
@@ -3825,7 +3825,7 @@ AttributedScopeStack AttributedScopeStack::members::createRootAndLookUpScopeName
 		rootStyle
 	);
 	return AttributedScopeStack(
-		AttributedScopeStack::members {
+		AttributedScopeStack::M {
 			null, scopePath, resolvedTokenAttributes
 		}
 	);
@@ -3846,7 +3846,7 @@ AttributedScopeStack AttributedScopeStack::members::_pushAttributed(
 		scopeThemeMatchResult
 	);
 	return AttributedScopeStack(
-		AttributedScopeStack::members {
+		AttributedScopeStack::M {
 			target, newPath, metadata
 		});
 }
@@ -3916,7 +3916,7 @@ Grammar createGrammar(
 }
 
 struct SyncRegistry : mx {
-	struct members {
+	struct M {
 		GrammarRepository 	grammar_repo;
 		map<Grammar> 		_grammars;
 		map<RawGrammar> 	_rawGrammars; /// must be allocated and stored unless this is primary store
@@ -3924,7 +3924,7 @@ struct SyncRegistry : mx {
 		Theme 				_theme;
 		ThemeProvider 		theme_provider;
 
-		register(members)
+		register(M)
 
 		void setTheme(Theme theme) {
 			_theme = theme;
@@ -4000,7 +4000,7 @@ struct SyncRegistry : mx {
 };
 
 struct MatchInjectionsResult:mx {
-	struct members {
+	struct M {
 		array<IOnigCaptureIndex> captureIndices;
 		RuleId matchedRuleId;
 		bool priorityMatch;
@@ -4121,10 +4121,10 @@ void handleCaptures(Grammar grammar, OnigString lineText,
 
 
 struct IWhileStack:mx {
-	struct members {
+	struct M {
 		StateStackImpl stack;
 		BeginWhileRule rule;
-		register(members);
+		register(M);
 	};
 	mx_basic(IWhileStack);
 };
@@ -4146,7 +4146,7 @@ IWhileCheckResult _checkWhileConditions(
 	for (StateStackImpl node = stack; node; node = node->pop()) {
 		mx nodeRule = node->getRule(grammar);
 		if (nodeRule.type() == typeof(BeginWhileRule)) {
-			IWhileStack w = IWhileStack::members {
+			IWhileStack w = IWhileStack::M {
 				.stack = node,
 				.rule  = nodeRule
 			};
@@ -4195,7 +4195,7 @@ IWhileCheckResult _checkWhileConditions(
 }
 	
 struct MatchResult:mx {
-	struct members {
+	struct M {
 		array<IOnigCaptureIndex> captureIndices;
 		RuleId matchedRuleId;
 		bool priorityMatch;
@@ -4236,7 +4236,7 @@ mx matchRule(
 
 	if (r) {
 		return MatchResult { /// this one is the same as the injection type minus the boolean
-			MatchResult::members {
+			MatchResult::M {
 				.captureIndices = r.captureIndices,
 				.matchedRuleId  = r.ruleId
 			}
@@ -4296,7 +4296,7 @@ MatchInjectionsResult matchInjections(
 
 	if (bestMatchCaptureIndices) {
 		return MatchInjectionsResult {
-			MatchInjectionsResult::members {
+			MatchInjectionsResult::M {
 				.captureIndices = bestMatchCaptureIndices,
 				.matchedRuleId  = bestMatchRuleId,
 				.priorityMatch  = bestMatchResultPriority == -1
@@ -4637,11 +4637,11 @@ struct IGrammarConfiguration {
 };
 
 struct Registry:mx {
-	struct members {
+	struct M {
 		RegistryOptions _options;
 		SyncRegistry _syncRegistry;
 		
-		register(members)
+		register(M)
 
 		void dispose() {
 			//_syncRegistry->dispose();
