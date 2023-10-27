@@ -15,7 +15,6 @@
             "environment":      [],
             "externalConsole":  false,
             "MIMode":           "gdb",
-            "preLaunchTask":    "build-agent",
             "presentation": {
                 "hidden": false,
                 "group": "",

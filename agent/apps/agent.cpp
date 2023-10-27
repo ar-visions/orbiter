@@ -14,7 +14,7 @@ struct Vertex {
     Vertex() { }
     Vertex(float *v_pos, int p_index, float *v_uv, int uv_index, float *v_normal, int n_index) {
         pos      = {    v_pos[3 * p_index  + 0], v_pos[3 * p_index + 1], v_pos[3 * p_index + 2] };
-        uv       = {     v_uv[2 * uv_index + 0], 1.0f - v_uv[2 * uv_index + 1] };
+        uv       = glm::vec2 { rand::uniform(0.0f, 1.0f), rand::uniform(0.0f, 1.0f) }; //{     v_uv[2 * uv_index + 0], 1.0f - v_uv[2 * uv_index + 1] };
         normal   = { v_normal[3 * n_index  + 0], v_normal[3 * n_index + 1], v_normal[3 * n_index + 2] };
     }
 
