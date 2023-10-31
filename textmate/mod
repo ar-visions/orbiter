@@ -1,5 +1,5 @@
 cpp(20)
-dep(ion:ux vulkan:vk @Vulkan mx:async)
+dep(ion:ux @Vulkan)
 if (MSVC)
     cflags(/MT /bigobj)
 else()
