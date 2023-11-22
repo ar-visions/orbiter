@@ -1,9 +1,9 @@
 cpp(20)
 dep(ion:ux @Vulkan)
 if (MSVC)
-    cflags(/MT /bigobj)
+    cxxflags(/MT /bigobj)
 else()
-    cflags(+-Wno-writable-strings
+    cxxflags(+-Wno-writable-strings
            +-Wno-pointer-bool-conversion
            +-Wno-ambiguous-reversed-operator
            +-Wno-deprecated-volatile)
