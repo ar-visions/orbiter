@@ -11,7 +11,7 @@ int main(int argc, cstr argv[]) {
     // static map<V> args(int argc, cstr argv[], map def)
     map<mx> def {{ "project", "" }};
     map<mx> args         = ion::args<mx>(argc, (cstr*)argv, def);
-    str     project      = str(args["project"].grab());
+    str     project      = str(args["project"].hold());
     uri     url          = "https://localhost:2200/";
     int64_t timeout_ms   = 60000;
     path    project_path = path(args["project"] ? project.cs() : ".");
@@ -38,7 +38,7 @@ int main(int argc, cstr argv[]) {
         /// for each step, output what is going on at the server. and proceed on that path.
         for (auto &[project, v_dep]: repos) {
             map<mx>   dep = v_dep;
-            str   version = dep.count("version") == 0 ? str(null) : str(dep["version"].grab());
+            str   version = dep.count("version") == 0 ? str(null) : str(dep["version"].hold());
             str      repo = dep["repo"];
             map<mx>   msg = {
                 {"project", project},

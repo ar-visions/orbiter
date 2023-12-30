@@ -459,7 +459,7 @@ struct ScopeStack:mx {
 	}
 
 	ScopeStack(ScopeStack parent, ScopeName scopeName) : ScopeStack() {
-		data->parent    = parent.grab();
+		data->parent    = parent.hold();
 		data->scopeName = scopeName;
 	}
 
@@ -476,7 +476,7 @@ struct ScopeStack:mx {
 			result.push(item->scopeName);
 			if (!item->parent)
 				break;
-			item = item->parent.grab();
+			item = item->parent.hold();
 		}
 		return result.reverse();
 	}
@@ -492,7 +492,7 @@ struct ScopeStack:mx {
 		if (!data->parent) {
 			return false;
 		}
-		ScopeStack p = data->parent.grab();
+		ScopeStack p = data->parent.hold();
 		return p.extends(other);
 	}
 
@@ -503,7 +503,7 @@ struct ScopeStack:mx {
 			result.push(item->scopeName);
 			if (!item->parent)
 				return {};
-			item = item->parent.grab();
+			item = item->parent.hold();
 		}
 		return result.reverse();
 	}
@@ -525,7 +525,7 @@ bool _scopePathMatchesParentScopes(ScopeStack scopePath, array<ScopeName> parent
 			}
 			scopePattern = parentScopes[index];
 		}
-		scopePath = scopePath->parent.grab();
+		scopePath = scopePath->parent.hold();
 	}
 	return false;
 };
@@ -595,7 +595,7 @@ array<ParsedThemeRule> parseTheme(IRawTheme &source) {
 
 		array<str> scopes;
 		if (entry.scope.type() == typeof(str)) {
-			str _scope = entry.scope.grab();
+			str _scope = entry.scope.hold();
 
 			// remove leading commas
 			_scope = _scope.replace(R"(^[,]+)", "");
@@ -605,7 +605,7 @@ array<ParsedThemeRule> parseTheme(IRawTheme &source) {
 
 			scopes = _scope.split(",");
 		} else if (entry.scope.type()->traits & traits::array) {
-			scopes = entry.scope.grab();
+			scopes = entry.scope.hold();
 		} else {
 			scopes = array<str> { "" };
 		}
@@ -940,7 +940,7 @@ struct Theme:mx {
 
 			/// select first should not return R but use R for its lambda; it should always return the model; t
 			ThemeTrieElementRule effectiveRule = matchingTrieElements.select_first<ThemeTrieElementRule>([&](ThemeTrieElementRule &v) -> ThemeTrieElementRule {
-				if (scopePath->parent && _scopePathMatchesParentScopes(scopePath->parent.grab(), v->parentScopes))
+				if (scopePath->parent && _scopePathMatchesParentScopes(scopePath->parent.hold(), v->parentScopes))
 					return v;
 				return null;
 			});
@@ -1283,7 +1283,7 @@ void collectReferencesOfReference(
 	if (reference.type() == typeof(TopLevelRuleReference)) {
 		collectExternalReferencesInTopLevelRule(baseGrammar, selfGrammar, result);
 	} else {
-		TopLevelRepositoryRuleReference r = reference.grab();
+		TopLevelRepositoryRuleReference r = reference.hold();
 		collectExternalReferencesInTopLevelRepositoryRule(
 			r->ruleName, baseGrammar, selfGrammar, selfGrammar->repository,
 			result
@@ -1955,7 +1955,7 @@ struct MatchRule:Rule {
 		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar) {
 			if (!_cachedCompiledPatterns) {
 				_cachedCompiledPatterns = RegExpSourceList();
-				MatchRule m = self.grab();
+				MatchRule m = self.hold();
 				m.collectPatterns(grammar, _cachedCompiledPatterns);
 			}
 			return _cachedCompiledPatterns;
@@ -2001,7 +2001,7 @@ struct IncludeOnlyRule:Rule {
 		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar) {
 			if (!_cachedCompiledPatterns) {
 				_cachedCompiledPatterns = RegExpSourceList();
-				IncludeOnlyRule s = self.grab();
+				IncludeOnlyRule s = self.hold();
 				s.collectPatterns(grammar, _cachedCompiledPatterns);
 			}
 			return _cachedCompiledPatterns;
@@ -2070,7 +2070,7 @@ struct BeginEndRule:Rule {
 			if (!_cachedCompiledPatterns) {
 				_cachedCompiledPatterns = RegExpSourceList();
 
-				BeginEndRule b = self.grab();
+				BeginEndRule b = self.hold();
 				for (RuleId &pattern: b.Rule::data->patterns) { // figure out a better way of doing poly intra member
 					auto rule = grammar->getRule(pattern);
 					rule.collectPatterns(grammar, _cachedCompiledPatterns);
@@ -2164,7 +2164,7 @@ struct BeginWhileRule : Rule {
 		RegExpSourceList _getCachedCompiledPatterns(RuleRegistry grammar) {
 			if (!_cachedCompiledPatterns) {
 				_cachedCompiledPatterns = RegExpSourceList();
-				BeginWhileRule s = self.grab();
+				BeginWhileRule s = self.hold();
 				for (RuleId &pattern: s.Rule::data->patterns) {
 					auto rule = grammar->getRule(pattern);
 					rule.collectPatterns(grammar, _cachedCompiledPatterns);
@@ -2313,7 +2313,7 @@ struct RuleFactory {
 			// Find the maximum capture id
 			num maximumCaptureId = 0;
 			for (field<mx> &f: captures) {
-				str    captureId = f.key.grab();
+				str    captureId = f.key.hold();
 				if (captureId == "_vscodeTextmateLocation") {
 					continue;
 				}
@@ -2332,8 +2332,8 @@ struct RuleFactory {
 			// Fill out result
 			for (field<mx> &f: captures) {
 				r.set_size(maximumCaptureId + 1);
-				str    captureId = f.key.grab();
-				RawRule raw_rule = f.value.grab();
+				str    captureId = f.key.hold();
+				RawRule raw_rule = f.value.hold();
 				if (captureId == "_vscodeTextmateLocation")
 					continue;
 				auto numericCaptureId = captureId.integer_value();
@@ -2662,8 +2662,8 @@ struct AttributedScopeStack:mx {
 				}
 
 				// Go to previous pair
-				a = a->parent.grab();
-				b = b->parent.grab();
+				a = a->parent.hold();
+				b = b->parent.hold();
 			} while (true);
 		}
 
@@ -2711,7 +2711,7 @@ struct AttributedScopeStack:mx {
 
 			while (self && self != base) {
 				if (self->parent) {
-					AttributedScopeStack parent = self->parent.grab();
+					AttributedScopeStack parent = self->parent.hold();
 					AttributedScopeStackFrame f {
 						.encodedTokenAttributes = self->tokenAttributes,
 						.scopeNames = self->scopePath.getExtensionIfDefined(
@@ -2806,8 +2806,8 @@ struct StateStackImpl:mx {
 					return false;
 
 				// Go to previous pair
-				a = a->parent ? a->parent.grab() : StateStackImpl {};
-				b = b->parent ? b->parent.grab() : StateStackImpl {};
+				a = a->parent ? a->parent.hold() : StateStackImpl {};
+				b = b->parent ? b->parent.hold() : StateStackImpl {};
 			} while (true);
 		}
 
@@ -2815,22 +2815,22 @@ struct StateStackImpl:mx {
 			while (el) {
 				el->_enterPos = -1;
 				el->_anchorPos = -1;
-				el = el->parent.grab();
+				el = el->parent.hold();
 			}
 		}
 
 		void reset() {
-			StateStackImpl s = self.grab();
+			StateStackImpl s = self.hold();
 			StateStackImpl::members::_reset(s);
 		}
 
 		StateStackImpl pop() {
-			return parent.grab();
+			return parent.hold();
 		}
 
 		StateStackImpl safePop() {
 			if (parent) {
-				return parent.grab();
+				return parent.hold();
 			}
 			return *this;
 		}
@@ -2876,7 +2876,7 @@ struct StateStackImpl:mx {
 
 		num _writeString(array<utf16> res, num outIndex) {
 			if (parent) {
-				StateStackImpl s = parent.grab();
+				StateStackImpl s = parent.hold();
 				outIndex = s->_writeString(res, outIndex);
 			}
 
@@ -2892,7 +2892,7 @@ struct StateStackImpl:mx {
 		StateStackImpl withContentNameScopesList(AttributedScopeStack &contentNameScopeStack) {
 			if (contentNameScopesList == contentNameScopeStack)
 				return *this;
-			StateStackImpl p = parent.grab();
+			StateStackImpl p = parent.hold();
 			return p->push(
 				ruleId,
 				_enterPos,
@@ -2927,13 +2927,13 @@ struct StateStackImpl:mx {
 				if (el->ruleId == other->ruleId) {
 					return true;
 				}
-				el = el->parent.grab();
+				el = el->parent.hold();
 			}
 			return false;
 		}
 
 		StateStackFrame toStateStackFrame() {
-			StateStackImpl _parent = parent.grab();
+			StateStackImpl _parent = parent.hold();
 			AttributedScopeStack scope_list = nameScopesList ? 
 					nameScopesList->getExtensionIfDefined(
 						bool(_parent) ? _parent->nameScopesList : null) : null;
@@ -2969,9 +2969,9 @@ struct StateStackImpl:mx {
 		assert(parent.type() == typeof(StateStackImpl));
 
 		data->self = mem;
-		data->parent = parent.grab();
+		data->parent = parent.hold();
 		if (data->parent) {
-			StateStackImpl _parent = parent.grab();
+			StateStackImpl _parent = parent.hold();
 			data->depth = _parent->depth + 1;
 		} else
 			data->depth = 1;
@@ -3535,8 +3535,8 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				map<RawRule> rawInjections = grammar->injections;
 				if (rawInjections) {
 					for (field<RawRule> &f: rawInjections) {
-						str expression    = f.key.grab();
-						RawRule raw_rule  = f.value.grab();
+						str expression    = f.key.hold();
+						RawRule raw_rule  = f.value.hold();
 						collectInjections(
 							result,
 							expression,
@@ -3632,7 +3632,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			bool emitBinaryTokens,
 			num timeLimit
 		) {
-			Grammar gself = self.grab();
+			Grammar gself = self.hold();
 			if (_rootId == -1) {
 				mx r = _grammar["repository"];
 				mx s = _grammar["repository"]["$self"]; /// todo: debug this
@@ -3703,7 +3703,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				_tokenTypeMatchers,
 				balancedBracketSelectors
 			);
-			Grammar g = self.grab();
+			Grammar g = self.hold();
 			auto r = _tokenizeString(
 				g,
 				lineText,
@@ -3869,13 +3869,13 @@ StackDiff diffStateStacksRefEq(StateStackImpl first, StateStackImpl second) {
 			pops++;
 			if (!curFirst->parent)
 				break;
-			curFirst = curFirst->parent.grab();
+			curFirst = curFirst->parent.hold();
 		} else {
 			// curSecond is certainly not contained in curFirst.
 			// Also, curSecond must be defined, as otherwise a previous case would match
 			StateStackFrame f = curSecond->toStateStackFrame();
 			newFrames.push(f);
-			curSecond = curSecond->parent.grab();
+			curSecond = curSecond->parent.hold();
 		}
 	}
 	return {
@@ -4310,7 +4310,7 @@ MatchInjectionsResult matchInjections(
 MatchResult matchRuleOrInjections(Grammar grammar, OnigString lineText, 
 		bool isFirstLine, num linePos, StateStackImpl stack, num anchorPosition) {
 	// Look for normal grammar rule
-	MatchResult matchResult = matchRule(grammar, lineText, isFirstLine, linePos, stack, anchorPosition).grab();
+	MatchResult matchResult = matchRule(grammar, lineText, isFirstLine, linePos, stack, anchorPosition).hold();
 
 	// Look for injected rules
 	array<Injection> injections = grammar->getInjections();
@@ -4428,7 +4428,7 @@ TokenizeStringResult _tokenizeString(
 
 			// pop
 			auto popped = stack;
-			stack = stack->parent.grab();
+			stack = stack->parent.hold();
 			anchorPosition = popped->getAnchorPos();
 
 			if (!hasAdvanced && popped->getEnterPos() == linePos) {
@@ -4472,7 +4472,7 @@ TokenizeStringResult _tokenizeString(
 
 			if (_rule.type() == typeof(BeginEndRule)) { /// operator overload at static, at the class is nice for address of type or to check against type
 				auto pushedRule = _rule;
-				BeginEndRule  b = _rule.grab();
+				BeginEndRule  b = _rule.hold();
 				if (is_debug()) {
 					
 					console.log(
@@ -4522,7 +4522,7 @@ TokenizeStringResult _tokenizeString(
 					return;
 				}
 			} else if (_rule.type() == typeof(BeginWhileRule)) {
-				BeginWhileRule pushedRule = BeginWhileRule(_rule.grab());
+				BeginWhileRule pushedRule = BeginWhileRule(_rule.hold());
 				if (is_debug()) {
 					console.log("  pushing {0}", { pushedRule.debugName() });
 				}
@@ -4570,7 +4570,7 @@ TokenizeStringResult _tokenizeString(
 					return;
 				}
 			} else {
-				MatchRule matchingRule = MatchRule(_rule.grab());
+				MatchRule matchingRule = MatchRule(_rule.hold());
 				if (is_debug()) {
 					console.log(
 						"  matched {0} - {1}", {
@@ -4933,7 +4933,7 @@ struct com<T, Ts...>: com<Ts...> {
 			ralloc<TTs...>()
 	}
 
-	com(memory* mem) : mem(mem->grab()) { }
+	com(memory* mem) : mem(mem->hold()) { }
 
     com() : com<Ts...>(), ptr(new T(), new Ts()...), mem(base<T, Ts...>((T*)null)), ptr() {
 
