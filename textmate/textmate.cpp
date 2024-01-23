@@ -394,8 +394,6 @@ struct RawGrammar:mx {
 	RawGrammar(null_t) : RawGrammar() { }
 
 	RawGrammar(var raw) : RawGrammar() {
-		int test = 0;
-		test++;
 	}
 	
 	operator bool() {
