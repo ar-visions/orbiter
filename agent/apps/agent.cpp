@@ -27,8 +27,6 @@ struct Vertex {
         };
     }
 
-    type_register(Vertex);
-
     bool operator==(const Vertex& b) const { return pos == b.pos && normal == b.normal && uv == b.uv; }
 };
 
@@ -118,7 +116,6 @@ struct GardenView:mx {
         }
 
         operator bool() { return sz.x > 0; }
-        type_register(impl);
     };
     
     mx_object(GardenView, mx, impl);

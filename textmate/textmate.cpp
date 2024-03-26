@@ -345,7 +345,6 @@ struct RawRepository:mx {
 			props["$self"] = mx();
 			props["$base"] = mx();
 		}
-		register(M)
 	};
 	mx_basic(RawRepository);
 	operator bool();
@@ -387,7 +386,6 @@ struct RawGrammar:mx {
 		array<str> 			fileTypes;
 		str 				name;
 		str 				firstLineMatch;
-		register(M)
 	};
 	mx_basic(RawGrammar);
 
@@ -416,7 +414,6 @@ struct RawThemeStyles:mx {
 		str fontStyle;
 		str foreground;
 		str background;
-		register(M)
 	};
 	mx_basic(RawThemeStyles);
 };
@@ -425,7 +422,6 @@ struct IRawThemeSetting {
 	str 			name;
 	mx 				scope; // can be ScopePattern or ScopePattern[] ! (so string or array of them)
 	RawThemeStyles  styles;
-	register(IRawThemeSetting)
 };
 
 struct IRawTheme {
@@ -444,7 +440,6 @@ struct ScopeStack:mx {
 	struct M {
 		mx 			parent;
 		ScopeName 	scopeName;
-		register(M)
 	};
 
 	mx_basic(ScopeStack);
@@ -537,8 +532,6 @@ struct StyleAttributes:mx {
 
 		operator  bool() { return !is_null; }
 		bool operator!() { return  is_null; }
-		
-		register(M)
 	};
 	mx_basic(StyleAttributes);
 
@@ -573,7 +566,6 @@ struct ParsedThemeRule:mx {
 		states<FontStyle>	fontStyle;
 		str 				foreground;
 		str 				background;
-		register(M)
 	};
 	mx_basic(ParsedThemeRule);
 };
@@ -711,7 +703,6 @@ struct ColorMap:mx {
 		array<str> getColorMap() {
 			return _id2color.slice(0, _id2color.len());
 		}
-		register(M)
 	};
 
 	mx_basic(ColorMap);
@@ -773,8 +764,6 @@ struct ThemeTrieElementRule:mx {
 				background = background;
 			}
 		}
-		
-		register(M)
 	};
 	mx_basic(ThemeTrieElementRule);
 
@@ -870,8 +859,6 @@ struct ThemeTrieElement:mx {
 			};
 			_rulesWithParentScopes.push(tt);
 		}
-		
-		register(M)
 	};
 
 	mx_basic(ThemeTrieElement);
@@ -951,8 +938,6 @@ struct Theme:mx {
 				effectiveRule->background
 			);
 		}
-
-		register(M)
 
 		static Theme createFromRawTheme(
 			IRawTheme source,
@@ -1039,7 +1024,6 @@ struct IncludeReference:mx {
 		IncludeReferenceKind kind;
 		str ruleName;
 		str scopeName; // not needed
-		register(M)
 	};
 	IncludeReference(IncludeReferenceKind::etype kind) : IncludeReference() {
 		data->kind = kind;
@@ -1100,7 +1084,6 @@ IncludeReference parseInclude(utf16 include) {
 struct TopLevelRuleReference:mx {
 	struct M {
 		ScopeName scopeName;
-		register(M)
 	};
 	mx_basic(TopLevelRuleReference)
 	
@@ -1119,7 +1102,6 @@ struct TopLevelRuleReference:mx {
 struct TopLevelRepositoryRuleReference:TopLevelRuleReference {
 	struct M {
 		str ruleName;
-		register(M)
 	};
 
 	TopLevelRepositoryRuleReference(
@@ -1143,7 +1125,6 @@ struct ExternalReferenceCollector:mx {
 		array<TopLevelRuleReference> references;
 		array<str>					 seenReferenceKeys;
 		array<RawRule> 			 	 visitedRule;
-		register(M)
 	};
 
 	mx_basic(ExternalReferenceCollector)
@@ -1301,7 +1282,6 @@ struct Context:mx {
 	struct M {
 		RawGrammar baseGrammar;
 		RawGrammar selfGrammar;
-		register(M)
 	};
 	mx_basic(Context);
 };
@@ -1366,7 +1346,6 @@ struct ScopeDependencyProcessor:mx {
 				}
 			}
 		}
-		register(M)
 	};
 
 	mx_basic(ScopeDependencyProcessor);
@@ -1398,7 +1377,6 @@ struct IOnigMatch {
 struct OnigScanner:mx {
 	struct M {
 		RegEx regex;
-		register(M)
 
 		IOnigMatch findNextMatchSync(str string, num startPosition, states<FindOption> options) {
 			regex.set_cursor(startPosition);
@@ -1474,8 +1452,6 @@ struct CompiledRule:mx {
 		operator  bool() { return regExps.len() >  0; }
 		bool operator!() { return regExps.len() == 0; }
 
-		register(M)
-
 		utf16 toString() {
 			array<utf16> r;
 			for (num i = 0, len = rules.len(); i < len; i++) {
@@ -1519,7 +1495,6 @@ struct IRegExpSourceAnchorCache {
 	utf16 A1_G0;
 	utf16 A1_G1;
 	bool is_null = false;
-	register(IRegExpSourceAnchorCache);
 	
 	operator  bool() { return !is_null; }
 	bool operator!() { return  is_null; }
@@ -1532,7 +1507,6 @@ struct RegExpSource:mx {
 		bool 		hasAnchor;
 		bool 		hasBackReferences;
 		IRegExpSourceAnchorCache _anchorCache;
-		register(M)
 
 		RegExpSource clone() {
 			return RegExpSource(source, ruleId);
@@ -1695,7 +1669,6 @@ struct IRegExpSourceListAnchorCache {
 	CompiledRule A0_G1;
 	CompiledRule A1_G0;
 	CompiledRule A1_G1;
-	register(IRegExpSourceListAnchorCache)
 };
 
 struct RegExpSourceList:mx {
@@ -1704,7 +1677,6 @@ struct RegExpSourceList:mx {
 		bool 							_hasAnchors;
 		CompiledRule 					_cached;
 		IRegExpSourceListAnchorCache 	_anchorCache;
-		register(M)
 
 		void dispose() {
 			_disposeCaches();
@@ -1816,7 +1788,6 @@ struct Rule:mx {
 		utf16  	        _contentName;
 		array<RuleId>	patterns;
 		bool 	  		hasMissingPatterns; /// there was duck typing in ts for this one
-		register(M)
 	};
 
 	mx_basic(Rule);
@@ -1900,7 +1871,6 @@ struct ICompilePatternsResult {
 struct CaptureRule : Rule {
 	struct M {
 		RuleId retokenizeCapturedWithRuleId;
-		register(M)
 	};
 	mx_object(CaptureRule, Rule, members);
 
@@ -1937,7 +1907,6 @@ struct MatchRule:Rule {
 		RegExpSource 		_match;
 		array<CaptureRule> 	captures;
 		RegExpSourceList 	_cachedCompiledPatterns;
-		register(M)
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
@@ -1987,7 +1956,6 @@ struct IncludeOnlyRule:Rule {
 	struct M {
 		mx self;
 		RegExpSourceList _cachedCompiledPatterns;
-		register(M)
 		
 		void dispose() {
 			if (_cachedCompiledPatterns) {
@@ -2043,7 +2011,6 @@ struct BeginEndRule:Rule {
 		bool 			applyEndPatternLast;
 		array<RuleId>	patterns;
 		RegExpSourceList _cachedCompiledPatterns;
-		register(M)
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
@@ -2133,8 +2100,6 @@ struct BeginWhileRule : Rule {
 		array<RuleId> 		patterns;
 		RegExpSourceList 	_cachedCompiledPatterns;
 		RegExpSourceList 	_cachedCompiledWhilePatterns;
-
-		register(M)
 
 		void dispose() {
 			if (_cachedCompiledPatterns) {
@@ -2485,8 +2450,6 @@ struct ScopeMatcher:mx {
 		EmbeddedLanguagesMap values;
 		RegEx scopesRegExp;
 
-		register(M)
-
 		num match(ScopeName scope) {
 			if (!scopesRegExp) {
 				return {};
@@ -2601,7 +2564,6 @@ struct AttributedScopeStack:mx {
 		mx parent; /// use mx instead of pointer; use this for management of typed access; dependency order quirks as well.
 		ScopeStack scopePath;
 		EncodedTokenAttr tokenAttributes;
-		register(M)
 
 		static AttributedScopeStack fromExtension(AttributedScopeStack namesScopeList, array<AttributedScopeStackFrame> contentNameScopesList) {
 			AttributedScopeStack current = namesScopeList;
@@ -2748,7 +2710,6 @@ struct StateStackImpl:mx {
 		AttributedScopeStack contentNameScopesList;
 		utf16 endRule;
 		bool filled;
-		register(M);
 
 		static StateStackImpl pushFrame(StateStackImpl self, StateStackFrame &frame) {
 			auto namesScopeList = AttributedScopeStack::members::fromExtension(self ? self->nameScopesList : null, frame->nameScopesList);
@@ -3000,7 +2961,6 @@ struct MatcherWithPriority:mx {
 	struct M {
 		Matcher matcher;
 		num 	priority; // -1, 0, 1
-		register(M);
 	};
 	mx_basic(MatcherWithPriority);
 	MatcherWithPriority(Matcher &matcher, num priority) : MatcherWithPriority() {
@@ -3262,7 +3222,6 @@ struct LineTokens:mx {
 		num 			_lastTokenEndIndex;
 		array<TokenTypeMatcher> _tokenTypeOverrides;
 		BalancedBracketSelectors balancedBracketSelectors;
-		register(M);
 
 		void produce(StateStackImpl stack, num endIndex) {
 			produceFromScopes(stack->contentNameScopesList, endIndex);
@@ -3750,8 +3709,6 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			};
 		}
 
-		register(M)
-
 		//BasicScopeAttributesProvider _basicScopeAttributesProvider;
 	};
 	mx_basic(Grammar);
@@ -3921,8 +3878,6 @@ struct SyncRegistry : mx {
 		map<array<ScopeName>> _injectionGrammars;
 		Theme 				_theme;
 		ThemeProvider 		theme_provider;
-
-		register(M)
 
 		void setTheme(Theme theme) {
 			_theme = theme;
@@ -4122,7 +4077,6 @@ struct IWhileStack:mx {
 	struct M {
 		StateStackImpl stack;
 		BeginWhileRule rule;
-		register(M);
 	};
 	mx_basic(IWhileStack);
 };
@@ -4638,8 +4592,6 @@ struct Registry:mx {
 	struct M {
 		RegistryOptions _options;
 		SyncRegistry _syncRegistry;
-		
-		register(M)
 
 		void dispose() {
 			//_syncRegistry->dispose();
