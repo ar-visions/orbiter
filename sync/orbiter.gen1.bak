@@ -9,8 +9,8 @@ using namespace ion;
 int main(int argc, cstr argv[]) {
     
     // static map<V> args(int argc, cstr argv[], map def)
-    map<mx> def {{ "project", "" }};
-    map<mx> args         = ion::args<mx>(argc, (cstr*)argv, def);
+    map def {{ "project", "" }};
+    map args         = ion::args<mx>(argc, (cstr*)argv, def);
     str     project      = str(args["project"].hold());
     uri     url          = "https://localhost:2200/";
     int64_t timeout_ms   = 60000;
@@ -33,14 +33,14 @@ int main(int argc, cstr argv[]) {
         
         /// send project message, this says the project and version
         /// wheeeeere do we get the version from?  
-        station::send(sc, station::command::project, map<mx> {{"project", pkg["name"]}});
+        station::send(sc, station::command::project, map {{"project", pkg["name"]}});
 
         /// for each step, output what is going on at the server. and proceed on that path.
         for (auto &[project, v_dep]: repos) {
-            map<mx>   dep = v_dep;
+            map   dep = v_dep;
             str   version = dep.count("version") == 0 ? str(null) : str(dep["version"].hold());
             str      repo = dep["repo"];
-            map<mx>   msg = {
+            map   msg = {
                 {"project", project},
                 {"repo",    repo},
                 {"version", version}
@@ -85,7 +85,7 @@ int main(int argc, cstr argv[]) {
                 bool send_sync = false;
                 for (path_op &op: paths)
                     if (op == path::op::none || op == path::op::created || op == path::op::modified) {
-                        map<mx> content {
+                        map content {
                             { "data",      op->path.read<u8>() },
                             { "rel_path",  op->path.relative(sync_roots[op->path_index])},
                             { "sync_root", int(op->path_index) }

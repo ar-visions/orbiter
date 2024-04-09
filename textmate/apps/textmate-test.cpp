@@ -5,7 +5,7 @@ using namespace ion;
 
 int main(int argc, char *argv[]) {
 	RegEx regex(utf16("\\w+"), RegEx::Behaviour::global);
-    array<indexed<utf16>> matches = regex.exec(utf16("Hello, World!"));
+    Array<indexed<utf16>> matches = regex.exec(utf16("Hello, World!"));
 
 	if (matches)
 		console.log("match: {0}", {matches[0]});

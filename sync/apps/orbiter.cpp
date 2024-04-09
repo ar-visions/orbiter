@@ -7,7 +7,7 @@ struct orbiter:Element {
         int sample;
         callback handler;
         ///
-        doubly<prop> meta() {
+        properties meta() {
             return {
                 prop { "sample",  sample },
                 prop { "handler", handler}

@@ -11,7 +11,7 @@ static RegEx BACK_REFERENCING_END = RegEx(utf16(R"(\\(\d+))"), RegEx::Behaviour:
 using ScopeName 		= str;
 using ScopePath 		= str;
 using ScopePattern 		= str;
-using Uint32Array  		= array<uint32_t>;
+using Uint32Array  		= Array<uint32_t>;
 using EncodedTokenAttr 	= num;
 
 /**
@@ -103,7 +103,7 @@ bool _matchesScope(ScopeName scopeName, ScopeName scopePattern) {
 	return scopePattern == scopeName || (scopeName.has_prefix(scopePattern) && scopeName[scopePattern.len()] == '.');
 }
 
-num strArrCmp(array<str> a, array<str> b) {
+num strArrCmp(Array<str> a, Array<str> b) {
 	if (!a && !b) {
 		return 0;
 	}
@@ -128,12 +128,12 @@ num strArrCmp(array<str> a, array<str> b) {
 }
 
 template <typename T>
-map<T> mergeObjects(map<T> dst, map<T> src0, map<T> src1) {
-	for (field<T> &f: src0) {
-		dst[f.key] = f.value;
+map mergeObjects(map<T> dst, map<T> src0, map<T> src1) {
+	for (field &f: src0) {
+		dst[f.key] = f.value.ref<T>();
 	}
-	for (field<T> &f: src1) {
-		dst[f.key] = f.value;
+	for (field &f: src1) {
+		dst[f.key] = f.value.ref<T>();
 	}
 	return dst;
 }
@@ -166,7 +166,7 @@ struct RegexSource {
 
 	/// trace this usage in js; we dont quite have this one interfaced the same way.
 
-	static str replaceCaptures(str regexSource, str captureSource, array<IOnigCaptureIndex> captureIndices) {
+	static str replaceCaptures(str regexSource, str captureSource, Array<IOnigCaptureIndex> captureIndices) {
 		return str();
 		#if 0
 		return regexSource.replace(CAPTURING_REGEX_SOURCE, [&](str match, str index, str commandIndex, str command) -> str  {
@@ -336,11 +336,11 @@ struct ILocatable {
 using RuleId = num;
 
 struct RawRule;
-using RawCaptures    = map<mx>; // not wanting to use ILocatable metadata
+using RawCaptures    = map; // not wanting to use ILocatable metadata
 
 struct RawRepository:mx {
 	struct M {
-		map<mx>			 props; /// of type RawRule
+		map			 props; /// of type RawRule
 		void init() {
 			props["$self"] = mx();
 			props["$base"] = mx();
@@ -366,7 +366,7 @@ struct RawRule:mx {
 		RawCaptures 		endCaptures;
 		utf16 				_while;
 		RawCaptures 		whileCaptures;
-		array<RawRule>	 	patterns; /// <RawRule>
+		Array<RawRule>	 	patterns; /// <RawRule>
 		RawRepository 		repository;
 		bool 				applyEndPatternLast;
 	};
@@ -380,10 +380,10 @@ struct RawGrammar:mx {
 		ILocation 			_vscodeTextmateLocation;
 	    RawRepository 		repository;
 		ScopeName 			scopeName;
-		array<RawRule> 		patterns;
+		Array<RawRule> 		patterns;
 		map<RawRule> 		injections;
 		str 				injectionSelector;
-		array<str> 			fileTypes;
+		Array<str> 			fileTypes;
 		str 				name;
 		str 				firstLineMatch;
 	};
@@ -404,7 +404,7 @@ struct ScopeStack;
 struct GrammarRepository:mx {
 	struct M {
 		lambda<RawGrammar(ScopeName)> 		lookup;
-		lambda<array<ScopeName>(ScopeName)> injections;
+		lambda<Array<ScopeName>(ScopeName)> injections;
 	};
 	mx_basic(GrammarRepository)
 };
@@ -426,14 +426,14 @@ struct IRawThemeSetting {
 
 struct IRawTheme {
 	str name;
-	array<IRawThemeSetting> settings;
+	Array<IRawThemeSetting> settings;
 };
 
 struct RegistryOptions {
 	IRawTheme theme;
-	array<str> colorMap;
+	Array<str> colorMap;
 	future loadGrammar(ScopeName scopeName);
-	lambda<array<ScopeName>(ScopeName)> getInjections;
+	lambda<Array<ScopeName>(ScopeName)> getInjections;
 };
 
 struct ScopeStack:mx {
@@ -444,8 +444,8 @@ struct ScopeStack:mx {
 
 	mx_basic(ScopeStack);
 
-	static ScopeStack push(ScopeStack path, array<ScopeName> scopeNames) {
-		for (auto &name:scopeNames) {
+	static ScopeStack push(ScopeStack path, Array<ScopeName> scopeNames) {
+		for (ScopeName &name:scopeNames.elements<ScopeName>()) {
 			path = ScopeStack(path, name);
 		}
 		return path;
@@ -462,9 +462,9 @@ struct ScopeStack:mx {
 		return ScopeStack(*this, scopeName);
 	}
 
-	array<ScopeName> getSegments() {
+	Array<ScopeName> getSegments() {
 		ScopeStack item = *this;
-		array<ScopeName> result;
+		Array<ScopeName> result;
 		while (item) {
 			result.push(item->scopeName);
 			if (!item->parent)
@@ -489,8 +489,8 @@ struct ScopeStack:mx {
 		return p.extends(other);
 	}
 
-	array<str> getExtensionIfDefined(ScopeStack base) {
-		array<str> result;
+	Array<str> getExtensionIfDefined(ScopeStack base) {
+		Array<str> result;
 		ScopeStack item = *this;
 		while (item && item != base) {
 			result.push(item->scopeName);
@@ -502,7 +502,7 @@ struct ScopeStack:mx {
 	}
 };
 
-bool _scopePathMatchesParentScopes(ScopeStack scopePath, array<ScopeName> parentScopes) {
+bool _scopePathMatchesParentScopes(ScopeStack scopePath, Array<ScopeName> parentScopes) {
 	if (!parentScopes) {
 		return true;
 	}
@@ -561,7 +561,7 @@ struct ThemeProvider:mx {
 struct ParsedThemeRule:mx {
 	struct M {
 		ScopeName 			scope;
-		array<ScopeName> 	parentScopes;
+		Array<ScopeName> 	parentScopes;
 		num 				index;
 		states<FontStyle>	fontStyle;
 		str 				foreground;
@@ -570,11 +570,11 @@ struct ParsedThemeRule:mx {
 	mx_basic(ParsedThemeRule);
 };
 
-array<ParsedThemeRule> parseTheme(IRawTheme &source) {
+Array<ParsedThemeRule> parseTheme(IRawTheme &source) {
 	if (!source.settings)
 		return {};
-	array<IRawThemeSetting> &settings = source.settings;
-	array<ParsedThemeRule> result;
+	Array<IRawThemeSetting> &settings = source.settings;
+	Array<ParsedThemeRule> result;
 
 	for (num i = 0, len = settings.len(); i < len; i++) {
 		auto &entry = settings[i];
@@ -583,7 +583,7 @@ array<ParsedThemeRule> parseTheme(IRawTheme &source) {
 			continue;
 		}
 
-		array<str> scopes;
+		Array<str> scopes;
 		if (entry.scope.type() == typeof(str)) {
 			str _scope = entry.scope.hold();
 
@@ -597,12 +597,12 @@ array<ParsedThemeRule> parseTheme(IRawTheme &source) {
 		} else if (entry.scope.type()->traits & traits::array) {
 			scopes = entry.scope.hold();
 		} else {
-			scopes = array<str> { "" };
+			scopes = Array<str> { "" };
 		}
 
 		states<FontStyle> fontStyle = {};
 		if (entry.styles->fontStyle) {
-			array<str> segments = entry.styles->fontStyle.split(" ");
+			Array<str> segments = entry.styles->fontStyle.split(" ");
 			for (int j = 0, lenJ = segments.len(); j < lenJ; j++) {
 				str &segment = segments[j];
 				fontStyle[segment] = true;
@@ -623,10 +623,10 @@ array<ParsedThemeRule> parseTheme(IRawTheme &source) {
 		for (num j = 0, lenJ = scopes.len(); j < lenJ; j++) {
 			str _scope = scopes[j].trim();
 
-			array<str> segments = _scope.split(" ");
+			Array<str> segments = _scope.split(" ");
 
 			str scope = segments[segments.len() - 1];
-			array<str> parentScopes;
+			Array<str> parentScopes;
 			if (segments.len() > 1) {
 				parentScopes = segments.slice(0, segments.len() - 1);
 				parentScopes.reverse();
@@ -679,8 +679,8 @@ struct ColorMap:mx {
 	struct M {
 		bool 		_isFrozen;
 		num 		_lastColorId;
-		array<str> 	_id2color;
-		map<mx> 	_color2id;
+		Array<str> 	_id2color;
+		map 	_color2id;
 
 		num getId(str color) {
 			if (!color) {
@@ -700,14 +700,14 @@ struct ColorMap:mx {
 			return num(value);
 		}
 
-		array<str> getColorMap() {
+		Array<str> getColorMap() {
 			return _id2color.slice(0, _id2color.len());
 		}
 	};
 
 	mx_basic(ColorMap);
 
-	ColorMap(array<str> _colorMap):ColorMap() {
+	ColorMap(Array<str> _colorMap):ColorMap() {
 		data->_lastColorId = 0;
 
 		if (_colorMap) {
@@ -725,7 +725,7 @@ struct ColorMap:mx {
 struct ThemeTrieElementRule:mx {
 	struct M {
 		num 				scopeDepth;
-		array<ScopeName> 	parentScopes;
+		Array<ScopeName> 	parentScopes;
 		FontStyle 			fontStyle;
 		num 				foreground;
 		num 				background;
@@ -739,8 +739,8 @@ struct ThemeTrieElementRule:mx {
 			};
 		}
 
-		static array<ThemeTrieElementRule> cloneArr(array<ThemeTrieElementRule> arr) {
-			array<ThemeTrieElementRule> r;
+		static Array<ThemeTrieElementRule> cloneArr(Array<ThemeTrieElementRule> arr) {
+			Array<ThemeTrieElementRule> r;
 			for (num i = 0, len = arr.len(); i < len; i++) {
 				r[i] = arr[i]->clone();
 			}
@@ -779,18 +779,18 @@ struct ThemeTrieElement:mx {
 	struct M {
 		mx self;
 		ThemeTrieElementRule 		_mainRule;
-		array<ThemeTrieElementRule> _rulesWithParentScopes;
+		Array<ThemeTrieElementRule> _rulesWithParentScopes;
 		ITrieChildrenMap 			_children;
 
-		array<ThemeTrieElementRule> default_result() {
-			array<ThemeTrieElementRule> a;
+		Array<ThemeTrieElementRule> default_result() {
+			Array<ThemeTrieElementRule> a;
 			a.push(_mainRule);
-			for (ThemeTrieElementRule &r: _rulesWithParentScopes)
+			for (ThemeTrieElementRule &r: _rulesWithParentScopes.elements<ThemeTrieElementRule>())
 				a.push(r);
 			return ThemeTrieElement::_sortBySpecificity(a);
 		}
 
-		array<ThemeTrieElementRule> match(ScopeName scope) {
+		Array<ThemeTrieElementRule> match(ScopeName scope) {
 			if (scope == "")
 				return default_result();
 			int dotIndex = scope.index_of(".");
@@ -801,7 +801,7 @@ struct ThemeTrieElement:mx {
 			return default_result();
 		}
 
-		void insert(num scopeDepth, ScopeName scope, array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
+		void insert(num scopeDepth, ScopeName scope, Array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
 			if (scope == "") {
 				_doInsertHere(scopeDepth, parentScopes, fontStyle, foreground, background);
 				return;
@@ -823,7 +823,7 @@ struct ThemeTrieElement:mx {
 			m->insert(scopeDepth + 1, tail, parentScopes, fontStyle, foreground, background);
 		}
 
-		void _doInsertHere(num scopeDepth, array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
+		void _doInsertHere(num scopeDepth, Array<ScopeName> parentScopes, FontStyle fontStyle, num foreground, num background) {
 
 			if (!parentScopes) {
 				// Merge into the main rule
@@ -865,7 +865,7 @@ struct ThemeTrieElement:mx {
 
 	ThemeTrieElement(
 		ThemeTrieElementRule _mainRule,
-		array<ThemeTrieElementRule> rulesWithParentScopes = {},
+		Array<ThemeTrieElementRule> rulesWithParentScopes = {},
 		ITrieChildrenMap _children = {}
 	) : ThemeTrieElement() {
 		data->_mainRule = _mainRule;
@@ -873,7 +873,7 @@ struct ThemeTrieElement:mx {
 		data->_children = _children;
 	}
 
-	static array<ThemeTrieElementRule> _sortBySpecificity(array<ThemeTrieElementRule> arr) {
+	static Array<ThemeTrieElementRule> _sortBySpecificity(Array<ThemeTrieElementRule> arr) {
 		if (arr.len() == 1) {
 			return arr;
 		}
@@ -906,9 +906,9 @@ struct Theme:mx {
 		ColorMap 			_colorMap;
 		StyleAttributes	 	_defaults;
 		ThemeTrieElement 	_root;
-		lambda<array<ThemeTrieElementRule>(ScopeName)> _cachedMatchRoot;
+		lambda<Array<ThemeTrieElementRule>(ScopeName)> _cachedMatchRoot;
 
-		array<str> getColorMap() {
+		Array<str> getColorMap() {
 			return _colorMap->getColorMap();
 		}
 
@@ -921,7 +921,7 @@ struct Theme:mx {
 				return _defaults;
 			}
 			auto scopeName = scopePath->scopeName;
-			array<ThemeTrieElementRule> matchingTrieElements = _cachedMatchRoot(scopeName);
+			Array<ThemeTrieElementRule> matchingTrieElements = _cachedMatchRoot(scopeName);
 
 			/// select first should not return R but use R for its lambda; it should always return the model; t
 			ThemeTrieElementRule effectiveRule = matchingTrieElements.select_first<ThemeTrieElementRule>([&](ThemeTrieElementRule &v) -> ThemeTrieElementRule {
@@ -941,14 +941,14 @@ struct Theme:mx {
 
 		static Theme createFromRawTheme(
 			IRawTheme source,
-			array<str> colorMap
+			Array<str> colorMap
 		)  {
 			return createFromParsedTheme(parseTheme(source), colorMap);
 		}
 
 		static Theme createFromParsedTheme(
-			array<ParsedThemeRule> source,
-			array<str> colorMap
+			Array<ParsedThemeRule> source,
+			Array<str> colorMap
 		) {
 			return resolveParsedThemeRules(source, colorMap);
 		}
@@ -956,7 +956,7 @@ struct Theme:mx {
 		/**
 		 * Resolve rules (i.e. inheritance).
 		 */
-		static Theme resolveParsedThemeRules(array<ParsedThemeRule> parsedThemeRules, array<str> _colorMap) {
+		static Theme resolveParsedThemeRules(Array<ParsedThemeRule> parsedThemeRules, Array<str> _colorMap) {
 
 			// Sort rules lexicographically, and then by index if necessary
 			parsedThemeRules.sort([](ParsedThemeRule &a, ParsedThemeRule &b) -> int {
@@ -1003,7 +1003,7 @@ struct Theme:mx {
 
 		/// this is so you can trivially construct and still get logic to initialize from there
 		void init() {
-			_cachedMatchRoot = [&](ScopeName scopeName) -> array<ThemeTrieElementRule> { return _root->match(scopeName); };
+			_cachedMatchRoot = [&](ScopeName scopeName) -> Array<ThemeTrieElementRule> { return _root->match(scopeName); };
 		}
 	};
 	mx_basic(Theme);
@@ -1122,9 +1122,9 @@ struct TopLevelRepositoryRuleReference:TopLevelRuleReference {
 
 struct ExternalReferenceCollector:mx {
 	struct M {
-		array<TopLevelRuleReference> references;
-		array<str>					 seenReferenceKeys;
-		array<RawRule> 			 	 visitedRule;
+		Array<TopLevelRuleReference> references;
+		Array<str>					 seenReferenceKeys;
+		Array<RawRule> 			 	 visitedRule;
 	};
 
 	mx_basic(ExternalReferenceCollector)
@@ -1157,19 +1157,19 @@ bool RawRepository::operator!() {
 }
 
 void collectExternalReferencesInRules(
-	array<RawRule>  rules,
+	Array<RawRule>  rules,
 	RawGrammar      baseGrammar,	/// omitted 'ContextWithRepository' and added the args here
 	RawGrammar      selfGrammar_,
 	RawRepository 	repository,
 	ExternalReferenceCollector result
 ) {
-	for (RawRule &rule: rules) {
+	for (RawRule &rule: rules.elements<RawRule>()) {
 		if (result->visitedRule.index_of(rule) >= 0) {
 			continue;
 		}
 		result->visitedRule.push(rule);
 
-		map<mx> m;
+		map m;
 		// creates mutable map and i wonder if it needs to be that way
 		RawRepository patternRepository;
 		patternRepository->props = rule->repository->props->count() ? 
@@ -1232,7 +1232,7 @@ void collectExternalReferencesInTopLevelRule(RawGrammar &baseGrammar, RawGrammar
 		);
 	}
 	if (selfGrammar->injections) {
-		array<RawRule> values = selfGrammar->injections->values();
+		Array<RawRule> values = selfGrammar->injections->values();
 		collectExternalReferencesInRules(
 			values,
 			baseGrammar,
@@ -1271,7 +1271,7 @@ void collectReferencesOfReference(
 
 	auto injections = grammar_repo->injections(reference->scopeName);
 	if (injections) {
-		for (ScopeName &scopeName: injections) {
+		for (ScopeName &scopeName: injections.elements<ScopeName>()) {
 			result.add(TopLevelRuleReference(scopeName));
 		}
 	}
@@ -1301,7 +1301,7 @@ void collectExternalReferencesInTopLevelRepositoryRule(
 	ExternalReferenceCollector result
 ) {
 	if (repository->props(ruleName)) {
-		array<RawRule> rules { repository->props[ruleName] };
+		Array<RawRule> rules { repository->props[ruleName] };
 		collectExternalReferencesInRules(rules, baseGrammar, selfGrammar, repository, result);
 	}
 }
@@ -1310,20 +1310,20 @@ struct ScopeDependencyProcessor:mx {
 	struct M {
 		GrammarRepository grammar_repo;
 		ScopeName initialScopeName;
-		array<ScopeName> seenFullScopeRequests;
-		array<str> seenPartialScopeRequests;
-		array<TopLevelRuleReference> Q;
+		Array<ScopeName> seenFullScopeRequests;
+		Array<str> seenPartialScopeRequests;
+		Array<TopLevelRuleReference> Q;
 
 		void processQueue() {
 			auto q = Q;
-			Q = array<TopLevelRuleReference> {};
+			Q = Array<TopLevelRuleReference> {};
 
 			ExternalReferenceCollector deps;
-			for (TopLevelRuleReference &dep: q) {
+			for (TopLevelRuleReference &dep: q.elements<TopLevelRuleReference>()) {
 				collectReferencesOfReference(dep, initialScopeName, grammar_repo, deps);
 			}
 
-			for (TopLevelRuleReference &dep: deps->references) {
+			for (TopLevelRuleReference &dep: deps->references.elements<TopLevelRuleReference>()) {
 				if (dep.type() == typeof(TopLevelRuleReference)) {
 					if (seenFullScopeRequests.has(dep->scopeName)) {
 						// already processed
@@ -1356,7 +1356,7 @@ struct ScopeDependencyProcessor:mx {
 	) : ScopeDependencyProcessor() {
 		data->grammar_repo = grammar_repo;
 		data->seenFullScopeRequests.push(data->initialScopeName);
-		data->Q = array<TopLevelRuleReference> { TopLevelRuleReference(data->initialScopeName) };
+		data->Q = Array<TopLevelRuleReference> { TopLevelRuleReference(data->initialScopeName) };
 	}
 };
 
@@ -1364,7 +1364,7 @@ using OnigString = str;
 
 struct IOnigMatch {
 	num index = -1;
-	array<IOnigCaptureIndex> captureIndices;
+	Array<IOnigCaptureIndex> captureIndices;
 	operator bool() {
 		return index >= 0;
 	}
@@ -1380,13 +1380,13 @@ struct OnigScanner:mx {
 
 		IOnigMatch findNextMatchSync(str string, num startPosition, states<FindOption> options) {
 			regex.set_cursor(startPosition);
-			array<indexed<utf16>> matches = regex.exec(string);
+			Array<indexed<utf16>> matches = regex.exec(string);
 			if (matches) {
 				IOnigMatch result {
 					.index = regex.pattern_index(),
 					.captureIndices = { matches.len() }
 				};
-				for (indexed<utf16> &m: matches) {
+				for (indexed<utf16> &m: matches.elements<indexed<utf16>>()) {
 					IOnigCaptureIndex capture_index = {
 						m.index, m.index + m.length, m.length
 					};
@@ -1400,21 +1400,21 @@ struct OnigScanner:mx {
 
 	mx_basic(OnigScanner)
 
-	OnigScanner(array<utf16> scan) : OnigScanner() {
+	OnigScanner(Array<utf16> scan) : OnigScanner() {
 		data->regex = RegEx(scan); /// needs to set the scan mode here
 	}
 };
 
 struct OnigLib:mx {
 	struct M {
-		lambda<OnigScanner(array<str>)> createOnigScanner;
+		lambda<OnigScanner(Array<str>)> createOnigScanner;
 		lambda<OnigString(str)> 		createOnigString;
 	};
 	mx_basic(OnigLib)
 };
 
 static OnigLib oni_lib = OnigLib::M {
-	.createOnigScanner = [](array<str> sources) -> OnigScanner {
+	.createOnigScanner = [](Array<str> sources) -> OnigScanner {
 		return OnigScanner(sources);
 	},
 	.createOnigString = [](str string) -> OnigString {
@@ -1438,7 +1438,7 @@ static num ruleIdToNumber(RuleId id) {
 
 struct IFindNextMatchResult {
 	RuleId ruleId;
-	array<IOnigCaptureIndex> captureIndices;
+	Array<IOnigCaptureIndex> captureIndices;
 	operator bool() {
 		return captureIndices;
 	}
@@ -1447,13 +1447,13 @@ struct IFindNextMatchResult {
 struct CompiledRule:mx {
 	struct M {
 		OnigScanner scanner;
-		array<utf16> regExps;
-		array<RuleId> rules;
+		Array<utf16> regExps;
+		Array<RuleId> rules;
 		operator  bool() { return regExps.len() >  0; }
 		bool operator!() { return regExps.len() == 0; }
 
 		utf16 toString() {
-			array<utf16> r;
+			Array<utf16> r;
 			for (num i = 0, len = rules.len(); i < len; i++) {
 				utf16 vstr = fmt { "   - {0}: {1}", { rules[i] , str(regExps[i]) }};
 				r.push(vstr);
@@ -1482,7 +1482,7 @@ struct CompiledRule:mx {
 
 	CompiledRule(null_t) : CompiledRule() { }
 
-	CompiledRule(array<utf16> regExps, array<RuleId> rules) : CompiledRule() {
+	CompiledRule(Array<utf16> regExps, Array<RuleId> rules) : CompiledRule() {
 		data->scanner = oni_lib->createOnigScanner(regExps);
 		data->regExps = regExps;
 		data->rules   = rules;
@@ -1524,8 +1524,8 @@ struct RegExpSource:mx {
 		}
 
 		/// todo: test me
-		utf16 resolveBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
-			array<utf16> capturedValues = captureIndices.map<utf16>(
+		utf16 resolveBackReferences(utf16 lineText, Array<IOnigCaptureIndex> captureIndices) {
+			Array<utf16> capturedValues = captureIndices.map<utf16>(
 				[&](IOnigCaptureIndex &capture) -> utf16 {
 					return lineText.mid(capture.start, capture.length);
 				});
@@ -1540,10 +1540,10 @@ struct RegExpSource:mx {
 		}
 
 		IRegExpSourceAnchorCache _buildAnchorCache() {
-			array<utf16> A0_G0_result;
-			array<utf16> A0_G1_result;
-			array<utf16> A1_G0_result;
-			array<utf16> A1_G1_result;
+			Array<utf16> A0_G0_result;
+			Array<utf16> A0_G1_result;
+			Array<utf16> A1_G0_result;
+			Array<utf16> A1_G1_result;
 
 			num pos = 0;
 			num len = 0;
@@ -1617,7 +1617,7 @@ struct RegExpSource:mx {
 			num 			len 		  = regExpSource.len();
 			num 			lastPushedPos = 0;
 			bool 			hasAnchor 	  = false;
-			array<utf16> 	output;
+			Array<utf16> 	output;
 			for (num pos = 0; pos < len; pos++) {
 				wchar ch = regExpSource[pos];
 
@@ -1673,7 +1673,7 @@ struct IRegExpSourceListAnchorCache {
 
 struct RegExpSourceList:mx {
 	struct M {
-		array<RegExpSource> 			_items;
+		Array<RegExpSource> 			_items;
 		bool 							_hasAnchors;
 		CompiledRule 					_cached;
 		IRegExpSourceListAnchorCache 	_anchorCache;
@@ -1714,7 +1714,7 @@ struct RegExpSourceList:mx {
 		}
 
 		CompiledRule _resolveAnchors(bool allowA, bool allowG) {
-			array<utf16> regExps = _items.map<utf16>([&](RegExpSource e) -> utf16 {
+			Array<utf16> regExps = _items.map<utf16>([&](RegExpSource e) -> utf16 {
 				return e->resolveAnchors(allowA, allowG);
 			});
 			return CompiledRule(regExps, _items.map<RuleId>([](RegExpSource &e) -> RuleId {
@@ -1728,7 +1728,7 @@ struct RegExpSourceList:mx {
 
 	CompiledRule compile() {
 		if (!data->_cached) {
-			array<utf16> regExps = data->_items.map<utf16>(
+			Array<utf16> regExps = data->_items.map<utf16>(
 				[](RegExpSource e) -> utf16 {
 					return e->source;
 				}
@@ -1786,7 +1786,7 @@ struct Rule:mx {
 		utf16  	        _name;
 		bool 	        _contentNameIsCapturing;
 		utf16  	        _contentName;
-		array<RuleId>	patterns;
+		Array<RuleId>	patterns;
 		bool 	  		hasMissingPatterns; /// there was duck typing in ts for this one
 	};
 
@@ -1811,7 +1811,7 @@ struct Rule:mx {
 		return str("unknown");
 	}
 
-	utf16 getName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+	utf16 getName(utf16 lineText, Array<IOnigCaptureIndex> captureIndices) {
 		if (!data->_nameIsCapturing || !data->_name || !lineText || !captureIndices) {
 			return data->_name;
 		}
@@ -1819,7 +1819,7 @@ struct Rule:mx {
 		return RegexSource::replaceCaptures(data->_name, lineText, captureIndices);
 	}
 
-	utf16 getContentName(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+	utf16 getContentName(utf16 lineText, Array<IOnigCaptureIndex> captureIndices) {
 		if (!data->_contentNameIsCapturing || !data->_contentName) {
 			return data->_contentName;
 		}
@@ -1864,7 +1864,7 @@ struct RuleFactoryHelper:mx {
 };
 
 struct ICompilePatternsResult {
-	array<RuleId> patterns;
+	Array<RuleId> patterns;
 	bool hasMissingPatterns;
 };
 
@@ -1905,7 +1905,7 @@ struct MatchRule:Rule {
 	struct M {
 		mx self;
 		RegExpSource 		_match;
-		array<CaptureRule> 	captures;
+		Array<CaptureRule> 	captures;
 		RegExpSourceList 	_cachedCompiledPatterns;
 
 		void dispose() {
@@ -1931,7 +1931,7 @@ struct MatchRule:Rule {
 
 	mx_object(MatchRule, Rule, members);
 
-	MatchRule(ILocation &_location, RuleId id, utf16 name, utf16 match, array<CaptureRule> captures):MatchRule() {
+	MatchRule(ILocation &_location, RuleId id, utf16 name, utf16 match, Array<CaptureRule> captures):MatchRule() {
 		Rule::init(_location, id, name, utf16());
 		data->self = mem;
 		data->_match = RegExpSource(match, id);
@@ -1985,7 +1985,7 @@ struct IncludeOnlyRule:Rule {
 	}
 
 	void collectPatterns(RuleRegistry &grammar, RegExpSourceList &out) {
-		for (RuleId &pattern: Rule::data->patterns) {
+		for (RuleId &pattern: Rule::data->patterns.elements<RuleId>()) {
 			Rule rule = grammar->getRule(pattern);
 			rule.collectPatterns(grammar, out);
 		}
@@ -2004,12 +2004,12 @@ struct BeginEndRule:Rule {
 	struct M {
 		mx self;
 		RegExpSource 	_begin;
-		array<CaptureRule> 	beginCaptures;
+		Array<CaptureRule> 	beginCaptures;
 		RegExpSource 	_end;
 		bool 			endHasBackReferences;
-		array<CaptureRule> 	endCaptures;
+		Array<CaptureRule> 	endCaptures;
 		bool 			applyEndPatternLast;
-		array<RuleId>	patterns;
+		Array<RuleId>	patterns;
 		RegExpSourceList _cachedCompiledPatterns;
 
 		void dispose() {
@@ -2027,7 +2027,7 @@ struct BeginEndRule:Rule {
 			return _end->source;
 		}
 
-		utf16 getEndWithResolvedBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+		utf16 getEndWithResolvedBackReferences(utf16 lineText, Array<IOnigCaptureIndex> captureIndices) {
 			return _end->resolveBackReferences(lineText, captureIndices);
 		}
 
@@ -2036,7 +2036,7 @@ struct BeginEndRule:Rule {
 				_cachedCompiledPatterns = RegExpSourceList();
 
 				BeginEndRule b = self.hold();
-				for (RuleId &pattern: b.Rule::data->patterns) { // figure out a better way of doing poly intra member
+				for (RuleId &pattern: b.Rule::data->patterns.elements<RuleId>()) { // figure out a better way of doing poly intra member
 					auto rule = grammar->getRule(pattern);
 					rule.collectPatterns(grammar, _cachedCompiledPatterns);
 				}
@@ -2061,7 +2061,7 @@ struct BeginEndRule:Rule {
 	mx_object(BeginEndRule, Rule, members);
 
 	BeginEndRule(ILocation &_location, RuleId id, utf16 name, utf16 contentName,
-			utf16 begin, array<CaptureRule> beginCaptures, utf16 end, array<CaptureRule> endCaptures,
+			utf16 begin, Array<CaptureRule> beginCaptures, utf16 end, Array<CaptureRule> endCaptures,
 			bool applyEndPatternLast, ICompilePatternsResult &patterns) {
 		Rule::init(_location, id, name, contentName);
 		data->_begin = RegExpSource(begin, id);
@@ -2093,11 +2093,11 @@ struct BeginWhileRule : Rule {
 	struct M {
 		mx self;
 		RegExpSource 		_begin;
-		array<CaptureRule> 	beginCaptures;
-		array<CaptureRule> 	whileCaptures;
+		Array<CaptureRule> 	beginCaptures;
+		Array<CaptureRule> 	whileCaptures;
 		RegExpSource 		_while;
 		bool 				whileHasBackReferences;
-		array<RuleId> 		patterns;
+		Array<RuleId> 		patterns;
 		RegExpSourceList 	_cachedCompiledPatterns;
 		RegExpSourceList 	_cachedCompiledWhilePatterns;
 
@@ -2120,7 +2120,7 @@ struct BeginWhileRule : Rule {
 			return _while->source;
 		}
 
-		utf16 getWhileWithResolvedBackReferences(utf16 lineText, array<IOnigCaptureIndex> captureIndices) {
+		utf16 getWhileWithResolvedBackReferences(utf16 lineText, Array<IOnigCaptureIndex> captureIndices) {
 			return _while->resolveBackReferences(lineText, captureIndices);
 		}
 
@@ -2128,7 +2128,7 @@ struct BeginWhileRule : Rule {
 			if (!_cachedCompiledPatterns) {
 				_cachedCompiledPatterns = RegExpSourceList();
 				BeginWhileRule s = self.hold();
-				for (RuleId &pattern: s.Rule::data->patterns) {
+				for (RuleId &pattern: s.Rule::data->patterns.elements<RuleId>()) {
 					auto rule = grammar->getRule(pattern);
 					rule.collectPatterns(grammar, _cachedCompiledPatterns);
 				}
@@ -2160,8 +2160,8 @@ struct BeginWhileRule : Rule {
 
 	BeginWhileRule(
 			ILocation &_location, RuleId id, utf16 name, utf16 contentName, 
-			utf16 begin, array<CaptureRule> beginCaptures, utf16 _while,
-			array<CaptureRule> whileCaptures, ICompilePatternsResult patterns) : BeginWhileRule() {
+			utf16 begin, Array<CaptureRule> beginCaptures, utf16 _while,
+			Array<CaptureRule> whileCaptures, ICompilePatternsResult patterns) : BeginWhileRule() {
 
 		Rule::init(_location, id, name, contentName);
 		data->self = mem;
@@ -2215,14 +2215,14 @@ struct RuleFactory {
 				if (!desc->begin) {
 					if (desc->repository) {
 						repository = RawRepository(); /// merge objects should be 
-						repository->props = mergeObjects(map<mx> {}, repository->props, desc->repository->props);
+						repository->props = mergeObjects(map {}, repository->props, desc->repository->props);
 					}
-					array<RawRule> patterns = desc->patterns;
+					Array<RawRule> patterns = desc->patterns;
 					if (!patterns && desc->include) { /// this checked against undefined on patterns; empty should be the same
 						RawRule r = RawRule::M {
 							.include = desc->include
 						};
-						patterns = array<RawRule> { r };
+						patterns = Array<RawRule> { r };
 					}
 
 					ICompilePatternsResult _patterns = RuleFactory::_compilePatterns(patterns, helper, repository);
@@ -2269,13 +2269,13 @@ struct RuleFactory {
 		return desc->id;
 	}
 
-	static array<CaptureRule> _compileCaptures(RawCaptures captures, RuleFactoryHelper helper, RawRepository repository) {
-		array<CaptureRule> r;
+	static Array<CaptureRule> _compileCaptures(RawCaptures captures, RuleFactoryHelper helper, RawRepository repository) {
+		Array<CaptureRule> r;
 
 		if (captures) {
 			// Find the maximum capture id
 			num maximumCaptureId = 0;
-			for (field<mx> &f: captures) {
+			for (field &f: captures.fields()) {
 				str    captureId = f.key.hold();
 				if (captureId == "_vscodeTextmateLocation") {
 					continue;
@@ -2293,10 +2293,10 @@ struct RuleFactory {
 			}
 
 			// Fill out result
-			for (field<mx> &f: captures) {
+			for (field &f: captures.fields()) {
 				r.set_size(maximumCaptureId + 1);
-				str    captureId = f.key.hold();
-				RawRule raw_rule = f.value.hold();
+				str    captureId(f.key);
+				RawRule raw_rule(f.value);
 				if (captureId == "_vscodeTextmateLocation")
 					continue;
 				auto numericCaptureId = captureId.integer_value();
@@ -2313,8 +2313,8 @@ struct RuleFactory {
 		return r;
 	}
 
-	static ICompilePatternsResult _compilePatterns(array<RawRule> patterns, RuleFactoryHelper helper, RawRepository repository) {
-		array<RuleId> r;
+	static ICompilePatternsResult _compilePatterns(Array<RawRule> patterns, RuleFactoryHelper helper, RawRepository repository) {
+		Array<RuleId> r;
 
 		if (patterns) {
 			for (num i = 0, len = patterns.len(); i < len; i++) {
@@ -2405,7 +2405,7 @@ struct RuleFactory {
 
 struct AttributedScopeStackFrame {
 	num encodedTokenAttributes;
-	array<str> scopeNames;
+	Array<str> scopeNames;
 };
 
 struct StateStackFrame:mx {
@@ -2415,8 +2415,8 @@ struct StateStackFrame:mx {
 		num 	anchorPos;
 		bool 	beginRuleCapturedEOL;
 		utf16 	endRule;
-		array<AttributedScopeStackFrame> nameScopesList;
-		array<AttributedScopeStackFrame> contentNameScopesList;
+		Array<AttributedScopeStackFrame> nameScopesList;
+		Array<AttributedScopeStackFrame> contentNameScopesList;
 	};
 	mx_basic(StateStackFrame);
 };
@@ -2433,7 +2433,7 @@ struct TokenTypeMatcher {
 struct IToken {
 	num startIndex;
 	num endIndex;
-	array<utf16> scopes;
+	Array<utf16> scopes;
 };
 
 struct BasicScopeAttributes:mx {
@@ -2454,7 +2454,7 @@ struct ScopeMatcher:mx {
 			if (!scopesRegExp) {
 				return {};
 			}
-			array<str> m = scopesRegExp.exec(scope);
+			Array<str> m = scopesRegExp.exec(scope);
 			if (!m) {
 				// no scopes matched
 				return {};
@@ -2472,7 +2472,7 @@ struct ScopeMatcher:mx {
 			data->values = values;
 
 			// create the regex todo -- verify order with js
-			array<str> escapedScopes = values->map<str>(
+			Array<str> escapedScopes = values->map<str>(
 				[](field<num> &f) -> str {
 					return RegEx::escape(f.key);
 				}
@@ -2531,7 +2531,7 @@ struct BasicScopeAttributesProvider:mx {
 		}
 
 		static OptionalStandardTokenType _toStandardTokenType(ScopeName scopeName) { /// shouldnt need utf16 here
-			array<str> m = BasicScopeAttributesProvider::members::STANDARD_TOKEN_TYPE_REGEXP.exec(scopeName);
+			Array<str> m = BasicScopeAttributesProvider::members::STANDARD_TOKEN_TYPE_REGEXP.exec(scopeName);
 			if (!m)
 				return OptionalStandardTokenType::NotSet;
 			
@@ -2565,11 +2565,11 @@ struct AttributedScopeStack:mx {
 		ScopeStack scopePath;
 		EncodedTokenAttr tokenAttributes;
 
-		static AttributedScopeStack fromExtension(AttributedScopeStack namesScopeList, array<AttributedScopeStackFrame> contentNameScopesList) {
+		static AttributedScopeStack fromExtension(AttributedScopeStack namesScopeList, Array<AttributedScopeStackFrame> contentNameScopesList) {
 			AttributedScopeStack current = namesScopeList;
 			ScopeStack scopeNames = namesScopeList ?
 				namesScopeList->scopePath : ScopeStack {};
-			for (AttributedScopeStackFrame &frame: contentNameScopesList) {
+			for (AttributedScopeStackFrame &frame: contentNameScopesList.elements<AttributedScopeStackFrame>()) {
 				scopeNames = ScopeStack::push(scopeNames, frame.scopeNames);
 				current = AttributedScopeStack(AttributedScopeStack::M {
 					current, scopeNames, frame.encodedTokenAttributes
@@ -2661,12 +2661,12 @@ struct AttributedScopeStack:mx {
 			Grammar &grammar
 		);
 
-		array<str> getScopeNames() {
+		Array<str> getScopeNames() {
 			return scopePath.getSegments();
 		}
 
-		array<AttributedScopeStackFrame> getExtensionIfDefined(AttributedScopeStack base) {
-			array<AttributedScopeStackFrame> result;
+		Array<AttributedScopeStackFrame> getExtensionIfDefined(AttributedScopeStack base) {
+			Array<AttributedScopeStackFrame> result;
 			AttributedScopeStack self = *this;
 
 			while (self && self != base) {
@@ -2689,7 +2689,7 @@ struct AttributedScopeStack:mx {
 					break;
 				}
 			}
-			return self == base ? result.reverse() : array<AttributedScopeStackFrame> {};
+			return self == base ? result.reverse() : Array<AttributedScopeStackFrame> {};
 		}
 	};
 	mx_basic(AttributedScopeStack);
@@ -2828,12 +2828,12 @@ struct StateStackImpl:mx {
 		}
 
 		utf16 toString() { /// 'toString' should probably always be to String.  not another form of it.  UTF8 out
-			array<utf16> r;
+			Array<utf16> r;
 			_writeString(r, 0);
 			return fmt {"[{0}]", { str(r.join(str(","))) }};
 		}
 
-		num _writeString(array<utf16> res, num outIndex) {
+		num _writeString(Array<utf16> res, num outIndex) {
 			if (parent) {
 				StateStackImpl s = parent.hold();
 				outIndex = s->_writeString(res, outIndex);
@@ -2955,7 +2955,7 @@ struct StateStackImpl:mx {
 };
 
 
-using NameMatcher = lambda<bool(array<str>, array<str>)>;
+using NameMatcher = lambda<bool(Array<str>, Array<str>)>;
 
 struct MatcherWithPriority:mx {
 	struct M {
@@ -2973,7 +2973,7 @@ struct Tokenizer:mx {
     struct M {
 		utf16			input;
 		RegEx		  	regex;
-		array<utf16>    match;
+		Array<utf16>    match;
 		utf16 next() {
 			if (!match)
 				return {};
@@ -2996,8 +2996,8 @@ bool isIdentifier(utf16 token) {
 	return token && regex.exec(token);
 }
 
-array<MatcherWithPriority> createMatchers(utf16 selector, NameMatcher matchesName) {
-	array<MatcherWithPriority> results;
+Array<MatcherWithPriority> createMatchers(utf16 selector, NameMatcher matchesName) {
+	Array<MatcherWithPriority> results;
 	Tokenizer tokenizer { selector };
 	utf16 token = tokenizer->next();
 
@@ -3024,14 +3024,14 @@ array<MatcherWithPriority> createMatchers(utf16 selector, NameMatcher matchesNam
 			return expressionInParents;
 		}
 		if (isIdentifier(token)) {
-			array<utf16> identifiers;
+			Array<utf16> identifiers;
 			do {
 				identifiers.push(token);
 				token = tokenizer->next();
 			} while (isIdentifier(token));
 			///
 			return Matcher([matchesName, identifiers] (mx matcherInput) -> bool {
-				return matchesName((array<utf16>&)identifiers, matcherInput);
+				return matchesName((Array<utf16>&)identifiers, matcherInput);
 			});
 		}
 		return null;
@@ -3040,7 +3040,7 @@ array<MatcherWithPriority> createMatchers(utf16 selector, NameMatcher matchesNam
 	/// accesses tokenizer
 	auto parseConjunction = [_tokenizer=tokenizer, parseOperand]() -> Matcher {
 		Tokenizer &tokenizer = (Tokenizer &)_tokenizer;
-		array<Matcher> matchers;
+		Array<Matcher> matchers;
 		Matcher matcher = parseOperand();
 		while (matcher) {
 			matchers.push(matcher);
@@ -3056,7 +3056,7 @@ array<MatcherWithPriority> createMatchers(utf16 selector, NameMatcher matchesNam
 	/// accesses tokenizer
 	parseInnerExpression = [&token, _tokenizer=tokenizer, parseConjunction]() -> Matcher {
 		Tokenizer &tokenizer = (Tokenizer &)_tokenizer;
-		array<Matcher> matchers;
+		Array<Matcher> matchers;
 		Matcher matcher = parseConjunction();
 		while (matcher) {
 			matchers.push(matcher);
@@ -3101,7 +3101,7 @@ array<MatcherWithPriority> createMatchers(utf16 selector, NameMatcher matchesNam
 }
 
 struct ITokenizeLineResult {
-	array<IToken> tokens;
+	Array<IToken> tokens;
 	StateStackImpl ruleStack;
 	bool stoppedEarly;
 };
@@ -3125,13 +3125,13 @@ bool scopesAreMatching(str thisScopeName, str scopeName) {
 
 struct BalancedBracketSelectors:mx {
 	struct M {
-		array<Matcher> balancedBracketScopes;
-		array<Matcher> unbalancedBracketScopes;
+		Array<Matcher> balancedBracketScopes;
+		Array<Matcher> unbalancedBracketScopes;
 		bool allowAny;
 	};
 	mx_basic(BalancedBracketSelectors)
 	
-	bool nameMatcher(array<ScopeName> identifers, array<ScopeName> scopes) {
+	bool nameMatcher(Array<ScopeName> identifers, Array<ScopeName> scopes) {
 		if (scopes.len() < identifers.len()) {
 			return false;
 		}
@@ -3159,18 +3159,18 @@ struct BalancedBracketSelectors:mx {
 	}
 
 	BalancedBracketSelectors(
-		array<str> balancedBracketScopes,
-		array<str> unbalancedBracketScopes) : BalancedBracketSelectors() {
+		Array<str> balancedBracketScopes,
+		Array<str> unbalancedBracketScopes) : BalancedBracketSelectors() {
 		
 		
 		data->balancedBracketScopes = balancedBracketScopes.flat_map<Matcher>(
-			[&](str &selector) -> array<Matcher> {
+			[&](str &selector) -> Array<Matcher> {
 				if (selector == "*") {
 					data->allowAny = true;
-					return array<Matcher> {};
+					return Array<Matcher> {};
 				}
 				//createMatchers(selector, NameMatcher(this, nameMatcher))
-				array<MatcherWithPriority> p = createMatchers(utf16(selector), NameMatcher(this, &BalancedBracketSelectors::nameMatcher));
+				Array<MatcherWithPriority> p = createMatchers(utf16(selector), NameMatcher(this, &BalancedBracketSelectors::nameMatcher));
 				return p.map<Matcher>(
 					[](MatcherWithPriority &m) -> Matcher { 
 						return m->matcher;
@@ -3180,8 +3180,8 @@ struct BalancedBracketSelectors:mx {
 
 
 		data->unbalancedBracketScopes = unbalancedBracketScopes.flat_map<Matcher>(
-			[&](str &selector) -> array<Matcher> {
-				array<MatcherWithPriority> p = createMatchers(utf16(selector), NameMatcher(this, &BalancedBracketSelectors::nameMatcher));
+			[&](str &selector) -> Array<Matcher> {
+				Array<MatcherWithPriority> p = createMatchers(utf16(selector), NameMatcher(this, &BalancedBracketSelectors::nameMatcher));
 				return p.map<Matcher>(
 					[](MatcherWithPriority &m) -> Matcher {
 						return m->matcher;
@@ -3198,13 +3198,13 @@ struct BalancedBracketSelectors:mx {
 		return data->balancedBracketScopes.len() == 0 && !data->allowAny;
 	}
 
-	bool match(array<str> scopes) {
-		for (auto excluder: data->unbalancedBracketScopes) {
+	bool match(Array<str> scopes) {
+		for (auto excluder: data->unbalancedBracketScopes.elements<Matcher>()) {
 			if (excluder(scopes)) {
 				return false;
 			}
 		}
-		for (auto includer: data->balancedBracketScopes) {
+		for (auto includer: data->balancedBracketScopes.elements<Matcher>()) {
 			if (includer(scopes)) {
 				return true;
 			}
@@ -3217,10 +3217,10 @@ struct LineTokens:mx {
 	struct M {
 		bool 			_emitBinaryTokens;
 		utf16 			_lineText;
-		array<IToken> 	_tokens;
-		array<num> 		_binaryTokens;
+		Array<IToken> 	_tokens;
+		Array<num> 		_binaryTokens;
 		num 			_lastTokenEndIndex;
-		array<TokenTypeMatcher> _tokenTypeOverrides;
+		Array<TokenTypeMatcher> _tokenTypeOverrides;
 		BalancedBracketSelectors balancedBracketSelectors;
 
 		void produce(StateStackImpl stack, num endIndex) {
@@ -3244,8 +3244,8 @@ struct LineTokens:mx {
 				!balancedBracketSelectors.matchesAlways() && 
 				!balancedBracketSelectors.matchesNever())) {
 					// Only generate scope array when required to improve performance
-					array<ScopeName> scopes = scopesList ? scopesList->getScopeNames() : array<ScopeName>();
-					for (auto &tokenType: _tokenTypeOverrides) {
+					Array<ScopeName> scopes = scopesList ? scopesList->getScopeNames() : Array<ScopeName>();
+					for (auto &tokenType: _tokenTypeOverrides.elements<TokenTypeMatcher>()) {
 						if (tokenType.matcher(scopes)) {
 							metadata = EncodedTokenAttributes::set(
 								metadata,
@@ -3282,7 +3282,7 @@ struct LineTokens:mx {
 				}
 
 				if (is_debug()) {
-					array<str> scopes = scopesList ? scopesList->getScopeNames() : array<str>();
+					Array<str> scopes = scopesList ? scopesList->getScopeNames() : Array<str>();
 					RegEx      regex  = RegEx(R"(\n$)");
 					utf16      txt    = _lineText.mid(_lastTokenEndIndex, endIndex - _lastTokenEndIndex);
 					console.log("  token: |{0}|", { regex.replace(txt, "\\n") });
@@ -3298,7 +3298,7 @@ struct LineTokens:mx {
 				return;
 			}
 
-			array<str> scopes = scopesList ? scopesList->getScopeNames() : array<str>();
+			Array<str> scopes = scopesList ? scopesList->getScopeNames() : Array<str>();
 
 			if (is_debug()) {
 				RegEx regex = RegEx(R"(\n$)");
@@ -3317,7 +3317,7 @@ struct LineTokens:mx {
 			_lastTokenEndIndex = endIndex;
 		}
 
-		array<IToken> getResult(StateStackImpl stack, num lineLength) {
+		Array<IToken> getResult(StateStackImpl stack, num lineLength) {
 			if (_tokens.len() > 0 && _tokens[_tokens.len() - 1].startIndex == lineLength - 1) {
 				// pop produced token for newline
 				_tokens.pop();
@@ -3359,7 +3359,7 @@ struct LineTokens:mx {
 
 	LineTokens(
 		bool emitBinaryTokens, utf16 lineText,
-		array<TokenTypeMatcher> tokenTypeOverrides,
+		Array<TokenTypeMatcher> tokenTypeOverrides,
 		BalancedBracketSelectors balancedBracketSelectors) : LineTokens()
 	{
 		data->_emitBinaryTokens = emitBinaryTokens;
@@ -3421,7 +3421,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		str						_rootScopeName;
 		RuleId 					_rootId = -1;
 		num 					_lastRuleId;
-		array<Rule> 			_ruleId2desc;
+		Array<Rule> 			_ruleId2desc;
 		map<RawRepository>		_includedGrammars;
 		num						initialLanguage;
 		BalancedBracketSelectors balancedBracketSelectors;
@@ -3429,17 +3429,17 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		GrammarRepository	     grammar_repo; // IGrammarRepository IThemeProvider
 		ThemeProvider 			 theme_provider;
 		var 					_grammar;
-		array<Injection>		_injections;
+		Array<Injection>		_injections;
 		
 		BasicScopeAttributesProvider _basicScopeAttributesProvider;
-		array<TokenTypeMatcher> 	 _tokenTypeMatchers;
+		Array<TokenTypeMatcher> 	 _tokenTypeMatchers;
 
 
 		BasicScopeAttributes getMetadataForScope(str scope) {
 			return _basicScopeAttributesProvider->getBasicScopeAttributes(scope);
 		}
 
-		bool nameMatcher(array<ScopeName> identifers, array<ScopeName> scopes) {
+		bool nameMatcher(Array<ScopeName> identifers, Array<ScopeName> scopes) {
 			if (scopes.len() < identifers.len()) {
 				return false;
 			}
@@ -3455,10 +3455,10 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			});
 		}
 
-		void collectInjections(array<Injection> result, str selector, RawRule rule, RuleFactoryHelper ruleFactoryHelper, RawGrammar grammar) {
-			array<MatcherWithPriority> matchers = createMatchers(selector, NameMatcher(this, &members::nameMatcher));
+		void collectInjections(Array<Injection> result, str selector, RawRule rule, RuleFactoryHelper ruleFactoryHelper, RawGrammar grammar) {
+			Array<MatcherWithPriority> matchers = createMatchers(selector, NameMatcher(this, &members::nameMatcher));
 			RuleId ruleId = RuleFactory::getCompiledRuleId(rule, ruleFactoryHelper, grammar->repository);
-			for (MatcherWithPriority &matcher: matchers) {
+			for (MatcherWithPriority &matcher: matchers.elements<MatcherWithPriority>()) {
 				Injection inj = Injection::M {
 					.debugSelector = selector,
 					.matcher = matcher->matcher,
@@ -3470,7 +3470,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			}
 		}
 
-		array<Injection> _collectInjections() {
+		Array<Injection> _collectInjections() {
 			GrammarRepository grammar_repo = GrammarRepository::M {
 				.lookup = [&](str scopeName) -> RawGrammar {
 					if (scopeName == _rootScopeName) {
@@ -3478,12 +3478,12 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 					}
 					return helper->grammar_reg->getExternalGrammar(scopeName, RawRepository {});
 				},
-				.injections = [&](str scopeName) -> array<str> {
+				.injections = [&](str scopeName) -> Array<str> {
 					return grammar_repo->injections(scopeName);
 				}
 			};
 
-			array<Injection> result;
+			Array<Injection> result;
 			str scopeName = _rootScopeName;
 
 			RawGrammar grammar = grammar_repo->lookup(scopeName);
@@ -3491,9 +3491,9 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 				// add injections from the current grammar
 				map<RawRule> rawInjections = grammar->injections;
 				if (rawInjections) {
-					for (field<RawRule> &f: rawInjections) {
-						str expression    = f.key.hold();
-						RawRule raw_rule  = f.value.hold();
+					for (field &f: rawInjections.fields()) {
+						str expression(f.key);
+						RawRule raw_rule(f.value);
 						collectInjections(
 							result,
 							expression,
@@ -3506,7 +3506,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 
 				// add injection grammars contributed for the current scope
 
-				array<ScopeName> injectionScopeNames = grammar_repo->injections(scopeName);
+				Array<ScopeName> injectionScopeNames = grammar_repo->injections(scopeName);
 				if (injectionScopeNames) {
 					for (ScopeName &injectionScopeName: injectionScopeNames) {
 						auto injectionGrammar =
@@ -3534,7 +3534,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			return result;
 		}
 
-		array<Injection> getInjections() {
+		Array<Injection> getInjections() {
 			if (!_injections) {
 				_injections = _collectInjections();
 
@@ -3542,7 +3542,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 					console.log(
 						"Grammar {0} contains the following injections:"
 					, { _rootScopeName });
-					for (Injection &injection: _injections) {
+					for (Injection &injection: _injections.elements<Injection>()) {
 						console.log("  - {0}", { injection->debugSelector });
 					}
 				}
@@ -3552,7 +3552,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 
 
 		void dispose() {
-			for (auto &rule: _ruleId2desc) {
+			for (auto &rule: _ruleId2desc.elements<Rule>()) {
 				if (rule) {
 					//rule->dispose();
 				}
@@ -3732,16 +3732,16 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 		data->_rootId 					= -1;
 		data->_lastRuleId 				= 0;
 		data->initialLanguage 			= initialLanguage;
-		data->_ruleId2desc 				= array<Rule> { Rule() };
+		data->_ruleId2desc 				= Array<Rule> { Rule() };
 		data->_includedGrammars 		= {};
 		data->_grammar 					= grammar;
 		data->balancedBracketSelectors 	= balancedBracketSelectors;
 		data->grammar_repo 				= grammar_repo; /// this needs to be mx with SyncRegistry
 
 		if (tokenTypes) {
-			array<str> keys = tokenTypes.keys<str>();
+			Array<str> keys = tokenTypes.keys<str>();
 			for (str &selector: keys) {
-				array<Matcher> matchers = createMatchers(selector, NameMatcher(data, &Grammar::members::nameMatcher));
+				Array<Matcher> matchers = createMatchers(selector, NameMatcher(data, &Grammar::members::nameMatcher));
 				for (Matcher &matcher: matchers) {
 					TokenTypeMatcher t {
 						.matcher = matcher,
@@ -3808,12 +3808,12 @@ AttributedScopeStack AttributedScopeStack::members::_pushAttributed(
 
 struct StackDiff {
 	num pops;
-	array<StateStackFrame> newFrames;
+	Array<StateStackFrame> newFrames;
 };
 
 StackDiff diffStateStacksRefEq(StateStackImpl first, StateStackImpl second) {
 	num pops = 0;
-	array<StateStackFrame> newFrames;
+	Array<StateStackFrame> newFrames;
 
 	StateStackImpl curFirst  = first;
 	StateStackImpl curSecond = second;
@@ -3875,7 +3875,7 @@ struct SyncRegistry : mx {
 		GrammarRepository 	grammar_repo;
 		map<Grammar> 		_grammars;
 		map<RawGrammar> 	_rawGrammars; /// must be allocated and stored unless this is primary store
-		map<array<ScopeName>> _injectionGrammars;
+		map<Array<ScopeName>> _injectionGrammars;
 		Theme 				_theme;
 		ThemeProvider 		theme_provider;
 
@@ -3883,14 +3883,14 @@ struct SyncRegistry : mx {
 			_theme = theme;
 		}
 
-		array<str> getColorMap() {
+		Array<str> getColorMap() {
 			return _theme->getColorMap();
 		}
 
 		/**
 		 * Add `grammar` to registry and return a list of referenced scope names
 		 */
-		void addGrammar(RawGrammar grammar, array<ScopeName> injectionScopeNames) {
+		void addGrammar(RawGrammar grammar, Array<ScopeName> injectionScopeNames) {
 			_rawGrammars[grammar->scopeName] = grammar;
 			if (injectionScopeNames) {
 				_injectionGrammars[grammar->scopeName] = injectionScopeNames;
@@ -3931,7 +3931,7 @@ struct SyncRegistry : mx {
 				return f ? f->value : null;
 			};
 
-			grammar_repo->injections = [&](ScopeName targetScope) -> array<ScopeName> {
+			grammar_repo->injections = [&](ScopeName targetScope) -> Array<ScopeName> {
 				return _injectionGrammars[targetScope];
 			};
 
@@ -3954,7 +3954,7 @@ struct SyncRegistry : mx {
 
 struct MatchInjectionsResult:mx {
 	struct M {
-		array<IOnigCaptureIndex> captureIndices;
+		Array<IOnigCaptureIndex> captureIndices;
 		RuleId matchedRuleId;
 		bool priorityMatch;
 	};
@@ -3997,14 +3997,14 @@ struct LocalStackElement {
 
 void handleCaptures(Grammar grammar, OnigString lineText, 
 		bool isFirstLine, StateStackImpl stack, LineTokens lineTokens,
-		array<CaptureRule> captures, array<IOnigCaptureIndex> captureIndices) {
+		Array<CaptureRule> captures, Array<IOnigCaptureIndex> captureIndices) {
 	if (captures.len() == 0) {
 		return;
 	}
 	str lineTextContent = lineText;
 
 	size_t len = math::min(captures.len(), captureIndices.len());
-	array<LocalStackElement> localStack;
+	Array<LocalStackElement> localStack;
 	num maxEnd = captureIndices[0].end;
 
 	for (size_t i = 0; i < len; i++) {
@@ -4093,7 +4093,7 @@ IWhileCheckResult _checkWhileConditions(
 		num linePos, StateStackImpl stack, LineTokens &lineTokens) {
 	num anchorPosition = (stack->beginRuleCapturedEOL ? 0 : -1);
 
-	array<IWhileStack> whileRules;
+	Array<IWhileStack> whileRules;
 
 	for (StateStackImpl node = stack; node; node = node->pop()) {
 		mx nodeRule = node->getRule(grammar);
@@ -4148,7 +4148,7 @@ IWhileCheckResult _checkWhileConditions(
 	
 struct MatchResult:mx {
 	struct M {
-		array<IOnigCaptureIndex> captureIndices;
+		Array<IOnigCaptureIndex> captureIndices;
 		RuleId matchedRuleId;
 		bool priorityMatch;
 	};
@@ -4199,13 +4199,13 @@ mx matchRule(
 
 
 MatchInjectionsResult matchInjections(
-		array<Injection> injections, Grammar grammar,
+		Array<Injection> injections, Grammar grammar,
 		OnigString lineText, bool isFirstLine, num linePos,
 		StateStackImpl stack, num anchorPosition)
 {
 	// the lower the better
 	num 	bestMatchRating = 0x7FFFFFFFFFFFFFFF;
-	array<IOnigCaptureIndex> bestMatchCaptureIndices;
+	Array<IOnigCaptureIndex> bestMatchCaptureIndices;
 	RuleId 	bestMatchRuleId;
 	num 	bestMatchResultPriority = 0;
 
@@ -4265,7 +4265,7 @@ MatchResult matchRuleOrInjections(Grammar grammar, OnigString lineText,
 	MatchResult matchResult = matchRule(grammar, lineText, isFirstLine, linePos, stack, anchorPosition).hold();
 
 	// Look for injected rules
-	array<Injection> injections = grammar->getInjections();
+	Array<Injection> injections = grammar->getInjections();
 	if (!injections) {
 		// No injections whatsoever => early return
 		return matchResult;
@@ -4347,7 +4347,7 @@ TokenizeStringResult _tokenizeString(
 			return;
 		}
 
-		array<IOnigCaptureIndex> captureIndices = r->captureIndices;
+		Array<IOnigCaptureIndex> captureIndices = r->captureIndices;
 		auto matchedRuleId = r->matchedRuleId;
 
 		auto hasAdvanced =
@@ -4584,8 +4584,8 @@ TokenizeStringResult _tokenizeString(
 struct IGrammarConfiguration {
 	EmbeddedLanguagesMap embeddedLanguages;
 	TokenTypeMap tokenTypes;
-	array<str> balancedBracketSelectors;
-	array<str> unbalancedBracketSelectors;
+	Array<str> balancedBracketSelectors;
+	Array<str> unbalancedBracketSelectors;
 };
 
 struct Registry:mx {
@@ -4601,14 +4601,14 @@ struct Registry:mx {
 		/**
 		 * Change the theme. Once called, no previous `ruleStack` should be used anymore.
 		 */
-		void setTheme(IRawTheme &theme, array<str> colorMap = {}) {
+		void setTheme(IRawTheme &theme, Array<str> colorMap = {}) {
 			_syncRegistry->setTheme(Theme::members::createFromRawTheme(theme, colorMap));
 		}
 
 		/**
 		 * Returns a lookup array for color ids.
 		 */
-		array<str> getColorMap() {
+		Array<str> getColorMap() {
 			return _syncRegistry->getColorMap();
 		}
 
@@ -4690,9 +4690,9 @@ struct Registry:mx {
 
 		RawGrammar _doLoadSingleGrammar(ScopeName scopeName) {
 			RawGrammar grammar = _options.loadGrammar(scopeName);
-			lambda<array<ScopeName>(ScopeName)> injections =
-				_options.getInjections.type() == typeof(lambda<array<ScopeName>(ScopeName)>) ?
-					_options.getInjections(scopeName) : array<ScopeName> {};
+			lambda<Array<ScopeName>(ScopeName)> injections =
+				_options.getInjections.type() == typeof(lambda<Array<ScopeName>(ScopeName)>) ?
+					_options.getInjections(scopeName) : Array<ScopeName> {};
 			_syncRegistry->addGrammar(grammar, injections);
 			return grammar;
 		}
@@ -4702,7 +4702,7 @@ struct Registry:mx {
 		 */
 		Grammar addGrammar(
 			RawGrammar rawGrammar,
-			array<str> injections = {},
+			Array<str> injections = {},
 			num initialLanguage = 0,
 			EmbeddedLanguagesMap embeddedLanguages = {})
 		{
@@ -4899,7 +4899,7 @@ struct com<T, Ts...>: com<Ts...> {
 	}
  
 	template <typename CTX>
-	com(initial<arg> args) {
+	com(std::initializer_list<arg> args) {
 		/// props can be shared throughout, perhaps
 		/// the only thing thing this class needs is references accessible at design time by the users of these classes
 	}
