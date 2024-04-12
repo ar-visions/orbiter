@@ -340,11 +340,7 @@ using RawCaptures    = map; // not wanting to use ILocatable metadata
 
 struct RawRepository:mx {
 	struct M {
-		map			 props; /// of type RawRule
-		void init() {
-			props["$self"] = mx();
-			props["$base"] = mx();
-		}
+		map props = {{"$self", mx()}, {"$base", mx()}}; /// of type RawRule
 	};
 	mx_basic(RawRepository);
 	operator bool();
@@ -1002,7 +998,7 @@ struct Theme:mx {
 		}
 
 		/// this is so you can trivially construct and still get logic to initialize from there
-		void init() {
+		M() {
 			_cachedMatchRoot = [&](ScopeName scopeName) -> Array<ThemeTrieElementRule> { return _root->match(scopeName); };
 		}
 	};
@@ -3679,7 +3675,7 @@ struct Grammar:mx { // implements IGrammar, IRuleFactoryHelper, IOnigLib
 			};
 		}
 
-		void init() {
+		M() {
 			helper->grammar_reg->getExternalGrammar = [&](str scopeName, RawRepository repository) -> RawGrammar {
 				if (_includedGrammars[scopeName]) {
 					return _includedGrammars[scopeName];
@@ -3925,7 +3921,7 @@ struct SyncRegistry : mx {
 			return _grammars[scopeName];
 		}
 
-		void init() {
+		M() {
 			grammar_repo->lookup = [&](ScopeName scopeName) -> RawGrammar {
 				field<RawGrammar> *f = _rawGrammars->lookup(scopeName);
 				return f ? f->value : null;
