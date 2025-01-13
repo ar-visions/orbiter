@@ -58,9 +58,10 @@
 					"attributes":{
 						"POSITION":0,
 						"NORMAL":1,
-						"TEXCOORD_0":2
+						"TEXCOORD_0":2,
+						"TANGENT":3
 					},
-					"indices":3,
+					"indices":4,
 					"material":0
 				}
 			]
@@ -70,11 +71,12 @@
 			"primitives":[
 				{
 					"attributes":{
-						"POSITION":4,
-						"NORMAL":5,
-						"TEXCOORD_0":6
+						"POSITION":5,
+						"NORMAL":6,
+						"TEXCOORD_0":7,
+						"TANGENT":8
 					},
-					"indices":7,
+					"indices":9,
 					"material":0
 				}
 			]
@@ -111,12 +113,18 @@
 		},
 		{
 			"bufferView":3,
+			"componentType":5126,
+			"count":105168,
+			"type":"VEC4"
+		},
+		{
+			"bufferView":4,
 			"componentType":5125,
 			"count":626688,
 			"type":"SCALAR"
 		},
 		{
-			"bufferView":4,
+			"bufferView":5,
 			"componentType":5126,
 			"count":48216,
 			"max":[
@@ -132,19 +140,25 @@
 			"type":"VEC3"
 		},
 		{
-			"bufferView":5,
+			"bufferView":6,
 			"componentType":5126,
 			"count":48216,
 			"type":"VEC3"
 		},
 		{
-			"bufferView":6,
+			"bufferView":7,
 			"componentType":5126,
 			"count":48216,
 			"type":"VEC2"
 		},
 		{
-			"bufferView":7,
+			"bufferView":8,
+			"componentType":5126,
+			"count":48216,
+			"type":"VEC4"
+		},
+		{
+			"bufferView":9,
 			"componentType":5123,
 			"count":276480,
 			"type":"SCALAR"
@@ -171,38 +185,50 @@
 		},
 		{
 			"buffer":0,
-			"byteLength":2506752,
+			"byteLength":1682688,
 			"byteOffset":3365376,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":2506752,
+			"byteOffset":5048064,
 			"target":34963
 		},
 		{
 			"buffer":0,
 			"byteLength":578592,
-			"byteOffset":5872128,
+			"byteOffset":7554816,
 			"target":34962
 		},
 		{
 			"buffer":0,
 			"byteLength":578592,
-			"byteOffset":6450720,
+			"byteOffset":8133408,
 			"target":34962
 		},
 		{
 			"buffer":0,
 			"byteLength":385728,
-			"byteOffset":7029312,
+			"byteOffset":8712000,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":771456,
+			"byteOffset":9097728,
 			"target":34962
 		},
 		{
 			"buffer":0,
 			"byteLength":552960,
-			"byteOffset":7415040,
+			"byteOffset":9869184,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":7968000,
+			"byteLength":10422144,
 			"uri":"flower88.2.bin"
 		}
 	]
