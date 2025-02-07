@@ -5,4 +5,4 @@ silver-build
 silver-debug
 */build/*
 build/*
-
+*/target/*
