@@ -1,8 +1,0 @@
-dep(ion:ux)
-
-if(APPLE)
-    dep(IOSurface QuartzCore Metal AppKit CoreGraphics CoreFoundation Cocoa IOKit)
-else()
-    dep(X11)
-endif()
-

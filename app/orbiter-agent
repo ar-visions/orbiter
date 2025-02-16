@@ -1,0 +1,6 @@
+#ifndef _ORBITER_AGENT_
+#define _ORBITER_AGENT_
+
+#include <trinity>
+
+#endif

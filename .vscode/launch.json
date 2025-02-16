@@ -5,13 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name":             "agent",
+            "name":             "orbiter",
             "type":             "cppdbg",
             "request":          "launch",
-            "program":          "${workspaceFolder}/../orbiter/build/agent",
+            "program":          "${workspaceFolder}/../orbiter/silver-debug/orbiter-agent",
             "args":             [],
             "stopAtEntry":      false,
-            "cwd":              "${workspaceFolder}/../orbiter/build",
+            "cwd":              "${workspaceFolder}/../orbiter/silver-debug",
             "environment":      [],
             "externalConsole":  false,
             "MIMode":           "gdb",
@@ -22,7 +22,7 @@
             },
             "windows":{
                 "type": "cppvsdbg",
-                "program": "${workspaceFolder}/../orbiter/build/Debug/agent",
+                "program": "${workspaceFolder}/../orbiter/build/Debug/orbiter-agent",
                 "cwd": "${workspaceFolder}/../orbiter/build"
             },
             "osx": { "MIMode":  "lldb" }

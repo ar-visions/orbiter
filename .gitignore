@@ -5,4 +5,6 @@ silver-build
 silver-debug
 */build/*
 build/*
+archive/*
+*/debug/*
 */target/*
