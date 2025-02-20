@@ -1,4 +1,4 @@
-#version 450
+#include <import>
 
 layout(location = 0) out vec4 fragColor;
 
