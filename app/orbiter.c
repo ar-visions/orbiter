@@ -37,10 +37,15 @@ int main(int argc, cstr argv[]) {
     node     flower    = node     ( id, id_flower, parts, flower_shaded );
     node     body      = node     ( id, id_body,   parts, body_shaded );
 
+    image sampler = image(uri, form(path, "images/ion-orbiter.png"), surface, Surface_color);
+    Camera camera = Camera();
     /// create model, describing the nodes shade
+    /// debug sampler creation, uniforms
     model    agent     = model    ( trinity,  t,
                                     w,        w,
                                     id,       orbiter, 
+                                    samplers, a(sampler, null),
+                                    uniforms, a(camera, null),
                                     nodes,    a(body, flower, null) );
     
     /// push this model to our scene, going on in the window
