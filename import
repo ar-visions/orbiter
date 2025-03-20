@@ -2,13 +2,7 @@ A	https://github.com/ar-visions/A	main
 
 trinity	https://github.com/ar-visions/trinity	main
 
-whisper.cpp	https://github.com/ggerganov/whisper.cpp	d682e15
-	-DGGML_VULKAN=ON
-	> ../models/download-ggml-model.sh base.en
-	> mkdir -p $BUILD_DIR/models
-	> cp ../models/ggml-base.en.bin $BUILD_DIR/models/
-
 app:
-	A trinity whisper ggml-vulkan SDL2
+	A vec trinity
 	linux:
 		asound

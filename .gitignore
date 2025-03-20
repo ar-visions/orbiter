@@ -1,10 +1,5 @@
 .DS_Store
 build
-build-*
-silver-build
-silver-debug
-*/build/*
-build/*
-archive/*
-*/debug/*
-*/target/*
+debug
+target
+archive
