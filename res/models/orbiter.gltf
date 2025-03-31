@@ -86,13 +86,13 @@
 			"name":"sides",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
-					0.4206988215446472,
-					0.44279804825782776,
-					0.4793359339237213,
+					0.8,
+					0.8,
+					0.8,
 					1
 				],
 				"metallicFactor":1.0,
-				"roughnessFactor":0.4
+				"roughnessFactor":0.53
 			}
 		},
 		{
@@ -105,8 +105,8 @@
 					0.29876890778541565,
 					1
 				],
-				"metallicFactor":0.9946236610412598,
-				"roughnessFactor":0.3
+				"metallicFactor":0.903,
+				"roughnessFactor":0.2
 			}
 		},
 		{
@@ -128,8 +128,8 @@
 			"name":"screen",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
-					0.37436771392822266,
-					0.10759943723678589,
+					0.67436771392822266,
+					0.40759943723678589,
 					0.8067560195922852,
 					1
 				],
