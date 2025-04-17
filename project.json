@@ -1,7 +1,0 @@
-{
-    "name":   "orbiter",
-    "version":"dev",
-    "import": [
-        "ion"
-    ]
-}
