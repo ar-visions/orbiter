@@ -1,6 +1,16 @@
 #ifndef _ORBITER_AGENT_
 #define _ORBITER_AGENT_
 
-//#include <trinity>
+#include <trinity>
+
+#define Orbiter_schema(X,Y,...) \
+    i_prop   (X,Y, public,     vec4f,   pos_radius) \
+    i_prop   (X,Y, public,     vec4f,   normal_falloff) \
+    i_prop   (X,Y, public,     vec4f,   color_intensity) \
+    i_prop   (X,Y, public,     f32,     moment) \
+    i_prop   (X,Y, public,     f32,     moment_amount) \
+    i_prop   (X,Y, public,     f32,     moment_angle) \
+    i_override(X,Y, method, init)
+declare_mod(Orbiter, PBR, shader)
 
 #endif

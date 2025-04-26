@@ -1,12 +1,8 @@
-A 		https://github.com/ar-visions/A 		main
-vec 	https://github.com/ar-visions/vec 		main
-gltf 	https://github.com/ar-visions/gltf 		main
-trinity https://github.com/ar-visions/trinity 	main
-
-app:
-	A
-	vec
-	gltf
-	trinity
-	linux:
-		asound
+import:
+	A 		https://github.com/ar-visions/A 		main
+	vec 	https://github.com/ar-visions/vec 		main
+	gltf 	https://github.com/ar-visions/gltf 		main
+	trinity https://github.com/ar-visions/trinity 	main
+		-ltrinity
+		linux:
+			-lasound

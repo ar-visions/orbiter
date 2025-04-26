@@ -1,5 +1,6 @@
 
 #include <import>
+#include <trinity>
 #include <math.h>
 
 typedef struct Uniforms {
@@ -113,3 +114,16 @@ int main(int argc, cstr argv[]) {
 }
 
 
+
+
+
+void Orbiter_init(Orbiter w) {
+    w->pos_radius      = vec4f(0.0, 0.1, 0.0, 0.3f);
+    w->normal_falloff  = vec4f(0.0,  1.0, 0.0, 1.0f);
+    w->color_intensity = vec4f(0.6,  0.3, 1.0, 4.0f);
+    w->moment          = 0.0;
+    w->moment_amount   = 1.0f;
+    w->moment_angle    = 0.0f;
+}
+
+define_mod(Orbiter, PBR)
