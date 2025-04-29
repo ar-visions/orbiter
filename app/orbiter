@@ -13,4 +13,11 @@
     i_override(X,Y, method, init)
 declare_mod(Orbiter, PBR, shader)
 
+#define UVQuad_schema(X,Y,...) \
+    i_prop   (X,Y, public,     mat4f, model) \
+    i_prop   (X,Y, public,     mat4f, view) \
+    i_prop   (X,Y, public,     mat4f, proj) \
+    i_attr   (X,Y, Surface,    color,  rgbaf)
+declare_mod(UVQuad, shader)
+
 #endif
