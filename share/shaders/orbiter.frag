@@ -97,19 +97,19 @@ vec4 calculatePBR2(vec2 texCoords, vec3 worldPos, vec3 normal, vec3 viewPos) {
     
     // Directional light
     vec3  lightDir         = normalize(vec3(0.0, 1.0, 0.0));
-    vec3  lightColor       = vec3(1.0);
+    vec3  lightColor       = vec3(0.0, 0.04, 0.2);
     
     // BRDF calculation for main directional light
     
-    float global_lighting  = 1.0;
+    float global_lighting  = 0.02;
 
     if (ior > 3.0)
-        global_lighting = 2.0;
+        global_lighting = 0.2;//1.5 * metallic * (1.0 - roughness);
 
     // Orbiter light contribution
-    vec3  orbiter_contrib  = (0.5 * v_color_1) * orb_color * orb_intensity * 0.1;
+    vec3  orbiter_contrib  = (2.2 * v_color_1) * (orb_color * (1.0 - metallic)) * orb_intensity * 0.1;
     
-    vec3  ambient          = envColor * global_lighting * rough_color * ao;
+    vec3  ambient          = envColor * global_lighting;// * global_lighting * rough_color * ao;
     
     // Final color composition
     vec3  Lo               = BRDF(lightDir, V, N, rough_color, ior, metallic, roughness) * lightColor;

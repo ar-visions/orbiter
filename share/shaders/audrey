@@ -1,0 +1,29 @@
+#version 450
+
+layout(set = 0, binding = 0) uniform Audrey {
+    mat4  model;
+    mat4  view;
+    mat4  proj;
+
+    mat4  v_model;
+    mat4  v_view;
+    mat4  v_proj;
+
+    float time;
+    float position;
+    float thrust;
+    float magnitude;
+    float colors;
+
+    float halo_space;
+    float halo_separate;
+    float halo_attenuate;
+    float halo_thickness;
+
+    float pad0;
+    float pad1;
+    float pad2;
+} au;
+
+layout(set = 1, binding = 0)  uniform sampler2D tx_beam;
+layout(set = 1, binding = 1)  uniform sampler2D tx_core;

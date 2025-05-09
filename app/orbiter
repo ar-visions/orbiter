@@ -13,11 +13,40 @@
     i_override(X,Y, method, init)
 declare_mod(Orbiter, PBR, shader)
 
-#define UVQuad_schema(X,Y,...) \
+#define BlurV_schema(X,Y,...) \
     i_prop   (X,Y, public,     mat4f, model) \
     i_prop   (X,Y, public,     mat4f, view) \
     i_prop   (X,Y, public,     mat4f, proj) \
-    i_attr   (X,Y, Surface,    color,  rgbaf)
-declare_mod(UVQuad, shader)
+    i_attr   (X,Y, Surface,    color, rgba8)
+declare_mod(BlurV, shader)
+
+#define Blur_schema(X,Y,...) \
+    i_prop   (X,Y, public,     mat4f, model) \
+    i_prop   (X,Y, public,     mat4f, view) \
+    i_prop   (X,Y, public,     mat4f, proj) \
+    i_attr   (X,Y, Surface,    color, rgba8)
+declare_mod(Blur, shader)
+
+#define Audrey_schema(X,Y,...) \
+    i_prop   (X,Y, public,     mat4f, model) \
+    i_prop   (X,Y, public,     mat4f, view) \
+    i_prop   (X,Y, public,     mat4f, proj) \
+    i_attr   (X,Y, Surface,    emission, rgba8) \
+    i_attr   (X,Y, Surface,    color,    rgba8) \
+    i_prop   (X,Y, public,     mat4f, v_model) \
+    i_prop   (X,Y, public,     mat4f, v_view) \
+    i_prop   (X,Y, public,     mat4f, v_proj) \
+    i_prop   (X,Y, public,     f32,   time) \
+    i_prop   (X,Y, public,     f32,   thrust) \
+    i_prop   (X,Y, public,     f32,   magnitude) \
+    i_prop   (X,Y, public,     f32,   colors) \
+    i_prop   (X,Y, public,     f32,   halo_space) \
+    i_prop   (X,Y, public,     f32,   halo_separate) \
+    i_prop   (X,Y, public,     f32,   halo_attenuate) \
+    i_prop   (X,Y, public,     f32,   halo_thickness) \
+    i_prop   (X,Y, public,     f32,   pad0) \
+    i_prop   (X,Y, public,     f32,   pad1) \
+    i_prop   (X,Y, public,     f32,   pad2)
+declare_mod(Audrey, shader)
 
 #endif
