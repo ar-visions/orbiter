@@ -12,7 +12,7 @@ float gaussian(float x, float sigma) {
 }
 
 void main() {
-    fragColor = vec4(1.0); /*
+    fragColor = vec4(0.0); /*
     vec2  uv         = v_uv;
     int   h          = textureSize(tx_color, 0).y;
     vec2  offset     = vec2(0.0, 1.0 / float(h)); // vertical
