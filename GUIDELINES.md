@@ -54,7 +54,7 @@ Orbiter is a design-first development platform for building rich, spatially-awar
 
 * **Design Simplicity First**: Start by building what works and makes sense. Avoid over-engineering layout systems too early.
 
-* **Render Once, Then Let Go**: Orbiter prefers initial declarative state. Components remain live and mutable afterward.
+* **Render Once, Then Let Go**: Orbiter prefers initial declarative state. Components remain live and mutable afterward.  The user composes it -- we do not.  This means its less code to do a more effective job at that.
 
 * **Direct C / A-type Syntax**: UI is built using native objects and method calls. No JSX, no brackets. Just data.
 
