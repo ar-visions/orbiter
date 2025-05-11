@@ -6,11 +6,11 @@ Orbiter is a design-first development platform for building rich, spatially-awar
 
 ## Philosophy
 
-* **User-led Layout**: Orbiter avoids rigid layout constraints. The user dictates view positioning, floating, docking, and snapping. Layouts adapts based on top level configurable constraints -- which amount to more permutability than other code editors.
+* **User-led Layout**: Orbiter avoids rigid layout constraints. The user dictates view positioning. Layout adapts based on top level configurable constraints -- which amount to more permutability than other code editors.
 
 * **Minimal UI Permuting**: All UI must justify its presence. Interface elements like file trees, for example are constrained to 1 depth.  To do so, we have just two icons that show up when there are multiple depth levels.  If the project does not have multiple depth per project, this will not present.  One may expand multiple directive views with a singluar list, and feel natural doing so.  The critical aspect of this control is it does not have to be resized constantly -- effectively paramount for the user.
 
-* **Declarative Roots, Mutative Flow**: Orbiter uses declarative composition for default UI state, however allows mutation of views afterward. No re-declaration needed for each frame.  This is not a React-based app, but rather something that can encompass more customization by user.
+* **Declarative Roots, Mutative Flow**: Orbiter uses declarative composition for default UI state where users control the view layout afterward. No re-declaration needed for each frame.  This is not a React-based app, but rather something that can encompass more customization by user.
 
 * **Scene is Primary**: The editor is the central view. Most advancements to interface are within the editor. What top-level remains is simple layers with child layout types.  We only have a file browser, terminal, and in design mode: properties, and toolbox
 
@@ -20,7 +20,9 @@ Orbiter is a design-first development platform for building rich, spatially-awar
 
 ## Paneling & View Design
 
-* **Top Toolbar**: Static. Contains major actions like Play, Debug, Layout options. Persistent across sessions.
+* **Top Toolbar**: Static. Contains major actions like Build, Start/Stop, Layout options. Persistent across sessions; saved in directory its viewing.
+  * We want to combine the idea of 'workspace', 'config' -- its a project file with properties for Orbiter, but its in a .css format, better than json!
+  * Its a default build template in .css
 
 * **Docking**: Views can dock on any edge (top, right, bottom, left) and snap. Drag-based layout flow allows views to auto-fit relative to one another.
 
@@ -56,9 +58,9 @@ Orbiter is a design-first development platform for building rich, spatially-awar
 
 * **Render Once, Then Let Go**: Orbiter prefers initial declarative state. Components remain live and mutable afterward.  The user composes it -- we do not.  This means its less code to do a more effective job at that.
 
-* **Direct C / A-type Syntax**: UI is built using native objects and method calls. No JSX, no brackets. Just data.
+* **Direct C / A-type Syntax**: UI is built using native objects and method calls. Events do not require arbitrary amounts of variables in scope, and do not create code pyramids.
 
-* **Text-Based Stylesheets**: All styling is declarative and externalized. The system reads `.css` files named after your app and loads them automatically.
+* **CSS App Property Config/Themes**: All configuration and styling is declarative and externalized in file-system, extensible with user-config via .orbiter/config.css. The system reads `.css` files named after the app ('Orbiter') and loads them automatically.  Additionally, the user may set themes property to apply any amount of css styles afterwards.  This property is named styles, a comma separated list to apply after 'Orbiter' style.
 
 ---
 
@@ -67,10 +69,10 @@ Orbiter is a design-first development platform for building rich, spatially-awar
 * At the heart of Orbiter is a **view switch system** driven by the file currently in focus. This system allows Orbiter to adaptively generate visual interfaces based on the active file type or associated adapter.
 * Each adapter can register custom views (e.g., editor, graph, texture view), and Orbiter will present these to the user automatically.
 * Different file types may have multiple associated views (e.g., `.json` might offer table + raw view).
-* View switching is **fluid and unobtrusive**, living near the bottom tab bar or in the top menu as needed.
+* View switching is **fluid and unobtrusive**, in main menu (dockable).
 
 ---
 
-## Final Thought
+## Summation
 
-Orbiter isn't trying to be a web browser in disguise. It's a native-first, code-centered system built to empower how developers *actually* build, not how frameworks expect them to.
+Orbiter isn't trying to be a web browser, or let you try to develop like an app for one of them. It's a native-first, code-centered system built to empower how developers *actually* build, not how frameworks expect them to.  We use tapestry, so any git-url that installs to lib/bin/include/share is a package.
