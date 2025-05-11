@@ -8,11 +8,11 @@ Orbiter is a design-first development platform for building rich, spatially-awar
 
 * **User-led Layout**: Orbiter avoids rigid layout constraints. The user dictates view positioning, floating, docking, and snapping. Layouts adapts based on top level configurable constraints -- which amount to more permutability than other code editors.
 
-* **Minimal UI Noise**: All UI must justify its presence. Interface elements (like file trees) are condensed to dropdowns or dynamic presentations only when needed.
+* **Minimal UI Permuting**: All UI must justify its presence. Interface elements like file trees, for example are constrained to 1 depth.  To do so, we have just two icons that show up when there are multiple depth levels.  If the project does not have multiple depth per project, this will not present.  One may expand multiple directive views with a singluar list, and feel natural doing so.  The critical aspect of this control is it does not have to be resized constantly -- effectively paramount for the user.
 
-* **Declarative Roots, Mutative Flow**: Orbiter uses declarative composition for initial state but allows user-driven mutation of views afterward. No re-declaration needed for each frame.
+* **Declarative Roots, Mutative Flow**: Orbiter uses declarative composition for default UI state, however allows mutation of views afterward. No re-declaration needed for each frame.  This is not a React-based app, but rather something that can encompass more customization by user.
 
-* **Scene is Primary**: Code is the central view. Most UI design is handled through the code editor. Decorations and layers support, not distract from, code-focused workflows.
+* **Scene is Primary**: The editor is the central view. Most advancements to interface are within the editor. What top-level remains is simple layers with child layout types.  We only have a file browser, terminal, and in design mode: properties, and toolbox
 
 * **Text-Based Styling**: UI styles are specified in `.css` files named after the app. These files define declarative visual behaviors and transitions and are read during app setup. Style belongs in text.
 
