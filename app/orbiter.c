@@ -36,6 +36,9 @@ void orbiter_frame(Shaders* u) {
     output_mode(cv, true);
 }
 
+element orbiter_render() {
+}
+
 int main(int argc, cstr argv[]) {
     A_start();
     path_app(argv[0]);
