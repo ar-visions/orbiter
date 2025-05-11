@@ -6,7 +6,7 @@ Orbiter is a design-first development platform for building rich, spatially-awar
 
 ## Philosophy
 
-* **User-led Layout**: Orbiter avoids rigid layout constraints. The user dictates view positioning, floating, docking, and snapping. Layouts adapt to spatial reasoning, not pre-written hierarchy.
+* **User-led Layout**: Orbiter avoids rigid layout constraints. The user dictates view positioning, floating, docking, and snapping. Layouts adapts based on top level configurable constraints -- which amount to more permutability than other code editors.
 
 * **Minimal UI Noise**: All UI must justify its presence. Interface elements (like file trees) are condensed to dropdowns or dynamic presentations only when needed.
 
