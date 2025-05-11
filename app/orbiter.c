@@ -29,14 +29,11 @@ void orbiter_frame(Shaders* u) {
         y += 1;
         x = 0.0;
     }
-    rect      (cv, x, y, 400, 400);
+    rect_to   (cv, x, y, 400, 400);
     fill_color(cv, string("#0af"));
     draw_fill (cv, false);
     sync      (cv);
     output_mode(cv, true);
-}
-
-element orbiter_render() {
 }
 
 int main(int argc, cstr argv[]) {

@@ -3,13 +3,12 @@ import:
 	vec 	https://github.com/ar-visions/vec 		main
 	img 	https://github.com/ar-visions/img 		main
 	gltf 	https://github.com/ar-visions/gltf 		main
+	trinity https://github.com/ar-visions/trinity 	main
+		-ltrinity
+		linux:
+			-lasound
 	sk 		https://github.com/ar-visions/sk 		main
 	glfw 	https://github.com/glfw/glfw 7b6aead
 		-DBUILD_SHARED_LIBS=ON
 		-DGLFW_BUILD_WAYLAND=OFF
 		-DGLFW_VULKAN=ON
-
-	trinity https://github.com/ar-visions/trinity 	main
-		-ltrinity
-		linux:
-			-lasound
