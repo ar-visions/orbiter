@@ -13,20 +13,6 @@
     i_override(X,Y, method, init)
 declare_mod(Orbiter, PBR, shader)
 
-#define BlurV_schema(X,Y,...) \
-    i_prop   (X,Y, public,     mat4f, model) \
-    i_prop   (X,Y, public,     mat4f, view) \
-    i_prop   (X,Y, public,     mat4f, proj) \
-    i_attr   (X,Y, Surface,    color, rgba8)
-declare_mod(BlurV, shader)
-
-#define Blur_schema(X,Y,...) \
-    i_prop   (X,Y, public,     mat4f, model) \
-    i_prop   (X,Y, public,     mat4f, view) \
-    i_prop   (X,Y, public,     mat4f, proj) \
-    i_attr   (X,Y, Surface,    color, rgba8)
-declare_mod(Blur, shader)
-
 #define Audrey_schema(X,Y,...) \
     i_prop   (X,Y, public,     mat4f, model) \
     i_prop   (X,Y, public,     mat4f, view) \
