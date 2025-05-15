@@ -232,7 +232,7 @@ void main() {
                 float u2             = 0.5 + atan(p.x, p.z) / (2.0 * M_PI);
                 float v2             = (p.y + beam_radius * 0.5) / beam_radius;
                 vec2  core_uv        = vec2(u2, v2);
-                vec4  core_cv        = texture(tx_core, core_uv) * raw_density * base_fade;
+                vec4  core_cv        = texture(tx_canvases[1], core_uv) * raw_density * base_fade;
                 vec4  core_color     = vec4(core_cv.xyzw) * bowl_factor * raw_density;
                 accumulated_color   +=  core_color.xyz;
                 accumulated_alpha   += (core_color.w * center_f * 0.1);
@@ -280,7 +280,7 @@ void main() {
             float   u           = 0.5 + atan(p.x, p.z) / (2.0 * M_PI);          // angular
             float   v           = clamp(length(p.xz) / beam_radius, 0.0, 1.0);  // radial
             vec2    beam_uv     = vec2(0.6, 0.5);
-            vec4    beam_cv     = texture(tx_beam, beam_uv) * base_fade;
+            vec4    beam_cv     = texture(tx_canvases[0], beam_uv) * base_fade;
             vec4    beam_color  = vec4(beam_cv.xyzw) * (raw_density - threshold);
             accumulated_color2 += beam_color.xyz * 4.0;
             accumulated_alpha2 += (beam_color.w * center_f * 0.1);

@@ -6,50 +6,11 @@
     "configurations": [
         {
             "name":             "orbiter",
-            "type":             "cppdbg",
+            "type":             "lldb",
             "request":          "launch",
-            "program":          "${workspaceFolder}/../orbiter/debug/orbiter-agent",
+            "program":          "/src/tapestry/bin/orbiter",
             "args":             [],
-            "stopAtEntry":      false,
-            "cwd":              "${workspaceFolder}/../orbiter/debug",
-            "environment":      [],
-            "externalConsole":  false,
-            "MIMode":           "gdb",
-            "presentation": {
-                "hidden": false,
-                "group": "",
-                "order": 1,
-            },
-            "windows":{
-                "type": "cppvsdbg",
-                "program": "${workspaceFolder}/../orbiter/build/Debug/orbiter-agent",
-                "cwd": "${workspaceFolder}/../orbiter/build"
-            },
-            "osx": { "MIMode":  "lldb" }
-        },
-        {
-            "name": "textmate-test",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/../orbiter/build/textmate-test",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/../orbiter/build",
-            "environment": [],
-            "MIMode": "gdb",
-            "presentation": {
-                "hidden": false,
-                "group": "",
-                "order": 1,
-            },
-            "windows":{
-                "type": "cppvsdbg",
-                "program": "${workspaceFolder}/../orbiter/build/Debug/textmate-test",
-                "cwd": "${workspaceFolder}/../orbiter/build"
-            },
-            "osx": {
-                "MIMode": "lldb"
-            }
+            "cwd":              "/src/tapestry/share/orbiter"
         }
     ]
 }

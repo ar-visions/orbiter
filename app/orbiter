@@ -3,22 +3,54 @@
 
 #include <trinity>
 
-#define Orbiter_schema(X,Y,...) \
-    i_prop   (X,Y, public,     vec4f,   pos_radius) \
-    i_prop   (X,Y, public,     vec4f,   normal_falloff) \
-    i_prop   (X,Y, public,     vec4f,   color_intensity) \
-    i_prop   (X,Y, public,     f32,     moment) \
-    i_prop   (X,Y, public,     f32,     moment_amount) \
-    i_prop   (X,Y, public,     f32,     moment_angle) \
+#define EarthSurface_schema(X,Y,...) \
+    enum_value(X,Y, color) \
+    enum_value(X,Y, normal) \
+    enum_value(X,Y, elevation) \
+    enum_value(X,Y, water) \
+    enum_value(X,Y, water_blur) \
+    enum_value(X,Y, cloud) \
+    enum_value(X,Y, bathymetry) \
+    enum_value(X,Y, lights) 
+declare_enum(EarthSurface)
+
+#define Earth_schema(X,Y,...) \
+    i_prop   (X,Y, public,     mat4f, model) \
+    i_prop   (X,Y, public,     mat4f, view) \
+    i_prop   (X,Y, public,     mat4f, proj) \
+    i_prop   (X,Y, public,     f32,   time) \
+    i_attr   (X,Y, EarthSurface, color,      1, rgba8) \
+    i_attr   (X,Y, EarthSurface, normal,     1, rgba8) \
+    i_attr   (X,Y, EarthSurface, elevation,  1, rgba8) \
+    i_attr   (X,Y, EarthSurface, water,      1, rgba8) \
+    i_attr   (X,Y, EarthSurface, water_blur, 1, rgba8) \
+    i_attr   (X,Y, EarthSurface, cloud,      1, rgba8) \
+    i_attr   (X,Y, EarthSurface, bathymetry, 1, rgba8) \
+    i_attr   (X,Y, EarthSurface, lights,     1, rgba8) \
     i_override(X,Y, method, init)
+declare_mod(Earth, shader)
+
+#define Ocean_schema(X,Y,...)
+declare_mod(Ocean, Earth, shader)
+
+#define Cloud_schema(X,Y,...)
+declare_mod(Cloud, Earth, shader)
+
+#define Orbiter_schema(C,S,...) \
+    M   (C,S, public, prop, vec4f,   pos_radius) \
+    M   (C,S, public, prop, vec4f,   normal_falloff) \
+    M   (C,S, public, prop, vec4f,   color_intensity) \
+    M   (C,S, public, prop, f32,     moment) \
+    M   (C,S, public, prop, f32,     moment_amount) \
+    M   (C,S, public, prop, f32,     moment_angle) \
+    M   (C,S, method, override, init)
 declare_mod(Orbiter, PBR, shader)
 
 #define Audrey_schema(X,Y,...) \
     i_prop   (X,Y, public,     mat4f, model) \
     i_prop   (X,Y, public,     mat4f, view) \
     i_prop   (X,Y, public,     mat4f, proj) \
-    i_attr   (X,Y, Surface,    emission, rgba8) \
-    i_attr   (X,Y, Surface,    color,    rgba8) \
+    i_attr   (X,Y, Surface,    color,    2, rgba8) \
     i_prop   (X,Y, public,     mat4f, v_model) \
     i_prop   (X,Y, public,     mat4f, v_view) \
     i_prop   (X,Y, public,     mat4f, v_proj) \
