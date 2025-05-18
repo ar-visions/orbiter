@@ -22,28 +22,14 @@ void main() {
 
     vec3 distortion = normalize(vec3(noise_x, noise_y, noise_z) * 2.0 - 1.0) * 0.084;
     vec3 perturbed_normal = normalize(normal + distortion);
-    vec3 perturbed_normal2;
-    
+
     vec3 sun_dir  = normalize(vec3(0.2, 0.0, 0.8)); // fixed light source
     vec3 view_dir = normalize(vec3(0.0, 0.0, 1.0)); // camera pointing -Z
 
     float NdotL   = max(dot(perturbed_normal, sun_dir), 0.0);
     vec3 half_dir = normalize(view_dir);
 
-    {
-        float t2 = 100.0 + earth.time * 0.2; // pass this as uniform in seconds
-        vec3 offset = vec3(uv * 10.0, t2 * 0.3) * 5.0;
-        float noise_x = fbm(offset + vec3(1.0, 0.0, 0.0), 0.0);
-        float noise_y = fbm(offset + vec3(0.0, 1.0, 0.0), 0.0);
-        float noise_z = fbm(offset + vec3(0.0, 0.0, 1.0), 0.0);
-
-        vec3 distortion = normalize(vec3(noise_x, noise_y, noise_z) * 2.0 - 1.0) * 0.284;
-        perturbed_normal2 = normalize(normal + distortion);
-    }
-
-
     float spec    = pow(max(dot(perturbed_normal, half_dir), 0.0) * 0.9, 12.0); // shininess
-    float spec2   = pow(max(dot(perturbed_normal2, half_dir), 0.0) * 0.2, 12.0); // shininess
 
     // === Textures ===
     //float clouds = texture(tx_earth_cloud, uv).r;
@@ -71,7 +57,6 @@ void main() {
     // === Specular reflection on water ===
     float edge_fade = pow(1.0 - dot(normal, view_dir), 2.0);
     vec3 s1 = vec3(1.0) * spec  * 0.4 * water;
-    vec3 s2 = vec3(0.4, 0.2, 0.1) * min(3.0, spec2);
     s1 += vec3(0.1, 0.2, 0.3) * water * edge_fade;
 
     // === Ambient + Diffuse ===
@@ -79,7 +64,7 @@ void main() {
 
     // === Clouds brightening ===
     water_color -= clouds * (0.22 * (1.0 - (2.0 * spec)));
-    vec3 final = water_color * (ambient + NdotL) + s1 + s2;
+    vec3 final = water_color * (ambient + NdotL) + s1;
 
     // === Add tight central specular glint ===
     float facing = max(0.0, pow(dot(normal, view_dir), 144.0) * 0.44); // 1.0 when aligned

@@ -1,0 +1,151 @@
+
+int main(int argc, cstr argv[]) {
+    A_start();
+    path_app(argv[0]);
+    
+    trinity t      = trinity();
+    int     width  = 800, height = 800;
+    Shaders u = { 
+        .w = window(
+                t, t, title, string("orbiter-canvas"),
+                width, width, height, height ),
+        .cv = sk(
+            t, t, format, Pixel_rgba8, surface, Surface_color,
+            width, width, height, height)
+    };
+
+    window  w         = u.w;
+    Model   earth     = read (f(path, "models/earth.gltf"), typeid(Model));
+    Model   orbiter   = read (f(path, "models/orbiter2.gltf"),   typeid(Model));
+    //image   env       = image(
+    //    uri, f(path, "images/forest.exr"),
+    //    surface, Surface_environment);
+
+    image  earth_color      = image(uri, f(path, "textures/earth-color-8192x4096.png"),      surface, (Surface)EarthSurface_color);
+    image  earth_normal     = image(uri, f(path, "textures/earth-normal-8192x4096.png"),     surface, (Surface)EarthSurface_normal);
+    image  earth_elevation  = image(uri, f(path, "textures/earth-elevation-8192x4096.png"),  surface, (Surface)EarthSurface_elevation);
+    image  earth_water = image(uri, f(path, "textures/earth-water-8192x4096.png"),      surface, (Surface)EarthSurface_water);
+    image  earth_water_blur = image(uri, f(path, "textures/earth-water-blur-8192x4096.png"), surface, (Surface)EarthSurface_water_blur);
+    image  earth_cloud      = image(uri, f(path, "textures/earth-cloud-8192x4096.png"),      surface, (Surface)EarthSurface_cloud);
+    image  earth_bathymetry = image(uri, f(path, "textures/earth-bathymetry-8192x4096.png"), surface, (Surface)EarthSurface_bathymetry);
+    image  earth_lights     = image(uri, f(path, "textures/earth-lights-8192x4096.png"),     surface, (Surface)EarthSurface_lights);
+
+    u.earth   = Earth   (t, t, name, string("earth"));
+    u.ocean   = Ocean   (t, t, name, string("ocean"));
+    u.cloud   = Cloud   (t, t, name, string("cloud"));
+
+    //u.orbiter = Orbiter (t, t, name, string("orbiter"));
+    //u.au      = Audrey  (t, t, name, string("audrey"));
+    //u.blur    = Blur    (t, t, name, string("blur"));
+    
+    /*
+    u.cv      = sk(
+        t, t, format, Pixel_rgba8, surface, Surface_color,
+        width, width, height, height);
+    
+    sk core = sk(
+        t, t, format, Pixel_rgba8, surface, Surface_emission,
+        width, width, height, height);
+    clear     (core, string("#0000"));
+    
+    /// outter color
+    rect_to   (core, 0, 0, 800, 800);
+    fill_color(core, string("#f00"));
+    draw_fill (core, false);
+
+    /// inner core
+    arc       (core, 400.0f, 400.0f, 100.0f, 0.0f, 360.0f);
+    fill_color(core, string("#a0f"));
+    draw_fill (core, false);
+
+    /// core mantle!
+    arc       (core, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
+    fill_color(core, string("#aff"));
+    draw_fill (core, false);
+    sync      (core);
+    u.core   = core;
+
+    sk beam = sk(
+        t, t, format, Pixel_rgba8, surface, Surface_color,
+        width, width, height, height);
+    clear     (beam, string("#0000"));
+    rect_to   (beam, 0, 0, 800, 800);
+    fill_color(beam, string("#00f"));
+    draw_fill (beam, false);
+    arc       (beam, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
+    fill_color(beam, string("#aff"));
+    draw_fill (beam, false);
+    sync      (beam);
+    u.beam   = beam;
+    */
+
+    model   m_earth   = model  (w, w, id, earth,   s, u.earth,
+        samplers, a(
+            earth_color, earth_normal, earth_elevation, earth_water, earth_water_blur, earth_cloud,
+            earth_bathymetry, earth_lights));
+    
+    model   m_ocean   = model  (w, w, id, earth,   s, u.ocean,
+        samplers, a(
+            earth_color, earth_normal, earth_elevation, earth_water, earth_water_blur, earth_cloud,
+            earth_bathymetry, earth_lights));
+
+    model   m_cloud   = model  (w, w, id, earth,   s, u.cloud,
+        samplers, a(
+            earth_color, earth_normal, earth_elevation, earth_water, earth_water_blur, earth_cloud,
+            earth_bathymetry, earth_lights));
+    
+    //model m_agent = model(w, w, id, orbiter, s, u.orbiter, samplers, a(env));
+    //model m_au    = model(w, w, s, u.au, samplers, a(u.core->tx, u.beam->tx));
+    
+    render r_agent  = render (w, w,
+        width,          w->width  * 2,
+        height,         w->height * 2,
+        clear_color,    vec4f(0.0, 0.1, 0.2, 1.0),
+        models,         a(m_earth, m_ocean, m_cloud));
+
+    model  m_reduce  = model (w, w, samplers, a(r_agent->color));
+    render r_reduce  = render(w, w, width, w->width, height, w->height, models, a(m_reduce));
+
+    model  m_reduce0 = model (w, w, samplers, a(r_reduce->color));
+    render r_reduce0 = render(w, w, width, w->width / 2, height, w->height / 2, models, a(m_reduce0));
+    
+    model  m_reduce1 = model (w, w, samplers, a(r_reduce0->color));
+    render r_reduce1 = render(w, w, width, w->width / 4, height, w->height / 4, models, a(m_reduce1));
+
+
+    BlurV   fbv          = BlurV  (t, t, name, string("blur-v"));
+    fbv->reduction_scale = 4.0f;
+    model   m_fblur_v    = model  (w, w, s, fbv, samplers, a(r_reduce1->color));
+    render  r_fblur_v    = render (w, w, width, w->width, height, w->height, models, a(m_fblur_v));
+    Blur    fbl          = Blur   (t, t, name, string("blur"));
+    fbl->reduction_scale = 4.0f;
+    model   m_fblur      = model  (w, w, s, fbl, samplers, a(r_fblur_v->color));
+    render  r_fblur      = render (w, w, width, w->width, height, w->height , models, a(m_fblur));
+
+
+
+    model  m_reduce2 = model (w, w, samplers, a(r_reduce1->color));
+    render r_reduce2 = render(w, w, width, w->width / 8, height, w->height / 8, models, a(m_reduce2));
+
+    model  m_reduce3 = model (w, w, samplers, a(r_reduce2->color));
+    render r_reduce3 = render(w, w, width, w->width / 16, height, w->height / 16, models, a(m_reduce3));
+
+    BlurV   bv        = BlurV  (t, t, name, string("blur-v"));
+    bv->reduction_scale = 16.0f;
+    model   m_blur_v  = model  (w, w, s, bv, samplers, a(r_reduce3->color));
+    render  r_blur_v  = render (w, w, width, w->width, height, w->height, models, a(m_blur_v));
+
+    Blur    bl        = Blur   (t, t, name, string("blur"));
+    bl->reduction_scale = 16.0f;
+    model   m_blur    = model  (w, w, s, bl, samplers, a(r_blur_v->color));
+    render  r_blur    = render (w, w, width, w->width, height, w->height , models, a(m_blur));
+    //model   m_view    = model  (w, w, s, UXQuad(t, t, name, string("ux")), samplers, a(u.cv->tx, r_blur->color));
+    //render  r_view    = render (w, w, clear_color, vec4f(1.0, 1.0, 1.0, 1.0), models, a(m_view));
+
+    //w->list = a(r_agent, r_blur_v, r_blur, r_view);
+    w->list = a(r_agent, r_reduce, r_reduce0, r_reduce1, r_reduce2, r_reduce3, r_blur_v, r_blur, r_fblur_v, r_fblur);
+    w->last_render = r_agent;
+    return loop(w, orbiter_frame, &u);
+}
+
+^- working.

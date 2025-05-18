@@ -37,14 +37,14 @@
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":2095238,
+			"count":527160,
 			"max":[
-				0.9991973638534546,
+				0.9991969466209412,
 				0.9999524354934692,
 				0.9991965293884277
 			],
 			"min":[
-				-0.9991955757141113,
+				-0.9991960525512695,
 				-0.9999524354934692,
 				-0.9991961717605591
 			],
@@ -53,51 +53,51 @@
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":2095238,
+			"count":527160,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":2095238,
+			"count":527160,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5125,
-			"count":12484608,
+			"count":3121152,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":25142856,
+			"byteLength":6325920,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":25142856,
-			"byteOffset":25142856,
+			"byteLength":6325920,
+			"byteOffset":6325920,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":16761904,
-			"byteOffset":50285712,
+			"byteLength":4217280,
+			"byteOffset":12651840,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":49938432,
-			"byteOffset":67047616,
+			"byteLength":12484608,
+			"byteOffset":16869120,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":116986048,
+			"byteLength":29353728,
 			"uri":"models/earth.bin"
 		}
 	]

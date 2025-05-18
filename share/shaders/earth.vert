@@ -15,10 +15,10 @@ layout(location = 3) out vec3 v_bitangent;
 void main() {
     const float M_PI = 3.1415926535897932384;
 
-    v_uv           = uv;
+    v_uv           = vec2(1.0 - uv.x, uv.y);
 
-    float theta = uv.x * 2.0 * M_PI; // longitude
-    float phi   = uv.y * M_PI;       // latitude
+    float theta = v_uv.x * 2.0 * M_PI; // longitude
+    float phi   = v_uv.y * M_PI;       // latitude
 
     // Tangent: derivative of position w.r.t. u (around equator)
     v_tangent = normalize(vec3(-sin(theta), 0.0, cos(theta)));

@@ -9,7 +9,7 @@ layout(location = 0) out vec3 v_normal;
 layout(location = 1) out vec2 v_uv;
 
 void main() {
-    v_uv           = uv;
+    v_uv           = vec2(1.0 - uv.x, uv.y);
 
     // Correctly rotate normal into world space
     mat3 normal_matrix = transpose(inverse(mat3(earth.model)));
