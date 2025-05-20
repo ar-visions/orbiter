@@ -14,6 +14,11 @@
     enum_value(X,Y, lights) 
 declare_enum(EarthSurface)
 
+#define PurpleSurface_schema(X,Y,...) \
+    enum_value(X,Y, color) \
+    enum_value(X,Y, cloud)
+declare_enum(PurpleSurface)
+
 #define Earth_schema(X,Y,...) \
     i_prop   (X,Y, public,     mat4f, model) \
     i_prop   (X,Y, public,     mat4f, view) \
@@ -29,6 +34,18 @@ declare_enum(EarthSurface)
     i_attr   (X,Y, EarthSurface, lights,     1, rgba8) \
     i_override(X,Y, method, init)
 declare_mod(Earth, shader)
+
+
+#define Purple_schema(X,Y,...) \
+    i_prop   (X,Y, public,     mat4f, model) \
+    i_prop   (X,Y, public,     mat4f, view) \
+    i_prop   (X,Y, public,     mat4f, proj) \
+    i_prop   (X,Y, public,     f32,   time) \
+    i_attr   (X,Y, PurpleSurface, color,  1, rgba8) \
+    i_attr   (X,Y, PurpleSurface, cloud, 1, rgba8) \
+    i_override(X,Y, method, init)
+declare_mod(Purple, shader)
+
 
 #define Ocean_schema(X,Y,...)
 declare_mod(Ocean, Earth, shader)

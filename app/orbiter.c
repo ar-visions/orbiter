@@ -7,6 +7,7 @@ static window main_window;
 typedef struct Shaders {
     window  w;
     Earth   earth;
+    Purple  purple;
     Ocean   ocean; /// ocean is a separate render pass with the same model
     Cloud   cloud;
     Orbiter orbiter;
@@ -40,7 +41,7 @@ mat4f blast_matrix() {
 
  
 void orbiter_frame(Shaders* u) {
-    u->time += 0.0044f - (u->w->debug_value * 0.2);
+    u->time += 0.0044f - (u->w->debug_value * 0.04);
 
     // step 1: apply Earth's axial tilt
     float tilt_deg = -23.44f;
@@ -62,6 +63,10 @@ void orbiter_frame(Shaders* u) {
     u->earth->time = u->time;
     u->ocean->time = u->time;
     u->cloud->time = u->time;
+
+    u->purple->model = mat4f_mul(&m_tilt, &m_spin);
+    u->purple->time = u->time;
+
     /*
     window w = u->w;
     vec3f   eye         = vec3f   (0.0f,  8.0f + w->debug_value,  4.0f);
@@ -156,10 +161,12 @@ int main(int argc, cstr argv[]) {
 
     window  w         = u.w;
     Model   earth     = read (f(path, "models/earth.gltf"), typeid(Model));
+    Model   purple    = earth;
     Model   orbiter   = read (f(path, "models/orbiter2.gltf"),   typeid(Model));
     //image   env       = image(
     //    uri, f(path, "images/forest.exr"));
 
+    // best to define the general ux path first
     image  earth_color      = image(uri, f(path, "textures/earth-color-8192x4096.png"));
     image  earth_normal     = image(uri, f(path, "textures/earth-normal-8192x4096.png"));
     image  earth_elevation  = image(uri, f(path, "textures/earth-elevation-8192x4096.png"));
@@ -168,7 +175,10 @@ int main(int argc, cstr argv[]) {
     image  earth_cloud      = image(uri, f(path, "textures/earth-cloud-8192x4096.png"));
     image  earth_bathymetry = image(uri, f(path, "textures/earth-bathymetry-8192x4096.png"));
     image  earth_lights     = image(uri, f(path, "textures/earth-lights-8192x4096.png"));
-
+    image  purple_color     = image(uri, f(path, "textures/purple-color-8192x4096.png"));
+    image  purple_cloud     = image(uri, f(path, "textures/purple-cloud-8192x4096.png"));
+    
+    u.purple  = Purple  (t, t, name, string("purple"));
     u.earth   = Earth   (t, t, name, string("earth"));
     u.ocean   = Ocean   (t, t, name, string("ocean"));
     u.cloud   = Cloud   (t, t, name, string("cloud"));
@@ -218,6 +228,11 @@ int main(int argc, cstr argv[]) {
     u.beam   = beam;
     */
 
+    model   m_purple   = model  (w, w, id, purple, s, u.purple,
+        samplers, map_of(
+            "color",      purple_color,
+            "cloud",      purple_cloud, null));
+
     model   m_earth   = model  (w, w, id, earth,   s, u.earth,
         samplers, map_of(
             "color",      earth_color,
@@ -254,12 +269,20 @@ int main(int argc, cstr argv[]) {
     //model m_agent = model(w, w, id, orbiter, s, u.orbiter, samplers, map_of("environment", env, null));
     //model m_au    = model(w, w, s, u.au, samplers, map_of("core", u.core->tx, "beam", u.beam->tx, null));
     
+    /*
     render r_background  = render (w, w,
         width,          w->width  * 2,
         height,         w->height * 2,
         clear_color,    vec4f(0.0, 0.1, 0.2, 1.0),
         models,         a(m_earth, m_ocean, m_cloud));
+    */
 
+    render r_background  = render (w, w,
+        width,          w->width  * 2,
+        height,         w->height * 2,
+        clear_color,    vec4f(0.0, 0.1, 0.2, 1.0),
+        models,         a(m_purple));
+    
     u.compose = sk(
         t, t, format, Pixel_rgba8,
         width, width, height, height);
@@ -362,6 +385,22 @@ void Earth_init(Earth w) {
 
 }
 
+void Purple_init(Purple w) {
+    f32   fov_deg = 60.0f;
+    f32   aspect  = 1920.0f / 1080.0f;
+    f32   near    = 0.1f;
+    f32   far     = 100.0f;
+
+    mat4f proj    = mat4f_perspective(radians(fov_deg), aspect, near, far);
+    vec3f eye2    = vec3f   (0.0f,  0.0f,  1.5f);
+    vec3f target2 = vec3f   (0.0f,  0.0f,  0.0f);
+    vec3f up2     = vec3f   (0.0f, -1.0f,  0.0f);
+    w->model      = mat4f_ident      ();
+    w->proj       = mat4f_perspective(radians(70.0f), 1.0f, 0.1f, 100.0f);
+    w->view       = mat4f_look_at    (&eye2, &target2, &up2);
+
+}
+
 void Orbiter_init(Orbiter w) {
     w->pos_radius      = vec4f(0.0, 0.1, 0.0, 0.3f);
     w->normal_falloff  = vec4f(0.0, 1.0, 0.0, 1.0f);
@@ -370,6 +409,9 @@ void Orbiter_init(Orbiter w) {
     w->moment_amount   = 1.0f;
     w->moment_angle    = 0.0f;
 }
+
+define_mod(Purple, shader)
+define_enum(PurpleSurface)
 
 define_mod(Earth, shader)
 define_mod(Ocean, Earth)
