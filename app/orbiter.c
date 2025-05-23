@@ -149,7 +149,7 @@ int main(int argc, cstr argv[]) {
     path_app(argv[0]);
     
     trinity t      = trinity();
-    int     width  = 800, height = 800;
+    int     width  = 1200, height = 1200;
     Shaders u = { 
         .w = window(
                 t, t, title, string("orbiter-canvas"),
@@ -287,26 +287,57 @@ int main(int argc, cstr argv[]) {
         t, t, format, Pixel_rgba8,
         width, width, height, height);
 
-    
-    clear       (u.compose, string("#00f"));
-    rect_to     (u.compose, 32, 32, (width - 32 * 2), (height - 32 * 2));
-    fill_color  (u.compose, string("#f0f"));
-    draw_fill   (u.compose);
-    sync        (u.compose);
-    output_mode (u.compose, true);
+    float stroke_size = 2;
+    float roundness   = 16;
+    float margin      = 8;
+    clear           (u.compose, string("#00f"));
+    rounded_rect_to (
+        u.compose,
+        margin + stroke_size / 2,
+        margin + stroke_size / 2,
+       (width  - margin * 2) - stroke_size,
+       (height - margin * 2) - stroke_size,
+        roundness, roundness);
+    fill_color      (u.compose, string("#f0f"));
+    draw_fill       (u.compose);
+    sync            (u.compose);
+    output_mode     (u.compose, true);
 
-    stroke s = stroke(width, 8.0, cap, cap_round, join, join_round);
+
+    stroke s  = stroke(width, stroke_size,     cap, cap_round, join, join_round);
     u.colorize = sk(t, t, format, Pixel_rgba8, width, width, height, height);
     clear       (u.colorize, string("#000"));
-    rect_to     (u.colorize, 32, 32, (width - 32 * 2), (height - 32 * 2));
+    rounded_rect_to (
+        u.colorize, margin, margin,
+       (width  - margin * 2),
+       (height - margin * 2),
+        roundness, roundness);
     set_stroke  (u.colorize, s);
-    stroke_color(u.colorize, string("#00f"));
+    stroke_color(u.colorize, string("#002"));
     draw_stroke (u.colorize);
+
+
+
+    /*float inner = 2.0f;
+    stroke s2 = stroke(width, inner, cap, cap_round, join, join_round);
+    rounded_rect_to (
+        u.colorize,
+        margin + stroke_size / 2.0f + inner / 2.0f,
+        margin + stroke_size / 2.0f + inner / 2.0f,
+       (width  - margin * 2 - stroke_size) - inner,
+       (height - margin * 2 - stroke_size) - inner,
+        roundness * 0.9, roundness * 0.9);
+    set_stroke  (u.colorize, s2);
+    stroke_color(u.colorize, string("#fff4"));
+    draw_stroke (u.colorize);*/
     sync        (u.colorize);
     output_mode (u.colorize, true);
 
+
+    
     u.overlay = sk(t, t, format, Pixel_rgba8, width, width, height, height);
     clear(u.overlay, string("#0000"));
+
 
     model  m_reduce  = model (w, w, samplers, map_of("color", r_background->color, null));
     render r_reduce  = render(w, w, width, w->width, height, w->height, models, a(m_reduce));
