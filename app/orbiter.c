@@ -270,14 +270,14 @@ int main(int argc, cstr argv[]) {
     //model m_au    = model(w, w, s, u.au, samplers, map_of("core", u.core->tx, "beam", u.beam->tx, null));
     
     /*
-    render r_background  = render (w, w,
+    target r_background  = target (w, w,
         width,          w->width  * 2,
         height,         w->height * 2,
         clear_color,    vec4f(0.0, 0.1, 0.2, 1.0),
         models,         a(m_earth, m_ocean, m_cloud));
     */
 
-    render r_background  = render (w, w,
+    target r_background  = target (w, w,
         width,          w->width  * 2,
         height,         w->height * 2,
         clear_color,    vec4f(0.0, 0.1, 0.2, 1.0),
@@ -340,39 +340,39 @@ int main(int argc, cstr argv[]) {
 
 
     model  m_reduce  = model (w, w, samplers, map_of("color", r_background->color, null));
-    render r_reduce  = render(w, w, width, w->width, height, w->height, models, a(m_reduce));
+    target r_reduce  = target(w, w, width, w->width, height, w->height, models, a(m_reduce));
 
     model  m_reduce0 = model (w, w, samplers, map_of("color", r_reduce->color, null));
-    render r_reduce0 = render(w, w, width, w->width / 2, height, w->height / 2, models, a(m_reduce0));
+    target r_reduce0 = target(w, w, width, w->width / 2, height, w->height / 2, models, a(m_reduce0));
     
     model  m_reduce1 = model (w, w, samplers, map_of("color", r_reduce0->color, null));
-    render r_reduce1 = render(w, w, width, w->width / 4, height, w->height / 4, models, a(m_reduce1));
+    target r_reduce1 = target(w, w, width, w->width / 4, height, w->height / 4, models, a(m_reduce1));
 
     BlurV   fbv          = BlurV  (t, t, name, string("blur-v"));
     fbv->reduction_scale = 4.0f;
     model   m_blur_v    = model  (w, w, s, fbv, samplers, map_of("color", r_reduce1->color, null));
-    render  r_blur_v    = render (w, w, width, w->width, height, w->height, models, a(m_blur_v));
+    target  r_blur_v    = target (w, w, width, w->width, height, w->height, models, a(m_blur_v));
     
     Blur    fbl          = Blur   (t, t, name, string("blur"));
     fbl->reduction_scale = 4.0f;
     model   m_blur      = model  (w, w, s, fbl, samplers, map_of("color", r_blur_v->color, null));
-    render  r_blur      = render (w, w, width, w->width, height, w->height , models, a(m_blur));
+    target  r_blur      = target (w, w, width, w->width, height, w->height , models, a(m_blur));
 
     model  m_reduce2 = model (w, w, samplers, map_of("color", r_reduce1->color, null));
-    render r_reduce2 = render(w, w, width, w->width / 8, height, w->height / 8, models, a(m_reduce2));
+    target r_reduce2 = target(w, w, width, w->width / 8, height, w->height / 8, models, a(m_reduce2));
 
     model  m_reduce3 = model (w, w, samplers, map_of("color", r_reduce2->color, null));
-    render r_reduce3 = render(w, w, width, w->width / 16, height, w->height / 16, models, a(m_reduce3));
+    target r_reduce3 = target(w, w, width, w->width / 16, height, w->height / 16, models, a(m_reduce3));
 
     BlurV   bv        = BlurV  (t, t, name, string("blur-v"));
     bv->reduction_scale = 16.0f;
     model   m_frost_v  = model  (w, w, s, bv, samplers, map_of("color", r_reduce3->color, null));
-    render  r_frost_v  = render (w, w, width, w->width, height, w->height, models, a(m_frost_v));
+    target  r_frost_v  = target (w, w, width, w->width, height, w->height, models, a(m_frost_v));
 
     Blur    bl        = Blur   (t, t, name, string("blur"));
     bl->reduction_scale = 16.0f;
     model   m_frost    = model  (w, w, s, bl, samplers, map_of("color", r_frost_v->color, null));
-    render  r_frost    = render (w, w, width, w->width, height, w->height , models, a(m_frost));
+    target  r_frost    = target (w, w, width, w->width, height, w->height , models, a(m_frost));
     
     model   m_view    = model  (w, w, s, UXQuad(t, t, name, string("ux")),
         samplers, map_of(
@@ -386,7 +386,7 @@ int main(int argc, cstr argv[]) {
     ux_shader->low_color  = vec4f(0.0, 0.1, 0.2, 1.0);
     ux_shader->high_color = vec4f(1.0, 0.8, 0.8, 1.0); // is this the high low bit?
 
-    render  r_view    = render (w, w, clear_color, vec4f(1.0, 1.0, 1.0, 1.0),
+    target  r_view    = target (w, w, clear_color, vec4f(1.0, 1.0, 1.0, 1.0),
         models, a(m_view));
 
     //w->list = a(r_background, r_blur_v, r_blur, r_view);
@@ -394,7 +394,7 @@ int main(int argc, cstr argv[]) {
         r_background, r_reduce,  r_reduce0, r_reduce1, r_blur_v, r_blur,
         r_reduce2,    r_reduce3, r_frost_v, r_frost,
         r_view);
-    w->last_render = r_view;
+    w->last_target = r_view;
     return loop(w, orbiter_frame, &u);
 }
 
