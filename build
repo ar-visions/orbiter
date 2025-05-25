@@ -8,7 +8,6 @@ import:
 		-ltrinity
 		linux:
 			-lasound
-	sk 		https://github.com/ar-visions/sk 		main
 	glfw 	https://github.com/glfw/glfw 			7b6aead
 		-DBUILD_SHARED_LIBS=ON
 		-DGLFW_BUILD_WAYLAND=OFF

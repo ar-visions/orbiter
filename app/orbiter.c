@@ -12,14 +12,6 @@ typedef struct Shaders {
     Cloud   cloud;
     Orbiter orbiter;
     Audrey  au;
-    UVQuad  screen;
-    BlurV   blur_v;
-    Blur    blur;
-    
-    sk      compose;    // ux-panes 
-    sk      colorize;   // colorization of ux-panes
-    sk      overlay;    // graphic overlay
-
     sk      beam;
     sk      core;
     sk      cv;
@@ -29,18 +21,15 @@ typedef struct Shaders {
 void orbiter_mousemove() {
 }
 
-
-/// a canvas that effectively is a terminal interface, too.
-/// console { canvas, process (has effective stdout) }
-mat4f blast_matrix() {
-    mat4f m;
-    for (int i = 0; i < 16; i++)
-        m.m[i] = ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f;
-    return m;
+map orbiter_interface(Shaders* u) {
+    return map_of(
+        "main", pane(elements, map_of(
+            "button", button(content, string("orbiter-view")),
+            null)),
+        null);
 }
-
  
-void orbiter_frame(Shaders* u) {
+object orbiter_background(Shaders* u) {
     u->time += 0.0044f - (u->w->debug_value * 0.04);
 
     // step 1: apply Earth's axial tilt
@@ -141,6 +130,7 @@ void orbiter_frame(Shaders* u) {
 
     //u->earth->model = blast_matrix();
     */
+    return null;
 }
 
 
@@ -266,136 +256,17 @@ int main(int argc, cstr argv[]) {
             "bathymetry", earth_bathymetry,
             "lights",     earth_lights, null));
     
-    //model m_agent = model(w, w, id, orbiter, s, u.orbiter, samplers, map_of("environment", env, null));
-    //model m_au    = model(w, w, s, u.au, samplers, map_of("core", u.core->tx, "beam", u.beam->tx, null));
-    
-    /*
     target r_background  = target (w, w,
-        width,          w->width  * 2,
-        height,         w->height * 2,
-        clear_color,    vec4f(0.0, 0.1, 0.2, 1.0),
-        models,         a(m_earth, m_ocean, m_cloud));
-    */
-
-    target r_background  = target (w, w,
-        width,          w->width  * 2,
-        height,         w->height * 2,
-        clear_color,    vec4f(0.0, 0.1, 0.2, 1.0),
+        wscale,         2.0f,
+        clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
         models,         a(m_purple));
     
-    u.compose = sk(
-        t, t, format, Pixel_rgba8,
-        width, width, height, height);
-
-    float stroke_size = 2;
-    float roundness   = 16;
-    float margin      = 8;
-    clear           (u.compose, string("#00f"));
-    rounded_rect_to (
-        u.compose,
-        margin + stroke_size / 2,
-        margin + stroke_size / 2,
-       (width  - margin * 2) - stroke_size,
-       (height - margin * 2) - stroke_size,
-        roundness, roundness);
-    fill_color      (u.compose, string("#f0f"));
-    draw_fill       (u.compose);
-    sync            (u.compose);
-    output_mode     (u.compose, true);
-
-
-    stroke s  = stroke(width, stroke_size,     cap, cap_round, join, join_round);
-    u.colorize = sk(t, t, format, Pixel_rgba8, width, width, height, height);
-    clear       (u.colorize, string("#000"));
-    rounded_rect_to (
-        u.colorize, margin, margin,
-       (width  - margin * 2),
-       (height - margin * 2),
-        roundness, roundness);
-    set_stroke  (u.colorize, s);
-    stroke_color(u.colorize, string("#002"));
-    draw_stroke (u.colorize);
-
-
-
-    /*float inner = 2.0f;
-    stroke s2 = stroke(width, inner, cap, cap_round, join, join_round);
-    rounded_rect_to (
-        u.colorize,
-        margin + stroke_size / 2.0f + inner / 2.0f,
-        margin + stroke_size / 2.0f + inner / 2.0f,
-       (width  - margin * 2 - stroke_size) - inner,
-       (height - margin * 2 - stroke_size) - inner,
-        roundness * 0.9, roundness * 0.9);
-    set_stroke  (u.colorize, s2);
-    stroke_color(u.colorize, string("#fff4"));
-    draw_stroke (u.colorize);*/
-    sync        (u.colorize);
-    output_mode (u.colorize, true);
-
-
+    app a = app(w, w, arg, &u,
+        r_background,  r_background,
+        on_background, orbiter_background,
+        on_interface,  orbiter_interface);
     
-    u.overlay = sk(t, t, format, Pixel_rgba8, width, width, height, height);
-    clear(u.overlay, string("#0000"));
-
-
-    model  m_reduce  = model (w, w, samplers, map_of("color", r_background->color, null));
-    target r_reduce  = target(w, w, width, w->width, height, w->height, models, a(m_reduce));
-
-    model  m_reduce0 = model (w, w, samplers, map_of("color", r_reduce->color, null));
-    target r_reduce0 = target(w, w, width, w->width / 2, height, w->height / 2, models, a(m_reduce0));
-    
-    model  m_reduce1 = model (w, w, samplers, map_of("color", r_reduce0->color, null));
-    target r_reduce1 = target(w, w, width, w->width / 4, height, w->height / 4, models, a(m_reduce1));
-
-    BlurV   fbv          = BlurV  (t, t, name, string("blur-v"));
-    fbv->reduction_scale = 4.0f;
-    model   m_blur_v    = model  (w, w, s, fbv, samplers, map_of("color", r_reduce1->color, null));
-    target  r_blur_v    = target (w, w, width, w->width, height, w->height, models, a(m_blur_v));
-    
-    Blur    fbl          = Blur   (t, t, name, string("blur"));
-    fbl->reduction_scale = 4.0f;
-    model   m_blur      = model  (w, w, s, fbl, samplers, map_of("color", r_blur_v->color, null));
-    target  r_blur      = target (w, w, width, w->width, height, w->height , models, a(m_blur));
-
-    model  m_reduce2 = model (w, w, samplers, map_of("color", r_reduce1->color, null));
-    target r_reduce2 = target(w, w, width, w->width / 8, height, w->height / 8, models, a(m_reduce2));
-
-    model  m_reduce3 = model (w, w, samplers, map_of("color", r_reduce2->color, null));
-    target r_reduce3 = target(w, w, width, w->width / 16, height, w->height / 16, models, a(m_reduce3));
-
-    BlurV   bv        = BlurV  (t, t, name, string("blur-v"));
-    bv->reduction_scale = 16.0f;
-    model   m_frost_v  = model  (w, w, s, bv, samplers, map_of("color", r_reduce3->color, null));
-    target  r_frost_v  = target (w, w, width, w->width, height, w->height, models, a(m_frost_v));
-
-    Blur    bl        = Blur   (t, t, name, string("blur"));
-    bl->reduction_scale = 16.0f;
-    model   m_frost    = model  (w, w, s, bl, samplers, map_of("color", r_frost_v->color, null));
-    target  r_frost    = target (w, w, width, w->width, height, w->height , models, a(m_frost));
-    
-    model   m_view    = model  (w, w, s, UXQuad(t, t, name, string("ux")),
-        samplers, map_of(
-            "background", r_background->color,
-            "frost",      r_frost->color,
-            "blur",       r_blur->color,
-            "compose",    u.compose->tx,
-            "colorize",   u.colorize->tx,
-            "overlay",    u.overlay->tx, null));
-    UXQuad  ux_shader = m_view->s;
-    ux_shader->low_color  = vec4f(0.0, 0.1, 0.2, 1.0);
-    ux_shader->high_color = vec4f(1.0, 0.8, 0.8, 1.0); // is this the high low bit?
-
-    target  r_view    = target (w, w, clear_color, vec4f(1.0, 1.0, 1.0, 1.0),
-        models, a(m_view));
-
-    //w->list = a(r_background, r_blur_v, r_blur, r_view);
-    w->list = a(
-        r_background, r_reduce,  r_reduce0, r_reduce1, r_blur_v, r_blur,
-        r_reduce2,    r_reduce3, r_frost_v, r_frost,
-        r_view);
-    w->last_target = r_view;
-    return loop(w, orbiter_frame, &u);
+    return run(a);
 }
 
 define_mod(Audrey, shader)
