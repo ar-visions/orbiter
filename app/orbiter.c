@@ -269,7 +269,7 @@ int main(int argc, cstr argv[]) {
     return run(a);
 }
 
-define_mod(Audrey, shader)
+define_class(Audrey, shader)
 
 void Earth_init(Earth w) {
     f32   fov_deg = 60.0f;
@@ -312,11 +312,11 @@ void Orbiter_init(Orbiter w) {
     w->moment_angle    = 0.0f;
 }
 
-define_mod(Purple, shader)
+define_class(Purple, shader)
 define_enum(PurpleSurface)
 
-define_mod(Earth, shader)
-define_mod(Ocean, Earth)
-define_mod(Cloud, Earth)
-define_mod(Orbiter, PBR)
+define_class(Earth, shader)
+define_class(Ocean, Earth)
+define_class(Cloud, Earth)
+define_class(Orbiter, PBR)
 define_enum(EarthSurface)

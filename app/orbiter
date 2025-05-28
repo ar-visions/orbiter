@@ -3,20 +3,20 @@
 
 #include <trinity>
 
-#define EarthSurface_schema(X,Y,...) \
-    enum_value(X,Y, color) \
-    enum_value(X,Y, normal) \
-    enum_value(X,Y, elevation) \
-    enum_value(X,Y, water) \
-    enum_value(X,Y, water_blur) \
-    enum_value(X,Y, cloud) \
-    enum_value(X,Y, bathymetry) \
-    enum_value(X,Y, lights) 
+#define EarthSurface_schema(E,T,Y,...) \
+    enum_value(E,T,Y, color,        0) \
+    enum_value(E,T,Y, normal,       1) \
+    enum_value(E,T,Y, elevation,    2) \
+    enum_value(E,T,Y, water,        3) \
+    enum_value(E,T,Y, water_blur,   4) \
+    enum_value(E,T,Y, cloud,        5) \
+    enum_value(E,T,Y, bathymetry,   6) \
+    enum_value(E,T,Y, lights,       7) 
 declare_enum(EarthSurface)
 
-#define PurpleSurface_schema(X,Y,...) \
-    enum_value(X,Y, color) \
-    enum_value(X,Y, cloud)
+#define PurpleSurface_schema(E,T,Y,...) \
+    enum_value(E,T,Y, color,        0) \
+    enum_value(E,T,Y, cloud,        1)
 declare_enum(PurpleSurface)
 
 #define Earth_schema(X,Y,...) \
@@ -33,7 +33,7 @@ declare_enum(PurpleSurface)
     i_attr   (X,Y, EarthSurface, bathymetry, 1, rgba8) \
     i_attr   (X,Y, EarthSurface, lights,     1, rgba8) \
     i_override(X,Y, method, init)
-declare_mod(Earth, shader)
+declare_class_2(Earth, shader)
 
 
 #define Purple_schema(X,Y,...) \
@@ -44,14 +44,14 @@ declare_mod(Earth, shader)
     i_attr   (X,Y, PurpleSurface, color,  1, rgba8) \
     i_attr   (X,Y, PurpleSurface, cloud, 1, rgba8) \
     i_override(X,Y, method, init)
-declare_mod(Purple, shader)
+declare_class_2(Purple, shader)
 
 
 #define Ocean_schema(X,Y,...)
-declare_mod(Ocean, Earth, shader)
+declare_class_3(Ocean, Earth, shader)
 
 #define Cloud_schema(X,Y,...)
-declare_mod(Cloud, Earth, shader)
+declare_class_3(Cloud, Earth, shader)
 
 #define Orbiter_schema(C,S,...) \
     M   (C,S, public, prop, vec4f,   pos_radius) \
@@ -61,7 +61,7 @@ declare_mod(Cloud, Earth, shader)
     M   (C,S, public, prop, f32,     moment_amount) \
     M   (C,S, public, prop, f32,     moment_angle) \
     M   (C,S, method, override, init)
-declare_mod(Orbiter, PBR, shader)
+declare_class_3(Orbiter, PBR, shader)
 
 #define Audrey_schema(X,Y,...) \
     i_prop   (X,Y, public,     mat4f, model) \
@@ -82,6 +82,6 @@ declare_mod(Orbiter, PBR, shader)
     i_prop   (X,Y, public,     f32,   pad0) \
     i_prop   (X,Y, public,     f32,   pad1) \
     i_prop   (X,Y, public,     f32,   pad2)
-declare_mod(Audrey, shader)
+declare_class_2(Audrey, shader)
 
 #endif
