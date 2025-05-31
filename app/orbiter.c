@@ -26,7 +26,7 @@ map orbiter_interface(Shaders* u) {
         "main", pane(elements, map_of(
             "button", button(content, string("orbiter-view")),
             null)),
-        null);
+            null);
 }
  
 object orbiter_background(Shaders* u) {
@@ -261,10 +261,10 @@ int main(int argc, cstr argv[]) {
         clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
         models,         a(m_purple));
     
-    app a = app(w, w, arg, &u,
+    app a = hold(app(w, w, arg, &u,
         r_background,  r_background,
         on_background, orbiter_background,
-        on_interface,  orbiter_interface);
+        on_interface,  orbiter_interface));
     
     return run(a);
 }
