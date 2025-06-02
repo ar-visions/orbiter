@@ -256,6 +256,10 @@ int main(int argc, cstr argv[]) {
             "bathymetry", earth_bathymetry,
             "lights",     earth_lights, null));
     
+    hold(m_cloud);
+    hold(m_ocean);
+    hold(m_earth);
+    
     target r_background  = target (w, w,
         wscale,         2.0f,
         clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
