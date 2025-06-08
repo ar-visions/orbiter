@@ -81,7 +81,7 @@ void orbiter_frame(Shaders* u) {
 }
 
 int main(int argc, cstr argv[]) {
-    A_start();
+    A_start(argc, argv);
     path_app(argv[0]);
     trinity t      = trinity();
     int     width  = 800,
