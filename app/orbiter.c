@@ -164,11 +164,9 @@ object on_stderr(iobuffer b) {
 int main(int argc, cstr argv[]) {
     A_start(argc, argv);
 
+    /*
     path location = f(path, "/src/A/debug/test/a-test");
     path src      = f(path, "/src/A/test/a-test.c");
-    printf("...\n");
-    dbg debugf = calloc(1, sizeof(dbg));
-    int offset_f = (i8*)&debugf->f - (i8*)debugf;
     dbg  debug    = dbg(
         location,  location,
         on_stdout, on_stdout,
@@ -183,8 +181,7 @@ int main(int argc, cstr argv[]) {
     for (;;) {
         usleep(10000);
     }
-
-    auto_free();
+    */
     
     trinity t      = hold(trinity());
     int     width  = 1200, height = 1200;
@@ -193,8 +190,6 @@ int main(int argc, cstr argv[]) {
     u.w = hold(window(
         t, t, title, string("orbiter-canvas"),
         width, width, height, height ));
-    
-    auto_free();
     
     u.cv = hold(sk(
         t, t, format, Pixel_rgba8, 
@@ -208,8 +203,6 @@ int main(int argc, cstr argv[]) {
     //image   env       = image(
     //    uri, f(path, "images/forest.exr"));
     
-    auto_free();
-
     // best to define the general ux path first
     image  earth_color      = hold(image(uri, f(path, "textures/earth-color-8192x4096.png")));
     image  earth_normal     = hold(image(uri, f(path, "textures/earth-normal-8192x4096.png")));
@@ -222,14 +215,10 @@ int main(int argc, cstr argv[]) {
     image  purple_color     = hold(image(uri, f(path, "textures/purple-color-8192x4096.png")));
     image  purple_cloud     = hold(image(uri, f(path, "textures/purple-cloud-8192x4096.png")));
 
-    auto_free();
-
     u.purple  = hold(Purple  (t, t, name, string("purple")));
     u.earth   = hold(Earth   (t, t, name, string("earth")));
     u.ocean   = hold(Ocean   (t, t, name, string("ocean")));
     u.cloud   = hold(Cloud   (t, t, name, string("cloud")));
-
-    auto_free();
 
     //u.orbiter = Orbiter (t, t, name, string("orbiter"));
     //u.au      = Audrey  (t, t, name, string("audrey"));
@@ -322,7 +311,6 @@ int main(int argc, cstr argv[]) {
         r_background,  r_background,
         on_background, orbiter_background,
         on_interface,  orbiter_interface));
-    auto_free();
     return run(a);
 }
 
