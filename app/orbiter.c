@@ -22,11 +22,10 @@ void orbiter_mousemove() {
 }
 
 map orbiter_interface(Shaders* u) {
-    pane ctrl = pane();
     map m = map_of(
         "main", pane(elements, map_of(
             "outline", element(),
-            "text",    element(),
+            "editor",  editor(content, string("welcome to the dance.. orbiter")),
         null)),
         null);
     return m;
@@ -187,6 +186,7 @@ int main(int argc, cstr argv[]) {
     int     width  = 1200, height = 1200;
 
     Shaders u = {};
+
     u.w = hold(window(
         t, t, title, string("orbiter-canvas"),
         width, width, height, height ));
@@ -194,12 +194,13 @@ int main(int argc, cstr argv[]) {
     u.cv = hold(sk(
         t, t, format, Pixel_rgba8, 
         width, width, height, height));
+
     print("canvas: %o", u.cv);
     
     window  w         = u.w;
     Model   earth     = hold(read (f(path, "models/earth.gltf"), typeid(Model)));
     Model   purple    = earth;
-    Model   orbiter   = hold(read (f(path, "models/orbiter2.gltf"),   typeid(Model)));
+    Model   orbiter   = hold(read (f(path, "models/flower8888.gltf"),   typeid(Model)));
     //image   env       = image(
     //    uri, f(path, "images/forest.exr"));
     
@@ -311,6 +312,7 @@ int main(int argc, cstr argv[]) {
         r_background,  r_background,
         on_background, orbiter_background,
         on_interface,  orbiter_interface));
+    
     return run(a);
 }
 
@@ -365,3 +367,6 @@ define_class(Ocean, Earth)
 define_class(Cloud, Earth)
 define_class(Orbiter, PBR)
 define_enum(EarthSurface)
+
+define_enum(Language)
+define_class(editor, element)

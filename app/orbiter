@@ -84,4 +84,17 @@ declare_class_3(Orbiter, PBR, shader)
     i_prop   (X,Y, public,     f32,   pad2)
 declare_class_2(Audrey, shader)
 
+
+#define Language_schema(E,T,Y,...) \
+    enum_value(E,T,Y, C,        0) \
+    enum_value(E,T,Y, python,   1) \
+    enum_value(E,T,Y, CSharp,   2) \
+    enum_value(E,T,Y, VBasic,   3)
+declare_enum(Language)
+
+#define editor_schema(X,Y,...) \
+    i_prop   (X,Y, public, Language, lang) \
+    i_prop   (X,Y, public, f32,      time)
+declare_class_3(editor, element, ion)
+
 #endif
