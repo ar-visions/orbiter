@@ -201,19 +201,6 @@ int main(int argc, cstr argv[]) {
     window  w         = u.w;
     Model   earth     = read(f(path, "models/earth.gltf"), typeid(Model));
     Model   purple    = earth;
-    Model   orbiter   = read(f(path, "models/flower8888.gltf"), typeid(Model));
-
-    u.orbiter = Orbiter (t, t, name, string("orbiter"));
-    image environment = image(
-        uri, form(path, "images/forest.exr"), surface, Surface_environment);
-    
-    model  m_orbiter = model(w, w, id, orbiter,
-        s, u.orbiter, samplers, map_of("environment", environment, null));
-    
-    target r_background  = target (w, w,
-        wscale,         2.0f,
-        clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
-        models,         a(m_orbiter));
     
     //image   env       = image(
     //    uri, f(path, "images/forest.exr"));
@@ -318,6 +305,18 @@ int main(int argc, cstr argv[]) {
             "bathymetry", earth_bathymetry,
             "lights",     earth_lights, null));
 
+    //Model orbiter = read(f(path, "models/flower8888.gltf"), typeid(Model));
+    //u.orbiter = Orbiter (t, t, name, string("orbiter"));
+    //image environment = image(
+    //    uri, form(path, "images/forest.exr"), surface, Surface_environment);
+    //model  m_orbiter = model(w, w, id, orbiter,
+    //    s, u.orbiter, samplers, map_of("environment", environment, null));
+    
+    target r_background  = target (w, w,
+        wscale,         2.0f,
+        clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
+        models,         a(m_purple));
+    
     app a = app(w, w, arg, &u,
         r_background,  r_background,
         on_background, orbiter_background,
