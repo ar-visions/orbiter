@@ -6,7 +6,7 @@ import:
 	gltf 	https://github.com/ar-visions/gltf 		main
 	ion 	https://github.com/ar-visions/ion 		main
 	trinity https://github.com/ar-visions/trinity 	main
-		-ltrinity -lskia -lsvg -lskshaper -lskunicode -lskcms -lskparagraph -lpathkit -lm -lz -lpng -lfreetype -ljpeg -lstdc++
+		-ltrinity 
 		linux:
 			-lasound
 	glfw 	https://github.com/glfw/glfw 			7b6aead

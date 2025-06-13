@@ -182,46 +182,60 @@ int main(int argc, cstr argv[]) {
     }
     */
     
-    trinity t      = hold(trinity());
+    trinity t      = trinity();
     int     width  = 1200, height = 1200;
 
     Shaders u = {};
 
-    u.w = hold(window(
+    u.w = window(
         t, t, title, string("orbiter-canvas"),
-        width, width, height, height ));
+        width, width, height, height );
     
-    u.cv = hold(sk(
+    u.cv = sk(
         t, t, format, Pixel_rgba8, 
-        width, width, height, height));
+        width, width, height, height);
 
     print("canvas: %o", u.cv);
     
+    /// work on componentizing the render, so we may, on mount, register to the window renders
     window  w         = u.w;
-    Model   earth     = hold(read (f(path, "models/earth.gltf"), typeid(Model)));
+    Model   earth     = read(f(path, "models/earth.gltf"), typeid(Model));
     Model   purple    = earth;
-    Model   orbiter   = hold(read (f(path, "models/flower8888.gltf"),   typeid(Model)));
+    Model   orbiter   = read(f(path, "models/flower8888.gltf"), typeid(Model));
+
+    u.orbiter = Orbiter (t, t, name, string("orbiter"));
+    image environment = image(
+        uri, form(path, "images/forest.exr"), surface, Surface_environment);
+    
+    model  m_orbiter = model(w, w, id, orbiter,
+        s, u.orbiter, samplers, map_of("environment", environment, null));
+    
+    target r_background  = target (w, w,
+        wscale,         2.0f,
+        clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
+        models,         a(m_orbiter));
+    
     //image   env       = image(
     //    uri, f(path, "images/forest.exr"));
     
     // best to define the general ux path first
-    image  earth_color      = hold(image(uri, f(path, "textures/earth-color-8192x4096.png")));
-    image  earth_normal     = hold(image(uri, f(path, "textures/earth-normal-8192x4096.png")));
-    image  earth_elevation  = hold(image(uri, f(path, "textures/earth-elevation-8192x4096.png")));
-    image  earth_water      = hold(image(uri, f(path, "textures/earth-water-8192x4096.png")));
-    image  earth_water_blur = hold(image(uri, f(path, "textures/earth-water-blur-8192x4096.png")));
-    image  earth_cloud      = hold(image(uri, f(path, "textures/earth-cloud-8192x4096.png")));
-    image  earth_bathymetry = hold(image(uri, f(path, "textures/earth-bathymetry-8192x4096.png")));
-    image  earth_lights     = hold(image(uri, f(path, "textures/earth-lights-8192x4096.png")));
-    image  purple_color     = hold(image(uri, f(path, "textures/purple-color-8192x4096.png")));
-    image  purple_cloud     = hold(image(uri, f(path, "textures/purple-cloud-8192x4096.png")));
+    image  earth_color      = image(uri, f(path, "textures/earth-color-8192x4096.png"));
+    image  earth_normal     = image(uri, f(path, "textures/earth-normal-8192x4096.png"));
+    image  earth_elevation  = image(uri, f(path, "textures/earth-elevation-8192x4096.png"));
+    image  earth_water      = image(uri, f(path, "textures/earth-water-8192x4096.png"));
+    image  earth_water_blur = image(uri, f(path, "textures/earth-water-blur-8192x4096.png"));
+    image  earth_cloud      = image(uri, f(path, "textures/earth-cloud-8192x4096.png"));
+    image  earth_bathymetry = image(uri, f(path, "textures/earth-bathymetry-8192x4096.png"));
+    image  earth_lights     = image(uri, f(path, "textures/earth-lights-8192x4096.png"));
+    image  purple_color     = image(uri, f(path, "textures/purple-color-8192x4096.png"));
+    image  purple_cloud     = image(uri, f(path, "textures/purple-cloud-8192x4096.png"));
 
-    u.purple  = hold(Purple  (t, t, name, string("purple")));
-    u.earth   = hold(Earth   (t, t, name, string("earth")));
-    u.ocean   = hold(Ocean   (t, t, name, string("ocean")));
-    u.cloud   = hold(Cloud   (t, t, name, string("cloud")));
+    u.purple  = Purple  (t, t, name, string("purple"));
+    u.earth   = Earth   (t, t, name, string("earth"));
+    u.ocean   = Ocean   (t, t, name, string("ocean"));
+    u.cloud   = Cloud   (t, t, name, string("cloud"));
 
-    //u.orbiter = Orbiter (t, t, name, string("orbiter"));
+    
     //u.au      = Audrey  (t, t, name, string("audrey"));
     //u.blur    = Blur    (t, t, name, string("blur"));
     
@@ -266,12 +280,12 @@ int main(int argc, cstr argv[]) {
     u.beam   = beam;
     */
     
-    model   m_purple   = hold(model  (w, w, id, purple, s, u.purple,
+    model   m_purple   = model  (w, w, id, purple, s, u.purple,
         samplers, map_of(
             "color",      purple_color,
-            "cloud",      purple_cloud, null)));
+            "cloud",      purple_cloud, null));
 
-    model   m_earth   = hold(model  (w, w, id, earth,   s, u.earth,
+    model   m_earth   = model  (w, w, id, earth,   s, u.earth,
         samplers, map_of(
             "color",      earth_color,
             "normal",     earth_normal,
@@ -280,9 +294,9 @@ int main(int argc, cstr argv[]) {
             "water_blur", earth_water_blur,
             "cloud",      earth_cloud,
             "bathymetry", earth_bathymetry,
-            "lights",     earth_lights, null)));
+            "lights",     earth_lights, null));
     
-    model   m_ocean   = hold(model  (w, w, id, earth,   s, u.ocean,
+    model   m_ocean   = model  (w, w, id, earth,   s, u.ocean,
         samplers, map_of(
             "color",      earth_color,
             "normal",     earth_normal,
@@ -291,9 +305,9 @@ int main(int argc, cstr argv[]) {
             "water_blur", earth_water_blur,
             "cloud",      earth_cloud,
             "bathymetry", earth_bathymetry,
-            "lights",     earth_lights, null)));
+            "lights",     earth_lights, null));
 
-    model   m_cloud   = hold(model  (w, w, id, earth,   s, u.cloud,
+    model   m_cloud   = model  (w, w, id, earth,   s, u.cloud,
         samplers, map_of(
             "color",      earth_color,
             "normal",     earth_normal,
@@ -302,16 +316,12 @@ int main(int argc, cstr argv[]) {
             "water_blur", earth_water_blur,
             "cloud",      earth_cloud,
             "bathymetry", earth_bathymetry,
-            "lights",     earth_lights, null)));
-    
-    target r_background  = target (w, w,
-        wscale,         2.0f,
-        clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
-        models,         a(m_purple));
-    app a = hold(app(w, w, arg, &u,
+            "lights",     earth_lights, null));
+
+    app a = app(w, w, arg, &u,
         r_background,  r_background,
         on_background, orbiter_background,
-        on_interface,  orbiter_interface));
+        on_interface,  orbiter_interface);
     
     return run(a);
 }
