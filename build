@@ -13,3 +13,4 @@ import:
 		-DBUILD_SHARED_LIBS=ON
 		-DGLFW_BUILD_WAYLAND=OFF
 		-DGLFW_VULKAN=ON
+	llm https://github.com/ar-visions/llm main

@@ -1,0 +1,73 @@
+element.root {
+    fill-canvas:    compose;
+    fill-color:     #704;
+    fill-radius-x:  0;
+    fill-radius-y:  0;
+}
+
+element.root / pane {
+    fill-canvas:    compose;
+    fill-color:     #f08;
+
+    fill-radius-y: 16;
+    fill-radius-x: 16;
+    
+    border-canvas:      compose;
+    border-color:       #f0f;
+    border-size:        16;
+    border-blur:        10;
+    border-clip:        true;
+    border-area:        l0 t0 r0 b0;
+    border-radius-x:    16;
+    border-radius-y:    16;
+
+    clip-area:          l0 t0 r0 b0;
+    area:               l64 t64 r64 b64;
+}
+
+element.root / pane / element.outline {
+    area:           l0 t0 r0 b0;
+    border-area:    l0 t0 r0 b0;
+    border-canvas:  compose;
+    border-color:   #f0f;
+    border-size:    2;
+    border-blur:    0;
+    border-radius-x: 16;
+    border-radius-y: 16;
+    fill-radius-x:      16;
+    fill-radius-y:      16;
+}
+
+element.root / pane / editor {
+    fill-canvas:        overlay;
+    fill-color:         #fff1;
+    area:               l12 t44 r12 b12;
+    border-area:    l0.5 t0.5 r0.5 b0.5;
+    border-canvas:  compose;
+    border-color:   #f0f;
+    border-size:    1;
+    border-radius-x: 8;
+    border-radius-y: 8;
+    fill-radius-x:      8;
+    fill-radius-y:      8;
+    content:            "this is a string of text";
+    text-color:         #fff;
+    text-shadow-color:  #000a;
+    text-shadow-x:      1;
+    text-shadow-y:      1;
+    text-align-x:       left;
+    text-align-y:       top;
+}
+
+element.root / pane:active {
+    fill-canvas:    compose;
+}
+
+element.root / pane / button.button1 {
+    content:        "button";
+    area:           l8 t8 w80 h32;
+    fill-canvas:    overlay;
+    border-canvas:  overlay;
+    border-size:    4;
+    border-color:  #ffff;
+}

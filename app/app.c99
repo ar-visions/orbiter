@@ -1,6 +1,6 @@
 
 int main(int argc, cstr argv[]) {
-    A_start();
+    A_start(argv);
     path_app(argv[0]);
     
     trinity t      = trinity();

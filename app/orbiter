@@ -97,4 +97,44 @@ declare_enum(Language)
     i_prop   (X,Y, public, f32,      time)
 declare_class_3(editor, element, ion)
 
+
+#define orbiter_schema(X,Y,...) \
+    i_prop   (X,Y, public,  dbg,      debug) \
+    i_prop   (X,Y, public,  i32,      width) \
+    i_prop   (X,Y, public,  i32,      height) \
+    i_prop   (X,Y, public,  mdl,      model) \
+    i_prop   (X,Y, public,  ctx,      context) \
+    i_prop   (X,Y, public,  Model,    earth_gltf) \
+    i_prop   (X,Y, public,  Model,    purple_gltf) \
+    i_prop   (X,Y, public,  Model,    orbiter_gltf) \
+    i_prop   (X,Y, public,  model,    earth_model) \
+    i_prop   (X,Y, public,  model,    ocean_model) \
+    i_prop   (X,Y, public,  model,    cloud_model) \
+    i_prop   (X,Y, public,  model,    purple_model) \
+    i_prop   (X,Y, public,  model,    orbiter_model) \
+    i_prop   (X,Y, public,  Earth,    earth) \
+    i_prop   (X,Y, public,  Purple,   purple) \
+    i_prop   (X,Y, public,  Ocean,    ocean) \
+    i_prop   (X,Y, public,  Cloud,    cloud) \
+    i_prop   (X,Y, public,  Audrey,   au) \
+    i_prop   (X,Y, public,  Orbiter,  orbiter) \
+    i_prop   (X,Y, public,  sk,       cv) \
+    i_prop   (X,Y, public,  sk,       core) \
+    i_prop   (X,Y, public,  sk,       beam) \
+    i_prop   (X,Y, public,  f32,      time) \
+    i_prop   (X,Y, public,  array,    earth_res) \
+    i_prop   (X,Y, public,  array,    purple_res) \
+    i_prop   (X,Y, public,  image,    env) \
+    i_method (X,Y, public,  object,   background,   window) \
+    i_method (X,Y, public,  map,      interface,    window) \
+    i_method (X,Y, public,  object,   window_mouse, event)  \
+    i_method (X,Y, public,  object,   dbg_crash,    cursor) \
+    i_method (X,Y, public,  object,   dbg_exit,     dbg) \
+    i_method (X,Y, public,  object,   dbg_break,    cursor) \
+    i_method (X,Y, public,  object,   dbg_stdout,   iobuffer) \
+    i_method (X,Y, public,  object,   dbg_stderr,   iobuffer) \
+    i_override(X,Y, method, init) \
+    i_override(X,Y, method, dealloc)
+declare_class_2(orbiter, app)
+
 #endif

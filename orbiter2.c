@@ -87,7 +87,7 @@ void isolate(trinity t) {
 */
 
 int main(int argc, cstr argv[]) {
-    A_start();
+    A_start(argv);
     trinity t = trinity();
  
     //isolate(t);

@@ -4,62 +4,54 @@
 
 static window main_window;
 
-typedef struct Shaders {
-    window  w;
-    Earth   earth;
-    Purple  purple;
-    Ocean   ocean; /// ocean is a separate render pass with the same model
-    Cloud   cloud;
-    Orbiter orbiter;
-    Audrey  au;
-    sk      beam;
-    sk      core;
-    sk      cv;
-    f32     time;
-} Shaders;
-
-void orbiter_mousemove() {
+object orbiter_window_mouse(orbiter a, event e) {
+    return null;
 }
 
-map orbiter_interface(Shaders* u) {
+map orbiter_interface(orbiter a, window arg) {
+    map m = map_of(
+        "main", pane(),
+        null);
+    /*
     map m = map_of(
         "main", pane(elements, map_of(
             "outline", element(),
             "editor",  editor(content, string("welcome to the dance.. orbiter")),
         null)),
         null);
+    */
     return m;
 }
- 
-object orbiter_background(Shaders* u) {
-    u->time += 0.0044f - (u->w->debug_value * 0.04);
+
+object orbiter_background(orbiter a, window arg) {
+    a->time += (4 * 0.0044f) - (a->w->debug_value * 0.04);
 
     // step 1: apply Earth's axial tilt
-    float tilt_deg = -23.44f;
-    float tilt_rad = radians(tilt_deg);
+    float tilt_deg  = -23.44f;
+    float tilt_rad  = radians(tilt_deg);
     vec4f tilt_axis = vec4f(1.0f, 0.0f, 0.0f, tilt_rad); // tilt around X axis
-    quatf q_tilt = quatf(&tilt_axis);
-    mat4f m_tilt = mat4f(&q_tilt);
+    quatf q_tilt    = quatf(&tilt_axis);
+    mat4f m_tilt    = mat4f(&q_tilt);
 
     // step 2: spin Earth around Y axis *in its local (tilted) space*
-    vec4f spin_axis = vec4f(0.0f, 1.0f, 0.0f, radians(u->time));
-    quatf q_spin = quatf(&spin_axis);
-    mat4f m_spin = mat4f(&q_spin);
+    vec4f spin_axis = vec4f(0.0f, 1.0f, 0.0f, radians(a->time));
+    quatf q_spin    = quatf(&spin_axis);
+    mat4f m_spin    = mat4f(&q_spin);
 
     // final model matrix: spin after tilt
-    u->earth->model = mat4f_mul(&m_tilt, &m_spin);
-    u->ocean->model = u->earth->model;
-    u->cloud->model = u->earth->model;
+    a->earth->model = mat4f_mul(&m_tilt, &m_spin);
+    a->ocean->model = a->earth->model;
+    a->cloud->model = a->earth->model;
 
-    u->earth->time = u->time;
-    u->ocean->time = u->time;
-    u->cloud->time = u->time;
+    a->earth->time = a->time;
+    a->ocean->time = a->time;
+    a->cloud->time = a->time;
 
-    u->purple->model = mat4f_mul(&m_tilt, &m_spin);
-    u->purple->time = u->time;
+    a->purple->model = mat4f_mul(&m_tilt, &m_spin);
+    a->purple->time = a->time;
 
     /*
-    window w = u->w;
+    window w = a->w;
     vec3f   eye         = vec3f   (0.0f,  8.0f + w->debug_value,  4.0f);
     vec3f   target      = vec3f   (0.0f,  0.0f,  0.0f);
     vec3f   up          = vec3f   (0.0f, -1.0f,  0.0f);
@@ -71,9 +63,9 @@ object orbiter_background(Shaders* u) {
 
     vec4f v              = vec4f(0.0f, 1.0f, 0.0f, radians(0.0));
     quatf q              = quatf(&v);
-    Orbiter orb          = u->orbiter;
+    Orbiter orb          = a->orbiter;
     orb->pos             = vec4f(&eye);
-    orb->model           = mat4f_rotate     (&u->orbiter->model, &q);
+    orb->model           = mat4f_rotate     (&a->orbiter->model, &q);
     orb->proj            = mat4f_perspective(radians(40.0f), 1.0f, 0.1f, 100.0f);
     orb->view            = mat4f_look_at    (&eye, &target, &up);
     orb->moment          = m_sequence;
@@ -85,37 +77,37 @@ object orbiter_background(Shaders* u) {
 
     if (orb->moment_angle > M_PI) orb->moment_angle = orb->moment_angle - M_PI;
 
-    u->au->model = mat4f_ident();
+    a->aa->model = mat4f_ident();
     // rotate 90 deg X
     vec4f rotation_axis_angle = vec4f(1.0f, 0.0f, 0.0f, radians(90.0f));
     quatf rotation_quat       = quatf(&rotation_axis_angle);
-    u->au->model = mat4f_rotate(&u->au->model, &rotation_quat);
+    a->aa->model = mat4f_rotate(&a->aa->model, &rotation_quat);
     //vec3f sc1 = vec3f(0.1f, 100.0f, 1000.0f);
-    //u->cv->model = mat4f_scale(&u->cv->model, &sc1);
+    //a->cv->model = mat4f_scale(&a->cv->model, &sc1);
     /// move down
     vec3f tr              = vec3f(0.0f, 0.5f, 0.0f);
-    u->au->model          = mat4f_translate(&u->au->model, &tr);
-    u->au->view           = mat4f_ident();
-    u->au->proj           = mat4f_ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
-    u->au->v_model        = orb->model;
-    u->au->v_view         = orb->view;
-    u->au->v_proj         = orb->proj;
-    u->au->time           = sequence;
-    u->au->thrust         = 1.00;
-    u->au->magnitude      = 1.00;
-    u->au->colors         = 0.22;
-    u->au->halo_attenuate = 0.44;
-    u->au->halo_space     = 0.44;
-    u->au->halo_separate  = 0.11;
-    u->au->halo_thickness = 0.22;
+    a->au->model          = mat4f_translate(&a->au->model, &tr);
+    a->au->view           = mat4f_ident();
+    a->au->proj           = mat4f_ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
+    a->au->v_model        = orb->model;
+    a->au->v_view         = orb->view;
+    a->au->v_proj         = orb->proj;
+    a->au->time           = sequence;
+    a->au->thrust         = 1.00;
+    a->au->magnitude      = 1.00;
+    a->au->colors         = 0.22;
+    a->au->halo_attenuate = 0.44;
+    a->au->halo_space     = 0.44;
+    a->au->halo_separate  = 0.11;
+    a->au->halo_thickness = 0.22;
 
-    sk cv = u->cv;
+    sk cv = a->cv;
     clear     (cv, string("#111"));
     static float x = 0;
     static float y = 0;
 
-    if (cv->width != u->w->width || cv->height != u->w->height) {
-        resize_texture(cv, u->w->width, u->w->height);
+    if (cv->width != a->w->width || cv->height != a->w->height) {
+        resize_texture(cv, a->w->width, a->w->height);
     }
 
     x += 1;
@@ -129,201 +121,179 @@ object orbiter_background(Shaders* u) {
     draw_fill (cv, false);
     sync      (cv);
     output_mode(cv, true);
-
-    //u->earth->model = blast_matrix();
     */
     return null;
 }
 
-object on_process_exit(dbg debug) {
+object orbiter_dbg_exit(orbiter a, dbg debug) {
     print("debug exit");
     return null;
 }
 
-object on_crash(cursor cur) {
+object orbiter_dbg_crash(orbiter a, cursor cur) {
     print("crash at %o:%i:%i", cur->source, cur->line, cur->column);
     return null;
 }
 
-object on_break(cursor cur) {
+object orbiter_dbg_break(orbiter a, cursor cur) {
     print("breakpoint at %o:%i:%i", cur->source, cur->line, cur->column);
     return null;
 }
 
-object on_stdout(iobuffer b) {
+object orbiter_dbg_stdout(orbiter a, iobuffer b) {
     fwrite(b->bytes, 1, b->count, stdout);
     return null;
 }
 
-object on_stderr(iobuffer b) {
+object orbiter_dbg_stderr(orbiter a, iobuffer b) {
     fwrite(b->bytes, 1, b->count, stderr);
     return null;
 }
 
-int main(int argc, cstr argv[]) {
-    A_start(argc, argv);
+none orbiter_init(orbiter a) {
 
-    /*
-    path location = f(path, "/src/A/debug/test/a-test");
-    path src      = f(path, "/src/A/test/a-test.c");
-    dbg  debug    = dbg(
-        location,  location,
-        on_stdout, on_stdout,
-        on_stderr, on_stderr,
-        on_break,  on_break,
-        on_crash,  on_crash,
-        on_exit,   on_process_exit);
-    set_breakpoint(debug, src, 19, 0);
-    set_breakpoint(debug, src, 20, 0);
-    start(debug);
+    /*a->model = mdl(uri, path("gemma-7b.Q4_K_M.gguf"));
+    array startup = a(
+        string("hi, we are going to show you some code first, then we'll ask a question; now respond with ok $"),
+        path("/src/A/test/a-test.c"));
+    a->context  = ctx(model, a->model, content, startup);
+    string res  = query(a->context, string("what language was this? respond the language and then $"));
+    string res2 = query(a->context, string("what did i just say about you?  1 or 2 words max"));
+    */
 
+    //print("res = %o, res2 = %o", res, res2);
+
+    // lets test the binding api 
+    //path location = hold(f(path, "/src/A/debug/test/a-test"));
+    //path src      = hold(f(path, "/src/A/test/a-test.c"));
+    //a->debug    = dbg(
+    //    location,  location,
+    //    target,    a);
+    //set_breakpoint(a->debug, src, 19, 0);
+    //set_breakpoint(a->debug, src, 20, 0);
+    /*start(a->debug);
     for (;;) {
         usleep(10000);
-    }
-    */
-    
-    trinity t      = trinity();
-    int     width  = 1200, height = 1200;
+    }*/
 
-    Shaders u = {};
+    trinity t      = a->t = trinity();
 
-    u.w = window(
+    int     width  = a->width  ? a->width  : 1200;
+    int     height = a->height ? a->height : 1200;
+
+    a->w = window(
         t, t, title, string("orbiter-canvas"),
-        width, width, height, height );
-    
-    u.cv = sk(
+        blur,  true,
+        width, width, height, height);
+
+    a->cv   = sk(
         t, t, format, Pixel_rgba8, 
         width, width, height, height);
 
-    print("canvas: %o", u.cv);
+    a->core = sk(
+        t, t, format, Pixel_rgba8, 
+        width, width, height, height);
     
+    a->beam = sk(
+        t, t, format, Pixel_rgba8, 
+        width, width, height, height);
+
     /// work on componentizing the render, so we may, on mount, register to the window renders
-    window  w         = u.w;
-    Model   earth     = read(f(path, "models/earth.gltf"), typeid(Model));
-    Model   purple    = earth;
-    
-    //image   env       = image(
-    //    uri, f(path, "images/forest.exr"));
-    
-    // best to define the general ux path first
-    image  earth_color      = image(uri, f(path, "textures/earth-color-8192x4096.png"));
-    image  earth_normal     = image(uri, f(path, "textures/earth-normal-8192x4096.png"));
-    image  earth_elevation  = image(uri, f(path, "textures/earth-elevation-8192x4096.png"));
-    image  earth_water      = image(uri, f(path, "textures/earth-water-8192x4096.png"));
-    image  earth_water_blur = image(uri, f(path, "textures/earth-water-blur-8192x4096.png"));
-    image  earth_cloud      = image(uri, f(path, "textures/earth-cloud-8192x4096.png"));
-    image  earth_bathymetry = image(uri, f(path, "textures/earth-bathymetry-8192x4096.png"));
-    image  earth_lights     = image(uri, f(path, "textures/earth-lights-8192x4096.png"));
-    image  purple_color     = image(uri, f(path, "textures/purple-color-8192x4096.png"));
-    image  purple_cloud     = image(uri, f(path, "textures/purple-cloud-8192x4096.png"));
+    window  w         = a->w;
+    path cwd = path_cwd(1024);
 
-    u.purple  = Purple  (t, t, name, string("purple"));
-    u.earth   = Earth   (t, t, name, string("earth"));
-    u.ocean   = Ocean   (t, t, name, string("ocean"));
-    u.cloud   = Cloud   (t, t, name, string("cloud"));
+    a->earth_gltf     = read(f(path, "models/earth.gltf"), typeid(Model));
+    A earth_head      = head(a->earth_gltf);
+    a->purple_gltf    = hold(a->earth_gltf);
 
+    a->earth_res = hold(a(
+        (object)hold(image(uri, f(path, "textures/earth-color-8192x4096.png"))),
+        (object)hold(image(uri, f(path, "textures/earth-normal-8192x4096.png"))),
+        (object)hold(image(uri, f(path, "textures/earth-elevation-8192x4096.png"))),
+        (object)hold(image(uri, f(path, "textures/earth-water-8192x4096.png"))),
+        (object)hold(image(uri, f(path, "textures/earth-water-blur-8192x4096.png"))),
+        (object)hold(image(uri, f(path, "textures/earth-cloud-8192x4096.png"))),
+        (object)hold(image(uri, f(path, "textures/earth-bathymetry-8192x4096.png"))),
+        (object)hold(image(uri, f(path, "textures/earth-lights-8192x4096.png")))));
     
-    //u.au      = Audrey  (t, t, name, string("audrey"));
-    //u.blur    = Blur    (t, t, name, string("blur"));
-    
-    /*
-    u.cv      = sk(
-        t, t, format, Pixel_rgba8,
-        width, width, height, height);
-    
-    sk core = sk(
-        t, t, format, Pixel_rgba8,
-        width, width, height, height);
-    clear     (core, string("#0000"));
+
+    a->purple_res = hold(a(
+        hold(image(uri, f(path, "textures/purple-color-8192x4096.png"))),
+        hold(image(uri, f(path, "textures/purple-cloud-8192x4096.png")))));
+
+    a->purple  = Purple  (t, t, name, string("purple"));
+    a->earth   = Earth   (t, t, name, string("earth"));
+    a->ocean   = Ocean   (t, t, name, string("ocean"));
+    a->cloud   = Cloud   (t, t, name, string("cloud"));
+    a->au      = Audrey  (t, t, name, string("audrey"));
+
+    clear     (a->core, string("#0000"));
     
     /// outter color
-    rect_to   (core, 0, 0, 800, 800);
-    fill_color(core, string("#f00"));
-    draw_fill (core, false);
+    rect_to   (a->core, 0, 0, 800, 800);
+    fill_color(a->core, string("#f00"));
+    draw_fill (a->core);
 
     /// inner core
-    arc       (core, 400.0f, 400.0f, 100.0f, 0.0f, 360.0f);
-    fill_color(core, string("#a0f"));
-    draw_fill (core, false);
+    arc       (a->core, 400.0f, 400.0f, 100.0f, 0.0f, 360.0f);
+    fill_color(a->core, string("#a0f"));
+    draw_fill (a->core);
 
     /// core mantle!
-    arc       (core, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
-    fill_color(core, string("#aff"));
-    draw_fill (core, false);
-    sync      (core);
-    u.core   = core;
+    arc       (a->core, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
+    fill_color(a->core, string("#aff"));
+    draw_fill (a->core);
+    sync      (a->core);
 
-    sk beam = sk(
-        t, t, format, Pixel_rgba8, 
-        width, width, height, height);
-    clear     (beam, string("#0000"));
-    rect_to   (beam, 0, 0, 800, 800);
-    fill_color(beam, string("#00f"));
-    draw_fill (beam, false);
-    arc       (beam, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
-    fill_color(beam, string("#aff"));
-    draw_fill (beam, false);
-    sync      (beam);
-    u.beam   = beam;
-    */
+    clear     (a->beam, string("#0000"));
+    rect_to   (a->beam, 0, 0, 800, 800);
+    fill_color(a->beam, string("#00f"));
+    draw_fill (a->beam);
+    arc       (a->beam, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
+    fill_color(a->beam, string("#aff"));
+    draw_fill (a->beam);
+    sync      (a->beam);
+
+    a->purple_model = model(w, w, id, a->purple_gltf, s, a->purple,
+        samplers, map_of(
+            "color",      a->purple_res->elements[PurpleSurface_color],
+            "cloud",      a->purple_res->elements[PurpleSurface_cloud], null));
+
+    map earth_samplers = map_of(
+        "color",      a->earth_res->elements[EarthSurface_color],
+        "normal",     a->earth_res->elements[EarthSurface_normal],
+        "elevation",  a->earth_res->elements[EarthSurface_elevation],
+        "water",      a->earth_res->elements[EarthSurface_water],
+        "water_blur", a->earth_res->elements[EarthSurface_water_blur],
+        "cloud",      a->earth_res->elements[EarthSurface_cloud],
+        "bathymetry", a->earth_res->elements[EarthSurface_bathymetry],
+        "lights",     a->earth_res->elements[EarthSurface_lights], null);
     
-    model   m_purple   = model  (w, w, id, purple, s, u.purple,
-        samplers, map_of(
-            "color",      purple_color,
-            "cloud",      purple_cloud, null));
+    a->earth_model = model(w, w, id, a->earth_gltf, s, a->earth, samplers, earth_samplers);
+    a->ocean_model = model(w, w, id, a->earth_gltf, s, a->ocean, samplers, earth_samplers);
+    a->cloud_model = model(w, w, id, a->earth_gltf, s, a->cloud, samplers, earth_samplers);
 
-    model   m_earth   = model  (w, w, id, earth,   s, u.earth,
-        samplers, map_of(
-            "color",      earth_color,
-            "normal",     earth_normal,
-            "elevation",  earth_elevation,
-            "water",      earth_water,
-            "water_blur", earth_water_blur,
-            "cloud",      earth_cloud,
-            "bathymetry", earth_bathymetry,
-            "lights",     earth_lights, null));
+    a->orbiter_gltf  = read(f(path, "models/flower8888.gltf"), typeid(Model));
+    a->orbiter       = Orbiter(t, t, name, string("orbiter"));
+    a->env           = image(uri, form(path, "images/forest.exr"), surface, Surface_environment);
+    a->orbiter_model = model(w, w, id, a->orbiter_gltf, s, a->orbiter, samplers, map_of("environment", a->env, null));
     
-    model   m_ocean   = model  (w, w, id, earth,   s, u.ocean,
-        samplers, map_of(
-            "color",      earth_color,
-            "normal",     earth_normal,
-            "elevation",  earth_elevation,
-            "water",      earth_water,
-            "water_blur", earth_water_blur,
-            "cloud",      earth_cloud,
-            "bathymetry", earth_bathymetry,
-            "lights",     earth_lights, null));
-
-    model   m_cloud   = model  (w, w, id, earth,   s, u.cloud,
-        samplers, map_of(
-            "color",      earth_color,
-            "normal",     earth_normal,
-            "elevation",  earth_elevation,
-            "water",      earth_water,
-            "water_blur", earth_water_blur,
-            "cloud",      earth_cloud,
-            "bathymetry", earth_bathymetry,
-            "lights",     earth_lights, null));
-
-    //Model orbiter = read(f(path, "models/flower8888.gltf"), typeid(Model));
-    //u.orbiter = Orbiter (t, t, name, string("orbiter"));
-    //image environment = image(
-    //    uri, form(path, "images/forest.exr"), surface, Surface_environment);
-    //model  m_orbiter = model(w, w, id, orbiter,
-    //    s, u.orbiter, samplers, map_of("environment", environment, null));
-    
-    target r_background  = target (w, w,
+    w->r_background  = target (w, w,
         wscale,         2.0f,
         clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
-        models,         a(m_purple));
-    
-    app a = app(w, w, arg, &u,
-        r_background,  r_background,
-        on_background, orbiter_background,
-        on_interface,  orbiter_interface);
-    
+        models,         a(a->earth_model, a->ocean_model, a->cloud_model));
+
+    initialize(w);
+}
+
+none orbiter_dealloc(orbiter a) { }
+
+int main(int argc, cstrs argv) {
+    orbiter a = hold(orbiter(argv));
     return run(a);
 }
+
+define_class(orbiter, app)
 
 define_class(Audrey, shader)
 
