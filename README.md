@@ -16,9 +16,31 @@ The words we are looking at (long with the actual word) is given in to LLM queri
 It is to support both local and remote LLM integration into your particular stack.
 
 We create this stack not only because its easier to deal with, but because its used to navigate
-for code we are looking for.  So often you ask yourself 'oh where is this code at', and that weight is
+to the code we seek.  So often we ask yourselve 'now how do I get to this', and that weight is
 to be lifted off you in Orbiter code-nav.  Tell Orbiter where you want to go, and it will scroll to
 the place you need to be in workspace.  With AI, we may navigate better and thus produce better.
 
+This is purpose built for those who build lots of small, focused projects that aggregate into a large one.
+
 Lets see what the Orbiter agent looks like:
 ![Orbiter](orbiter888.png)
+
+
+# Work in progress
+- Frosted and composed UX
+    - Vulkan background render (Orbiting Earth, with multiple layered NASA data view of our home planet)
+    - Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
+        - Overlay (images, icons, text, anything with explicit color/alpha output)
+        - Compose (the amount of frost to allow to come through, and what level of blur (3 to choose from))
+            - 0/2: None
+            - 1/2: Low Blur
+            - 2/2: High Blur
+        - Colorize
+            - (r/g channels): HSV filter on the composer blend
+            - (b): An amount to blend into final output
+    - Rich component system that make use of these layers
+- Simplified Editor
+    - 
+- Item two
+  - Sub-item (indent with two spaces or a tab)
+- Item three
