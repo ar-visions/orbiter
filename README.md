@@ -91,7 +91,7 @@ example of this api usage:
         - [x] [trinity](https://github.com/ar-visions/trinity) Our graphics subsystem library for creating and displayed shaded models in scene, in one or more windows
 
 This blends several views together, based on channel-levels in canvases draw-to:
-![Orbiter](ux-pane.png)
+![UX pane blending](ux-pane.png)
 
     - [x] Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
         - [x] Overlay (images, icons, text, anything with explicit color/alpha output)
