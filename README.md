@@ -60,7 +60,7 @@ element.root / pane / button.record:selected {
 ```
 - Debugger
     - [dbg](https://github.com/ar-visions/dbg) LLM-based debugger
-        - [x] Easily integrated break-point events into an application model
+        - [x] Automatic break-point binds to app model
 
 example of this api usage:
 ```
@@ -68,7 +68,12 @@ example of this api usage:
     path src      = f(path, "/src/A/test/a-test.c");
     app->debug    = dbg(
         location,  f(path, "/src/A/debug/test/a-test"),
-        target,    app); # this will use A-type bind API to lookup ALL required/optional methods to bind on your app, and give errors for ones that fail to bind; this is automatic API on C
+        target,    app);
+        
+    # this will use A-type bind API to lookup ALL required/optional methods
+    # to bind on your app, and give errors for ones that fail to bind
+    # this is automatic API bindings, with errors to guide you.
+
     set_breakpoint(a->debug, src, 19, 0);
     set_breakpoint(a->debug, src, 20, 0);
     start(a->debug);
@@ -85,13 +90,13 @@ example of this api usage:
         - [x] Colorize
             - (r/g channels): HSV filter on the composer blend
             - (b): An amount to blend into final output
-    - [-] Rich component system that make use of these layers
+    - [ ] Rich component system that make use of these layers
 
-- [-] Simplified Editor
+- [ ] Simplified Editor
     - Accelerated Skia-driven text editing with Vulkan Backend
         - [x] Will not have code folding, ever
         - [x] Will not have tool-tips
         - [x] Will not have popups that cover up code (that is for the left side)
-    - [-] Code is colorized by a real parser, not regex
+    - [ ] Code is colorized by a real parser, not regex
         - The goal with this data is to be in sync with the compiler: (direct user of this apply to [silver](https://github.com/ar-visions/silver) language only, in works)
-- [-] The goal of Orbiter is to be less than 4000 lines of code (this repo), and completely transformable.
+- [ ] The goal of Orbiter is to be less than 4000 lines of code (this repo), and completely transformable.
