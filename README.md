@@ -15,13 +15,15 @@ We run hyperspace modeling to sync the users eyes and voice with the editor.
 The words we are looking at (long with the actual word) is given in to LLM queries.
 It is to support both local and remote LLM integration into your particular stack.
 
-We create this stack not only because its easier to deal with, but to also architect a better navigation model, to find to the code we seek.  Dictation-based code-nav is the  'how do I get to this' solution.
-To use, tell Orbiter where you want to go, and it will scroll to the place you need to be in workspace. 
-Whisper is the audio modeling used here, and the navigation model is to be openly trainable.
+We create this stack not only because its easier to deal with, but to also architect a better navigation model: that is dedicating to finding to the code we seek.  This model is called code-nav, and its designed
+to be accessible by Dictation.
 
-With AI running the appropriate modeling, we may navigate better and thus produce better.  Orbiter is being
-built to alleviate the stress of constant code navigation; to take that weight off the user and delegate it
-to transformer weights.
+To use Dictation, hold shift and tell Orbiter where you want to go, and it will scroll to the place you need to be in workspace.
+
+Whisper is the audio modeling preferred, and the navigation model (code-nav) is to be openly trainable.
+The design of code-nav is to work with workspace navigation, or single-file you have open in alt view.
+
+With ourselves in sync with focus-built AI's, we may navigate better and thus produce better.
 
 Lets see what the Orbiter agent looks like:
 ![Orbiter](orbiter888.png)
