@@ -79,9 +79,9 @@ example of this api usage:
     start(a->debug);
 ```
 
-- Frosted and composed UX
-    - Vulkan background render (Orbiting Earth, with multiple layered NASA data view of our home planet)
-    - Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
+- [x] Frosted and composed UX
+    - [x] Vulkan background render (Orbiting Earth, with multiple layered NASA data view of our home planet)
+    - [x] Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
         - [x] Overlay (images, icons, text, anything with explicit color/alpha output)
         - [x] Compose (the amount of frost to allow to come through, and what level of blur (3 to choose from))
             - 0/2: None
@@ -90,7 +90,13 @@ example of this api usage:
         - [x] Colorize
             - (r/g channels): HSV filter on the composer blend
             - (b): An amount to blend into final output
-    - [ ] Rich component system that make use of these layers
+
+- [ ] Component system to make use of ion UX
+    [x] Button
+    [ ] Toggle
+    [ ] Radio
+    [ ] Slider
+    [ ] App-Menu (the only menu)
 
 - [ ] Simplified Editor
     - Accelerated Skia-driven text editing with Vulkan Backend
