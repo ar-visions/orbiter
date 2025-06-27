@@ -1,5 +1,5 @@
 # Orbiter - a different form of navigation
-Orbiter redefines navigation by replacing traditional tabbed interfaces with a dynamic stack of code panes, each representing a focused context—like a module, function, or symbol  User holds Shift to rearrange these panes in the scroll/mini-map area, where each region is color-coded for clarity. With this design, Orbiter is a bit more in sync with your mental workspace.  AI is us, so our workspace should be a reflection of us.
+Orbiter refines workspace navigation by replacing traditional tabbed interfaces with a dynamic stack of resources. Hold Shift to rearrange these resources in the scroll/mini-map area on the main pane. Each region is color-coded for identity. With this design, Orbiter is a bit more in sync with your mental workspace.  AI is us, so our workspace should be a reflection of us.
 
 # Large workflow maintenance for the user?
 It's certainly deliberate management, but less than tabbed user-interfaces. The tabbed interface disrupts flow by shuffling your context around into buttons that Inherently move with constant additions.
