@@ -82,6 +82,7 @@ example of this api usage:
 
 - [x] Frosted and composed UX
     - [x] Vulkan background render (Orbiting Earth, with multiple layered NASA data view of our home planet)
+        - [x] [trinity](https://github.com/ar-visions/trinity) Our graphics subsystem library for creating and displayed shaded models in scene, in one or more windows
     - [x] Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
         - [x] Overlay (images, icons, text, anything with explicit color/alpha output)
         - [x] Compose (the amount of frost to allow to come through, and what level of blur (3 to choose from))
