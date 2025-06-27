@@ -30,6 +30,10 @@ Lets see what the Orbiter agent looks like:
 
 
 # Work in progress
+- CSS Styling
+    - [ion](https://github.com/ar-visions/ion) object based composition
+        - Allows for React-like UX, events auto-bound with A-type meta-data
+
 - Frosted and composed UX
     - Vulkan background render (Orbiting Earth, with multiple layered NASA data view of our home planet)
     - Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
@@ -42,8 +46,12 @@ Lets see what the Orbiter agent looks like:
             - (r/g channels): HSV filter on the composer blend
             - (b): An amount to blend into final output
     - Rich component system that make use of these layers
+
 - Simplified Editor
-    - 
-- Item two
-  - Sub-item (indent with two spaces or a tab)
-- Item three
+    - Accelerated Skia-driven text editing with Vulkan Backend
+        - Will not have code folding, ever
+        - Will not have tool-tips
+        - Will not have popups that cover up code (that is for the left side)
+    - Code is colorized by a real parser, not regex
+        - The goal with this data is to be in sync with the compiler: (direct user of this apply to [silver](https://github.com/ar-visions/silver) language only, in works)
+- The goal of Orbiter is to be less than 4000 lines of code (this repo), and completely transformable.
