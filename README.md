@@ -103,7 +103,7 @@ example of this api usage:
     [ ] Radio
     [ ] Slider
 
-- [ ] Simplified Editor
+- [ ] Simplified Editor, shaded accordingly
     - Accelerated Skia-driven text editing with Vulkan Backend
         - [x] Will not have code folding, ever
         - [x] Will not have tool-tips
