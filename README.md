@@ -98,10 +98,10 @@ example of this api usage:
             - (b): An amount to blend into final output
 
 - [ ] Component system to make use of ion UX
-    [x] Button
-    [ ] Toggle
-    [ ] Radio
-    [ ] Slider
+    - [x] Button
+    - [ ] Toggle
+    - [ ] Radio
+    - [ ] Slider
 
 - [ ] Simplified Editor
     - [ ] Shaded with trinity composition layers
