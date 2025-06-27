@@ -6,7 +6,7 @@ It's certainly deliberate management, but less than tabbed user-interfaces. The 
 
 Not every file you open goes into workspace (unless it's shift-enter or shift-click).  The primary mechanism
 is to bring up the file in the alt pane (on the right side by default).  We suppose it's a bit like Xcode
-assistant, however you are your own butler here.  You choose what goes there.
+assistant, however you are your own butler here.  You choose what goes there.  The 'assistant' is Orbiter's code-nav, explained below:
 
 # an AI PC attempt
 Orbiter is an open source attempt at an AI-PC application that runs on existing PCs.
@@ -17,5 +17,6 @@ It is to support both local and remote LLM integration into your particular stac
 
 We create this stack not only because its easier to deal with, but because its used to navigate
 for code we are looking for.  So often you ask yourself 'oh where is this code at', and that weight is
-to be lifted off you in Orbiter code-nav.
+to be lifted off you in Orbiter code-nav.  Tell Orbiter where you want to go, and it will scroll to
+the place you need to be in workspace.  With AI, we may navigate better and thus produce better.
 
