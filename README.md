@@ -130,3 +130,4 @@ This blends several views together, based on channel-levels in canvases draw-to:
     - Toggle to Hide/Show
     - Drag to Re-Order
     * Drag and drop should only be in very unique places on an interface (never in the code editor)
+        - With these features in App Menu, it means we may hide these elements from normal view, where we don't want to accidentally perform the action
