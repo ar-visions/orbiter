@@ -12,7 +12,7 @@ assistant, however you are your own butler here.  You choose what goes there.  T
 Orbiter is an open source attempt at an AI-PC application that runs on existing PCs.
 
 We run hyperspace modeling to sync the users eyes and voice with the editor.
-The words we are looking at (long with the actual word) is given in to LLM queries.
+The words we are looking at (along with the actual word) is given in to LLM queries.
 It is to support both local and remote LLM integration into your particular stack.
 
 We create this stack not only because its easier to deal with, but to also architect a better navigation model: that is dedicating to finding to the code we seek.  This model is called code-nav, and its designed
