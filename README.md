@@ -80,15 +80,19 @@ example of this api usage:
     start(a->debug);
 ```
 
-- [x] Frosted and composed UX
+- [x] Composed UX Elements
+    - [ ] Main Menu
+    - [ ] Directories Nav
+    - [ ] Data Views for Member Properties
+    - [ ] Callstack Navigation
     - [x] Vulkan background render (Orbiting Earth, with multiple layered NASA data view of our home planet)
         - [x] [trinity](https://github.com/ar-visions/trinity) Our graphics subsystem library for creating and displayed shaded models in scene, in one or more windows
     - [x] Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
         - [x] Overlay (images, icons, text, anything with explicit color/alpha output)
         - [x] Compose (the amount of frost to allow to come through, and what level of blur (3 to choose from))
             - 0/2: None
-            - 1/2: Low Blur
-            - 2/2: High Blur
+            - 1/2: Low Blur  (Reduced Mip Level 1, Slight Blur)
+            - 2/2: High Blur (Reduced 2x, and Frosted)
         - [x] Colorize
             - (r/g channels): HSV filter on the composer blend
             - (b): An amount to blend into final output
@@ -98,7 +102,6 @@ example of this api usage:
     [ ] Toggle
     [ ] Radio
     [ ] Slider
-    [ ] App-Menu (the only menu)
 
 - [ ] Simplified Editor
     - Accelerated Skia-driven text editing with Vulkan Backend
