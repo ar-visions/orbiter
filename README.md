@@ -62,7 +62,8 @@ element.root / pane / button.record:selected {
 - [ ] Debugger
     - [x] [dbg](https://github.com/ar-visions/dbg) LLM-based debugger
         - [x] Automatic break-point binds to app model
-        - [ ] Member exploration with custom structure-based navigation (needed for A-type, and many of our C projects)
+        - [ ] Member exploration with custom data navigation activations 
+            - (needed for A-type, and many of our C projects)
 
 example of this api usage:
 ```
@@ -110,9 +111,16 @@ example of this api usage:
         - [x] Will not have code folding, ever
         - [x] Will not have tool-tips
         - [x] Will not have popups that cover up code (that is for the left side)
+        - [x] Will not have code dragging
     - [ ] Code is colorized by a real parser, not regex
         - The goal with this data is to be in sync with the compiler: (direct user of this apply to [silver](https://github.com/ar-visions/silver) language only, in works)
     - [ ] Workspace/File/Directories search is white-space insensitive
         - Finding "a   string" will find "a string"
 #
 - [ ] The goal of Orbiter is to be less than 4000 lines of code (this repo), and completely transformable.
+
+- [ ] Console for Debug and Launching (top or bottom stationed)
+- [ ] Application menu to control layout ordering / visibility
+    - Toggle to Hide/Show
+    - Drag to Re-Order
+    * Drag and drop should only be in very unique places on an interface (never in the code editor)
