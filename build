@@ -9,8 +9,4 @@ import:
 		-ltrinity 
 		linux:
 			-lasound
-	glfw 	https://github.com/glfw/glfw 			7b6aead
-		-DBUILD_SHARED_LIBS=ON
-		-DGLFW_BUILD_WAYLAND=OFF
-		-DGLFW_VULKAN=ON
 	llm https://github.com/ar-visions/llm main

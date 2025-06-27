@@ -285,7 +285,7 @@ none orbiter_init(orbiter a) {
 
     initialize(w);
 }
-
+ 
 none orbiter_dealloc(orbiter a) { }
 
 int main(int argc, cstrs argv) {

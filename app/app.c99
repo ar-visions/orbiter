@@ -139,7 +139,7 @@ int main(int argc, cstr argv[]) {
     bl->reduction_scale = 16.0f;
     model   m_blur    = model  (w, w, s, bl, samplers, a(r_blur_v->color));
     render  r_blur    = render (w, w, width, w->width, height, w->height , models, a(m_blur));
-    //model   m_view    = model  (w, w, s, UXQuad(t, t, name, string("ux")), samplers, a(u.cv->tx, r_blur->color));
+    //model   m_view    = model  (w, w, s, UXSimple(t, t, name, string("ux")), samplers, a(u.cv->tx, r_blur->color));
     //render  r_view    = render (w, w, clear_color, vec4f(1.0, 1.0, 1.0, 1.0), models, a(m_view));
 
     //w->list = a(r_agent, r_blur_v, r_blur, r_view);
