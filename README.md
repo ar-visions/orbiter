@@ -58,6 +58,7 @@ element.root / pane / button.record:selected {
     border-color:       #fff;
 }
 ```
+#
 - [ ] Debugger
     - [x] [dbg](https://github.com/ar-visions/dbg) LLM-based debugger
         - [x] Automatic break-point binds to app model
@@ -79,7 +80,7 @@ example of this api usage:
     set_breakpoint(a->debug, src, 20, 0);
     start(a->debug);
 ```
-
+#
 - [x] Composed UX Elements
     - [ ] Main Menu
     - [ ] Directories Nav
@@ -96,13 +97,13 @@ example of this api usage:
         - [x] Colorize
             - (r/g channels): HSV filter on the composer blend
             - (b): An amount to blend into final output
-
+#
 - [ ] Component system to make use of ion UX
     - [x] Button
     - [ ] Toggle
     - [ ] Radio
     - [ ] Slider
-
+#
 - [ ] Simplified Editor
     - [ ] Shaded with trinity composition layers
     - [ ] Accelerated Skia-driven text editing with Vulkan Backend
@@ -113,4 +114,5 @@ example of this api usage:
         - The goal with this data is to be in sync with the compiler: (direct user of this apply to [silver](https://github.com/ar-visions/silver) language only, in works)
     - [ ] Workspace/File/Directories search is white-space insensitive
         - Finding "a   string" will find "a string"
+#
 - [ ] The goal of Orbiter is to be less than 4000 lines of code (this repo), and completely transformable.
