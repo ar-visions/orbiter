@@ -58,9 +58,10 @@ element.root / pane / button.record:selected {
     border-color:       #fff;
 }
 ```
-- Debugger
-    - [dbg](https://github.com/ar-visions/dbg) LLM-based debugger
+- [ ] Debugger
+    - [x] [dbg](https://github.com/ar-visions/dbg) LLM-based debugger
         - [x] Automatic break-point binds to app model
+        - [ ] Member exploration with custom structure-based navigation (needed for A-type, and many of our C projects)
 
 example of this api usage:
 ```
