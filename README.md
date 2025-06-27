@@ -95,15 +95,15 @@ example of this api usage:
 This blends several views together, based on channel-levels in canvases draw-to:
 ![UX pane blending](ux-pane.png)
 
-    - [x] Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
-        - [x] Overlay (images, icons, text, anything with explicit color/alpha output)
-        - [x] Compose (the amount of frost to allow to come through, and what level of blur (3 to choose from))
-            - 0/2: None
-            - 1/2: Low Blur  (Reduced Mip Level 1, Slight Blur)
-            - 2/2: High Blur (Reduced 2x, and Frosted)
-        - [x] Colorize
-            - (r/g channels): HSV filter on the composer blend
-            - (b): An amount to blend into final output
+- [x] Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
+    - [x] Overlay (images, icons, text, anything with explicit color/alpha output)
+    - [x] Compose (the amount of frost to allow to come through, and what level of blur (3 to choose from))
+        - 0/2: None
+        - 1/2: Low Blur  (Reduced Mip Level 1, Slight Blur)
+        - 2/2: High Blur (Reduced 2x, and Frosted)
+    - [x] Colorize
+        - (r/g channels): HSV filter on the composer blend
+        - (b): An amount to blend into final output
 #
 - [ ] Component system to make use of ion UX
     - [x] Button
