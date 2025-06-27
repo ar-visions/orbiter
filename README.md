@@ -20,3 +20,5 @@ for code we are looking for.  So often you ask yourself 'oh where is this code a
 to be lifted off you in Orbiter code-nav.  Tell Orbiter where you want to go, and it will scroll to
 the place you need to be in workspace.  With AI, we may navigate better and thus produce better.
 
+Lets see what the Orbiter agent looks like:
+![Orbiter](orbiter888.png)
