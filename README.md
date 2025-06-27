@@ -110,4 +110,6 @@ example of this api usage:
         - [x] Will not have popups that cover up code (that is for the left side)
     - [ ] Code is colorized by a real parser, not regex
         - The goal with this data is to be in sync with the compiler: (direct user of this apply to [silver](https://github.com/ar-visions/silver) language only, in works)
+    - [ ] Workspace/File/Directories search is white-space insensitive
+        - Finding "a   string" will find "a string"
 - [ ] The goal of Orbiter is to be less than 4000 lines of code (this repo), and completely transformable.
