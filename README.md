@@ -80,6 +80,7 @@ example of this api usage:
     set_breakpoint(a->debug, src, 19, 0);
     set_breakpoint(a->debug, src, 20, 0);
     start(a->debug);
+
 ```
 
 # continued (UX and Interface)...
