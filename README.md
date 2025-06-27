@@ -30,28 +30,68 @@ Lets see what the Orbiter agent looks like:
 
 
 # Work in progress
-- CSS Styling
+- Succinct CSS Styling on native C UX
     - [ion](https://github.com/ar-visions/ion) object based composition
-        - Allows for React-like UX, events auto-bound with A-type meta-data
+        - [x] Allows for React-like UX, events auto-bound with A-type meta-data
+            - [x] Improvements to general CSS, with ', transition-time curve-ease-enum in/out'
+```
+button.record {
+    content:            "record";
+}
+
+button.record:hovered {
+    content:            "- record -";
+    fill-color:         #00f, 222ms;
+    border-color:       #fff, 4444ms;
+    text-shadow-color:  #000f;
+}
+
+button.record:pressed {
+    fill-color:         #f00, 222ms;
+    border-color:       #ff8, 4444ms;
+    text-shadow-color:  #000f;
+}
+
+element.root / pane / button.record:selected {
+    fill-color:         #24a;
+    text-color:         #fff;
+    border-color:       #fff;
+}
+```
+- Debugger
+    - [dbg](https://github.com/ar-visions/dbg) LLM-based debugger
+        - [x] Easily integrated break-point events into an application model
+
+example of this api usage:
+```
+    path location = f(path, "/src/A/debug/test/a-test");
+    path src      = f(path, "/src/A/test/a-test.c");
+    app->debug    = dbg(
+        location,  f(path, "/src/A/debug/test/a-test"),
+        target,    app); # this will use A-type bind API to lookup ALL required/optional methods to bind on your app, and give errors for ones that fail to bind; this is automatic API on C
+    set_breakpoint(a->debug, src, 19, 0);
+    set_breakpoint(a->debug, src, 20, 0);
+    start(a->debug);
+```
 
 - Frosted and composed UX
     - Vulkan background render (Orbiting Earth, with multiple layered NASA data view of our home planet)
     - Multiple Skia canvases (or canvai) that blend together with blur layers to compose a frosted view
-        - Overlay (images, icons, text, anything with explicit color/alpha output)
-        - Compose (the amount of frost to allow to come through, and what level of blur (3 to choose from))
+        - [x] Overlay (images, icons, text, anything with explicit color/alpha output)
+        - [x] Compose (the amount of frost to allow to come through, and what level of blur (3 to choose from))
             - 0/2: None
             - 1/2: Low Blur
             - 2/2: High Blur
-        - Colorize
+        - [x] Colorize
             - (r/g channels): HSV filter on the composer blend
             - (b): An amount to blend into final output
-    - Rich component system that make use of these layers
+    - [-] Rich component system that make use of these layers
 
-- Simplified Editor
+- [-] Simplified Editor
     - Accelerated Skia-driven text editing with Vulkan Backend
-        - Will not have code folding, ever
-        - Will not have tool-tips
-        - Will not have popups that cover up code (that is for the left side)
-    - Code is colorized by a real parser, not regex
+        - [x] Will not have code folding, ever
+        - [x] Will not have tool-tips
+        - [x] Will not have popups that cover up code (that is for the left side)
+    - [-] Code is colorized by a real parser, not regex
         - The goal with this data is to be in sync with the compiler: (direct user of this apply to [silver](https://github.com/ar-visions/silver) language only, in works)
-- The goal of Orbiter is to be less than 4000 lines of code (this repo), and completely transformable.
+- [-] The goal of Orbiter is to be less than 4000 lines of code (this repo), and completely transformable.
