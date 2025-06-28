@@ -1,8 +1,8 @@
 element.root {
-    fill-canvas:    compose;
-    fill-color:     #704;
-    fill-radius-x:  0;
-    fill-radius-y:  0;
+    fill-canvas:        compose;
+    fill-color:         #704;
+    fill-radius-x:      0;
+    fill-radius-y:      0;
 }
 
 element.root / background.space {
@@ -24,14 +24,14 @@ pane {
 }
 
 pane / element.outline {
-    area:           l0 t0 r0 b0;
-    border-area:    l0 t0 r0 b0;
-    border-canvas:  compose;
-    border-color:   #f0f;
-    border-size:    2;
-    border-blur:    0;
-    border-radius-x: 16;
-    border-radius-y: 16;
+    area:               l0 t0 r100 b0;
+    border-area:        l0 t0 r0 b0;
+    border-canvas:      compose;
+    border-color:       #f0f;
+    border-size:        2;
+    border-blur:        0;
+    border-radius-x:    16;
+    border-radius-y:    16;
     fill-radius-x:      16;
     fill-radius-y:      16;
     background:         "images/orbiter.png";
@@ -40,13 +40,14 @@ pane / element.outline {
 pane / editor {
     fill-canvas:        overlay;
     fill-color:         #fff1;
-    area:               l12 t44 r12 b12;
-    border-area:    l0.5 t0.5 r0.5 b0.5;
-    border-canvas:  compose;
-    border-color:   #f0f;
-    border-size:    1;
-    border-radius-x: 8;
-    border-radius-y: 8;
+    text-area:          30;
+    area:               l10.5 t44.5 r200.5 b10.5;
+    border-area:        l0.5 t0.5 r0.5 b0.5;
+    border-canvas:      compose;
+    border-color:       #f0f;
+    border-size:        1;
+    border-radius-x:    8;
+    border-radius-y:    8;
     fill-radius-x:      8;
     fill-radius-y:      8;
     content:            "this is a string of text";
@@ -59,10 +60,10 @@ pane / editor {
 }
 
 pane / button.button1 {
-    content:        "button";
-    area:           l8 t8 w80 h32;
-    fill-canvas:    overlay;
-    border-canvas:  overlay;
-    border-size:    4;
-    border-color:  #ffff;
+    content:            "button";
+    area:               l8 t8 w80 h32;
+    fill-canvas:        overlay;
+    border-canvas:      overlay;
+    border-size:        4;
+    border-color:       #ffff;
 }

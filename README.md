@@ -92,7 +92,7 @@ example of this api usage:
     - [ ] Data Views for Member Properties
     - [ ] Callstack Navigation
     - [x] Vulkan background render (Orbiting Earth, with multiple layered NASA data view of our home planet)
-        - [x] [trinity](https://github.com/ar-visions/trinity) Our graphics subsystem library for creating and displayed shaded models in scene, in one or more windows
+        - [x] [trinity](https://github.com/ar-visions/trinity) Our graphics subsystem library for creating and displaying shaded models in scene, in one or more windows
 
 This blends several views together, based on channel-levels in canvases draw-to:
 ![UX pane blending](ux-pane.png)

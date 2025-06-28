@@ -8,7 +8,7 @@ object orbiter_window_mouse(orbiter a, event e) {
     return null;
 }
 
-// called from scene
+// background update sub
 object orbiter_space_update(orbiter a, background sc) {
     a->time += (4 * 0.0044f) - (a->w->debug_value * 0.04);
 
@@ -111,11 +111,9 @@ object orbiter_space_update(orbiter a, background sc) {
     return null;
 }
 
-map orbiter_render(orbiter a, window arg) {
-    
-    // can still have imperative state changes here, thats no big deal!
-    // games NEED this.
 
+
+map orbiter_render(orbiter a, window arg) {
     return m(
         "space", background(
             render_scale,   2.0f, // applies to render of this frame buffer, however not the UX elements within; those are 1:1 pixel ratio
@@ -124,9 +122,10 @@ map orbiter_render(orbiter a, window arg) {
             clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
             elements,       m(
                 "main", pane(elements, m(
-                    "editor",  editor(content, string("welcome to orbiter"))
+                    "editor",  editor(content, f(string, "orbiter editor...")),
+                    "iris",    a->orbiter_model)
                 )
-            ))
+            )
         ));
 }
 
@@ -259,11 +258,11 @@ none orbiter_init(orbiter a) {
     sync      (a->beam);
 
     a->purple_model = model(w, w, id, a->purple_gltf, s, a->purple,
-        samplers, map_of(
+        samplers, m(
             "color",      a->purple_res->elements[PurpleSurface_color],
-            "cloud",      a->purple_res->elements[PurpleSurface_cloud], null));
+            "cloud",      a->purple_res->elements[PurpleSurface_cloud]));
 
-    map earth_samplers = map_of(
+    map earth_samplers = m(
         "color",      a->earth_res->elements[EarthSurface_color],
         "normal",     a->earth_res->elements[EarthSurface_normal],
         "elevation",  a->earth_res->elements[EarthSurface_elevation],
@@ -271,7 +270,7 @@ none orbiter_init(orbiter a) {
         "water_blur", a->earth_res->elements[EarthSurface_water_blur],
         "cloud",      a->earth_res->elements[EarthSurface_cloud],
         "bathymetry", a->earth_res->elements[EarthSurface_bathymetry],
-        "lights",     a->earth_res->elements[EarthSurface_lights], null);
+        "lights",     a->earth_res->elements[EarthSurface_lights]);
     
     a->earth_model = model(w, w, id, a->earth_gltf, s, a->earth, samplers, earth_samplers);
     a->ocean_model = model(w, w, id, a->earth_gltf, s, a->ocean, samplers, earth_samplers);
@@ -280,7 +279,7 @@ none orbiter_init(orbiter a) {
     a->orbiter_gltf  = read(f(path, "models/flower8888.gltf"), typeid(Model));
     a->orbiter       = Orbiter(t, t, name, string("orbiter"));
     a->env           = image(uri, form(path, "images/forest.exr"), surface, Surface_environment);
-    a->orbiter_model = model(w, w, id, a->orbiter_gltf, s, a->orbiter, samplers, map_of("environment", a->env, null));
+    a->orbiter_model = model(w, w, id, a->orbiter_gltf, s, a->orbiter, samplers, m("environment", a->env));
     
     a->models = a(a->earth_model, a->ocean_model, a->cloud_model);
 
