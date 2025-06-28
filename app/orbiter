@@ -95,7 +95,7 @@ declare_enum(Language)
 #define editor_schema(X,Y,...) \
     i_prop   (X,Y, public, Language, lang) \
     i_prop   (X,Y, public, f32,      time)
-declare_class_3(editor, element, ion)
+declare_class_2(editor, element)
 
 
 #define orbiter_schema(X,Y,...) \
@@ -125,9 +125,10 @@ declare_class_3(editor, element, ion)
     i_prop   (X,Y, public,  array,    earth_res) \
     i_prop   (X,Y, public,  array,    purple_res) \
     i_prop   (X,Y, public,  image,    env) \
-    i_method (X,Y, public,  object,   background,   window) \
-    i_method (X,Y, public,  map,      interface,    window) \
+    i_prop   (X,Y, public,  array,    models) \
+    i_method (X,Y, public,  map,      render,       window) \
     i_method (X,Y, public,  object,   window_mouse, event)  \
+    i_method (X,Y, public,  object,   space_update, background) \
     i_method (X,Y, public,  object,   dbg_crash,    cursor) \
     i_method (X,Y, public,  object,   dbg_exit,     dbg) \
     i_method (X,Y, public,  object,   dbg_break,    cursor) \

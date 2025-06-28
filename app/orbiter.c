@@ -8,22 +8,8 @@ object orbiter_window_mouse(orbiter a, event e) {
     return null;
 }
 
-map orbiter_interface(orbiter a, window arg) {
-    map m = map_of(
-        "main", pane(),
-        null);
-    /*
-    map m = map_of(
-        "main", pane(elements, map_of(
-            "outline", element(),
-            "editor",  editor(content, string("welcome to the dance.. orbiter")),
-        null)),
-        null);
-    */
-    return m;
-}
-
-object orbiter_background(orbiter a, window arg) {
+// called from scene
+object orbiter_space_update(orbiter a, background sc) {
     a->time += (4 * 0.0044f) - (a->w->debug_value * 0.04);
 
     // step 1: apply Earth's axial tilt
@@ -125,6 +111,25 @@ object orbiter_background(orbiter a, window arg) {
     return null;
 }
 
+map orbiter_render(orbiter a, window arg) {
+    
+    // can still have imperative state changes here, thats no big deal!
+    // games NEED this.
+
+    return m(
+        "space", background(
+            render_scale,   2.0f, // applies to render of this frame buffer, however not the UX elements within; those are 1:1 pixel ratio
+            models,         a->models,
+            frost,          true,
+            clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
+            elements,       m(
+                "main", pane(elements, m(
+                    "editor",  editor(content, string("welcome to orbiter"))
+                )
+            ))
+        ));
+}
+
 object orbiter_dbg_exit(orbiter a, dbg debug) {
     print("debug exit");
     return null;
@@ -182,8 +187,7 @@ none orbiter_init(orbiter a) {
     int     height = a->height ? a->height : 1200;
 
     a->w = window(
-        t, t, title, string("orbiter-canvas"),
-        blur,  true,
+        t, t, title, string("orbiter-canvas"), // space_update must be 1) registered and 2) called every frame
         width, width, height, height);
 
     a->cv   = sk(
@@ -278,18 +282,25 @@ none orbiter_init(orbiter a) {
     a->env           = image(uri, form(path, "images/forest.exr"), surface, Surface_environment);
     a->orbiter_model = model(w, w, id, a->orbiter_gltf, s, a->orbiter, samplers, map_of("environment", a->env, null));
     
+    a->models = a(a->earth_model, a->ocean_model, a->cloud_model);
+
+    /*
+    verify this is made in the background; we then need to iterate through these targets, updating their sizes when that happens
+    their size is simply based on bounds, then we scale from there. (override wscale on target)
     w->r_background  = target (w, w,
         wscale,         2.0f,
         clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
         models,         a(a->earth_model, a->ocean_model, a->cloud_model));
+    */
 
-    initialize(w);
+    /// create inspiring effect with au shader
+    initialize(a, w);
 }
  
 none orbiter_dealloc(orbiter a) { }
 
 int main(int argc, cstrs argv) {
-    orbiter a = hold(orbiter(argv));
+    orbiter a = hold(orbiter(argv)); // initial compose must happen in init, and run will be simplified
     return run(a);
 }
 

@@ -33,7 +33,7 @@ Lets see what the Orbiter agent looks like:
 
 # Work in progress
 - Succinct CSS Styling on native C UX
-    - [ion](https://github.com/ar-visions/ion) object based composition
+    - [ion](https://github.com/ar-visions/trinity) ion-object, declarative based composition
         - [x] Allows for React-like UX, events auto-bound with A-type meta-data
             - [x] Improvements to general CSS, with ', transition-time curve-ease-enum in/out'
 ```
