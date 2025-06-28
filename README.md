@@ -6,7 +6,7 @@ It's certainly deliberate management, but less than tabbed user-interfaces. The 
 
 Not every file you open goes into workspace (unless it's shift-enter or shift-click).  The primary mechanism
 is to bring up the file in the alt pane (on the right side by default).  We suppose it's a bit like Xcode
-assistant, however you are your own butler here.  You choose what goes there.  The 'assistant' is Orbiter's code-nav, explained below:
+assistant, however you are your own butler here. An actual 'assistant' in Orbiter is code-nav, explained below:
 
 # an AI PC attempt (in research)
 Orbiter is an open source attempt at an AI-PC application that runs on existing PCs.
