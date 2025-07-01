@@ -9,7 +9,7 @@ element.root / background.space {
     area:               l0 t0 r0 b0;
 }
 
-pane {
+pane.main {
     fill-canvas:        compose;
     fill-color:         #f08;
     fill-radius-y:      14;
@@ -20,7 +20,7 @@ pane {
     border-blur:        0;
     border-radius-x:    14;
     border-radius-y:    14;
-    area:               l32 t32 r32 b32;
+    area:               l32 t32 r344 b32;
 }
 
 pane / element.outline {
@@ -61,15 +61,21 @@ pane / editor {
 
 pane / button.button1 {
     content:            "button";
-    area:               l8 t8 w80 h32;
+    area:               l8 t8 r8 b8;
     fill-canvas:        overlay;
     border-canvas:      overlay;
     border-size:        4;
     border-color:       #ffff;
 }
 
+pane.debug {
+    fill-canvas:        compose;
+    fill-color:         #008;
+    area:               r312 t0 r0 b0;
+}
+
 scene.iris {
     fill-canvas:        overlay;
     fill-color:         #0000;
-    area:               l0 t0 l256 t256;
+    area:               l32 b132 w256 h256;
 }

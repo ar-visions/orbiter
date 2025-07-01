@@ -117,12 +117,14 @@ map orbiter_render(orbiter a, window arg) {
             clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
             elements,       m(
                 "main", pane(elements, m(
-                    //"editor",  editor(content, f(string, "orbiter editor...")),
+                    "editor",  editor(content, f(string, "orbiter editor..."))
+                )),
+                "debug", pane(elements, m(
                     "iris",    scene(
                         models,       a->orbiter_scene,
                         clear_color,  vec4f(0.0, 0.0, 0.0, 0.0),
                         render_scale, 2.0f)
-                ))
+                )) 
             )
         ));
 }
