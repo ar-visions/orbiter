@@ -20,7 +20,7 @@ pane {
     border-blur:        0;
     border-radius-x:    14;
     border-radius-y:    14;
-    area:               l32.5 t32.5 r32.5 b32.5;
+    area:               l32 t32 r32 b32;
 }
 
 pane / element.outline {
@@ -40,8 +40,8 @@ pane / element.outline {
 pane / editor {
     fill-canvas:        overlay;
     fill-color:         #fff1;
-    text-area:          30;
-    area:               l10.5 t44.5 r200.5 b10.5;
+    text-area:          l10 t44 r200 b10;
+    area:               l10 t44 r200 b10;
     border-area:        l0.5 t0.5 r0.5 b0.5;
     border-canvas:      compose;
     border-color:       #f0f;
@@ -66,4 +66,10 @@ pane / button.button1 {
     border-canvas:      overlay;
     border-size:        4;
     border-color:       #ffff;
+}
+
+scene.iris {
+    fill-canvas:        overlay;
+    fill-color:         #0000;
+    area:               l0 t0 l256 t256;
 }

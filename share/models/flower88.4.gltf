@@ -37,7 +37,7 @@
 		},
 		{
 			"mesh":2,
-			"name":"iris",
+			"name":"core",
 			"scale":[
 				0.05472976341843605,
 				0.05472976341843605,
@@ -174,10 +174,10 @@
 			]
 		},
 		{
-			"name":"iris",
+			"name":"core",
 			"primitives":[
 				{
-					"name":"iris1",
+					"name":"core1",
 					"attributes":{
 						"POSITION":25,
 						"NORMAL":26,

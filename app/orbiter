@@ -111,7 +111,7 @@ declare_class_2(editor, element)
     i_prop   (X,Y, public,  model,    ocean_model) \
     i_prop   (X,Y, public,  model,    cloud_model) \
     i_prop   (X,Y, public,  model,    purple_model) \
-    i_prop   (X,Y, public,  model,    orbiter_model) \
+    i_prop   (X,Y, public,  array,    orbiter_scene) \
     i_prop   (X,Y, public,  Earth,    earth) \
     i_prop   (X,Y, public,  Purple,   purple) \
     i_prop   (X,Y, public,  Ocean,    ocean) \
@@ -129,6 +129,7 @@ declare_class_2(editor, element)
     i_method (X,Y, public,  map,      render,       window) \
     i_method (X,Y, public,  object,   window_mouse, event)  \
     i_method (X,Y, public,  object,   space_update, background) \
+    i_method (X,Y, public,  object,   iris_update,  scene) \
     i_method (X,Y, public,  object,   dbg_crash,    cursor) \
     i_method (X,Y, public,  object,   dbg_exit,     dbg) \
     i_method (X,Y, public,  object,   dbg_break,    cursor) \

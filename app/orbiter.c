@@ -35,10 +35,12 @@ object orbiter_space_update(orbiter a, background sc) {
 
     a->purple->model = mat4f_mul(&m_tilt, &m_spin);
     a->purple->time = a->time;
+    return null;
+}
 
-    /*
+object orbiter_iris_update(orbiter a, scene sc) {
     window w = a->w;
-    vec3f   eye         = vec3f   (0.0f,  8.0f + w->debug_value,  4.0f);
+    vec3f   eye         = vec3f   (0.0f,  4.0f + w->debug_value, 2.0f);
     vec3f   target      = vec3f   (0.0f,  0.0f,  0.0f);
     vec3f   up          = vec3f   (0.0f, -1.0f,  0.0f);
 
@@ -47,7 +49,7 @@ object orbiter_space_update(orbiter a, background sc) {
     static float m_sequence = 0;
     m_sequence += 0.00022f;
 
-    vec4f v              = vec4f(0.0f, 1.0f, 0.0f, radians(0.0));
+    vec4f v              = vec4f(0.0f, 1.0f, 0.0f, radians(30.0 + w->debug_value));
     quatf q              = quatf(&v);
     Orbiter orb          = a->orbiter;
     orb->pos             = vec4f(&eye);
@@ -63,13 +65,13 @@ object orbiter_space_update(orbiter a, background sc) {
 
     if (orb->moment_angle > M_PI) orb->moment_angle = orb->moment_angle - M_PI;
 
-    a->aa->model = mat4f_ident();
+    //a->aa->model = mat4f_ident();
     // rotate 90 deg X
-    vec4f rotation_axis_angle = vec4f(1.0f, 0.0f, 0.0f, radians(90.0f));
-    quatf rotation_quat       = quatf(&rotation_axis_angle);
-    a->aa->model = mat4f_rotate(&a->aa->model, &rotation_quat);
-    //vec3f sc1 = vec3f(0.1f, 100.0f, 1000.0f);
-    //a->cv->model = mat4f_scale(&a->cv->model, &sc1);
+    //vec4f rotation_axis_angle = vec4f(1.0f, 0.0f, 0.0f, radians(90.0f));
+    //quatf rotation_quat       = quatf(&rotation_axis_angle);
+    //a->aa->model = mat4f_rotate(&a->aa->model, &rotation_quat);
+    
+
     /// move down
     vec3f tr              = vec3f(0.0f, 0.5f, 0.0f);
     a->au->model          = mat4f_translate(&a->au->model, &tr);
@@ -92,27 +94,20 @@ object orbiter_space_update(orbiter a, background sc) {
     static float x = 0;
     static float y = 0;
 
-    if (cv->width != a->w->width || cv->height != a->w->height) {
-        resize_texture(cv, a->w->width, a->w->height);
-    }
-
     x += 1;
-    if (x > 800) {
+    if (x > 800) { 
         y += 1;
         x = 0.0;
-    }
+    } 
     
     rect_to   (cv, x, y, 400, 400);
     fill_color(cv, string("#0af"));
-    draw_fill (cv, false);
-    sync      (cv);
-    output_mode(cv, true);
-    */
+    draw_fill (cv);
+    sk_sync();
+
     return null;
 }
-
-
-
+ 
 map orbiter_render(orbiter a, window arg) {
     return m(
         "space", background(
@@ -122,12 +117,16 @@ map orbiter_render(orbiter a, window arg) {
             clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
             elements,       m(
                 "main", pane(elements, m(
-                    "editor",  editor(content, f(string, "orbiter editor...")),
-                    "iris",    a->orbiter_model)
-                )
+                    //"editor",  editor(content, f(string, "orbiter editor...")),
+                    "iris",    scene(
+                        models,       a->orbiter_scene,
+                        clear_color,  vec4f(0.0, 0.0, 0.0, 0.0),
+                        render_scale, 2.0f)
+                ))
             )
         ));
 }
+
 
 object orbiter_dbg_exit(orbiter a, dbg debug) {
     print("debug exit");
@@ -189,6 +188,8 @@ none orbiter_init(orbiter a) {
         t, t, title, string("orbiter-canvas"), // space_update must be 1) registered and 2) called every frame
         width, width, height, height);
 
+    a->orbiter       = Orbiter(t, t, name, string("orbiter"));
+
     a->cv   = sk(
         t, t, format, Pixel_rgba8, 
         width, width, height, height);
@@ -246,7 +247,6 @@ none orbiter_init(orbiter a) {
     arc       (a->core, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
     fill_color(a->core, string("#aff"));
     draw_fill (a->core);
-    sync      (a->core);
 
     clear     (a->beam, string("#0000"));
     rect_to   (a->beam, 0, 0, 800, 800);
@@ -255,7 +255,8 @@ none orbiter_init(orbiter a) {
     arc       (a->beam, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
     fill_color(a->beam, string("#aff"));
     draw_fill (a->beam);
-    sync      (a->beam);
+
+    sk_sync();
 
     a->purple_model = model(w, w, id, a->purple_gltf, s, a->purple,
         samplers, m(
@@ -277,10 +278,10 @@ none orbiter_init(orbiter a) {
     a->cloud_model = model(w, w, id, a->earth_gltf, s, a->cloud, samplers, earth_samplers);
 
     a->orbiter_gltf  = read(f(path, "models/flower8888.gltf"), typeid(Model));
-    a->orbiter       = Orbiter(t, t, name, string("orbiter"));
-    a->env           = image(uri, form(path, "images/forest.exr"), surface, Surface_environment);
-    a->orbiter_model = model(w, w, id, a->orbiter_gltf, s, a->orbiter, samplers, m("environment", a->env));
     
+    a->env           = image(uri, form(path, "images/forest.exr"), surface, Surface_environment);
+    a->orbiter_scene = a(model(w, w, id, a->orbiter_gltf, s, a->orbiter, samplers, m("environment", a->env)));
+
     a->models = a(a->earth_model, a->ocean_model, a->cloud_model);
 
     /*

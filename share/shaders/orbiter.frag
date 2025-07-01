@@ -53,76 +53,59 @@ vec3 environmentMapping(vec3 R, float roughness) {
     return mix(s0, s1, lodfr);
 }
 
-
-vec4 calculatePBR2(vec2 texCoords, vec3 worldPos, vec3 normal, vec3 viewPos) {
-    // Camera and world parameters
-    vec3  cameraPos        = world.pos.xyz;
-
+// Main PBR function
+vec4 calculatePBR(vec2 texCoords, vec3 worldPos, vec3 normal, vec3 viewPos) {
+    // Get camera position
+    vec3 cameraPos = world.pos.xyz;
+    
     // View direction
-    vec3  V                = normalize(cameraPos - worldPos);
+    vec3 V = normalize(cameraPos - worldPos);
     
-    // Parallax and normal mapping
-    vec2  texCoordsMapped  = parallaxMapping(texCoords, V);
-    vec3  N                = perturbNormal(normal, V, texCoordsMapped);
+    // Apply parallax mapping for texture coordinate
+    vec2 texCoordsMapped = parallaxMapping(texCoords, V);
+    
+    // Get material properties
+    vec4  baseColor     = texture(tx_color,    texCoordsMapped);
+    float ior           = texture(tx_ior,      texCoordsMapped).r;
+    float metallic      = texture(tx_metal,    texCoordsMapped).r;
+    float roughness     = texture(tx_rough,    texCoordsMapped).r;
+    float ao            = texture(tx_ao,       texCoordsMapped).r;
+    vec3  emission      = texture(tx_emission, texCoordsMapped).rgb;
+    float intensity     = texture(tx_emission, texCoordsMapped).a;
+    
+    vec3 rough_color = baseColor.rgb; // energyCompensation(baseColor.rgb, roughness);
 
-    // Texture sampling
-    vec4  baseColor        = texture(tx_color,    texCoordsMapped);
-   
-    float metallic         = texture(tx_metal,    texCoordsMapped).r;
-    float roughness        = texture(tx_rough,    texCoordsMapped).r;
-    float ao               = texture(tx_ao,       texCoordsMapped).r;
-    vec3  emission         = texture(tx_emission, texCoordsMapped).rgb;
-    float intensity        = texture(tx_emission, texCoordsMapped).a;
+    // Apply normal mapping
+    vec3 N = perturbNormal(normal, V, texCoordsMapped);
 
-    float ior              = texture(tx_ior,      texCoordsMapped).r;
+    // Reflection vector for environment mapping
+    vec3 R = reflect(-V, N);
     
+    // Environment lighting
+    vec3 envColor = environmentMapping(R, roughness);
+    
+    // Ambient light
+    vec3 ambient = envColor * rough_color * ao;
+    
+    // Directional light (example light, replace with your light source)
+    vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
+    vec3 lightColor = vec3(1.0);
 
-    // Calculate orbiter rotation
-
-    // Orbiter parameters
-    float orb_falloff      = orbiter.normal_falloff.w;
-    vec3  orb_color        = orbiter.color_intensity.rgb;
-    float orb_intensity    = orbiter.color_intensity.a;
+    // Calculate BRDF
+    vec3 Lo = BRDF(lightDir, V, N, rough_color, ior, metallic, roughness) * lightColor;
     
-    vec3 center = vec3(0.0, -0.07, 0.0); // orbiter.pos_radius.xyz;
-
-    // Rough color preparation
-    vec3  rough_color      = baseColor.rgb;
+    // Combine direct and indirect lighting
+    vec3 color = ambient + Lo + emission * intensity;
     
-    // Reflection vector
-    vec3  R                = reflect(-V, N);
-    
-    // Environment mapping
-    vec3  envColor         = environmentMapping(R, roughness);
-    
-    // Directional light
-    vec3  lightDir         = normalize(vec3(0.0, 1.0, 0.0));
-    vec3  lightColor       = vec3(0.0, 0.04, 0.2);
-    
-    // BRDF calculation for main directional light
-    
-    float global_lighting  = 0.02;
-
-    if (ior > 3.0)
-        global_lighting = 0.2;//1.5 * metallic * (1.0 - roughness);
-
-    // Orbiter light contribution
-    vec3  orbiter_contrib  = (2.2 * v_color_1) * (orb_color * (1.0 - metallic)) * orb_intensity * 0.1;
-    
-    vec3  ambient          = envColor * global_lighting;// * global_lighting * rough_color * ao;
-    
-    // Final color composition
-    vec3  Lo               = BRDF(lightDir, V, N, rough_color, ior, metallic, roughness) * lightColor;
-    vec3  color            = ambient + Lo + emission * intensity + orbiter_contrib;
-    
-    // Color space conversion
+    // Convert from linear to sRGB for display
     color = linearToSRGB(color);
     
     return vec4(color, baseColor.a);
 }
 
+
 void main() {
     // Calculate PBR lighting
-    fragColor = calculatePBR2(v_uv, v_world_pos, normalize(v_world_normal), v_view_pos);
-    //fragColor = vec4(vec3(texture(tx_ior, v_uv).x / 4.5), 1.0);
+    fragColor = calculatePBR(v_uv, v_world_pos, normalize(v_world_normal), v_view_pos);
+    //fragColor = vec4(vec3(1.0), 1.0);
 }

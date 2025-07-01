@@ -4,7 +4,7 @@ import:
 	dbg 	https://github.com/ar-visions/dbg 		main
 	gltf 	https://github.com/ar-visions/gltf 		main
 	trinity https://github.com/ar-visions/trinity 	main
-		-ltrinity 
+		-ltrinity -lskia -lstdc++ -lfreetype -lfontconfig -lpathkit
 		linux:
 			-lasound
 	llm https://github.com/ar-visions/llm main
