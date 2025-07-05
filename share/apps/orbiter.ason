@@ -25,9 +25,14 @@ ctx {
     }
     context-var:    'hi.'
     orbiter-samplers: map {
-        env:        image { uri: 'images/forest.exr', surface: Surface[ environment ] }
+        environment: image { uri: 'images/forest.exr', surface: Surface[ environment ] }
     }
 
+    earth-scene:    [
+        model { id:earth-gltf, s:earth, samplers:earth-samplers }
+        model { id:earth-gltf, s:ocean, samplers:earth-samplers }
+        model { id:earth-gltf, s:cloud, samplers:earth-samplers }
+    ]
     orbiter-scene:  [ model { id:orbiter-gltf, s:orbiter, samplers:orbiter-samplers } ]
 }
 
@@ -35,13 +40,8 @@ ctx {
 {
     space: background {
         render-scale: 1.0f
-        models: [
-            model { id:earth-gltf, s:earth, samplers:earth-samplers }
-            model { id:earth-gltf, s:ocean, samplers:earth-samplers }
-            model { id:earth-gltf, s:cloud, samplers:earth-samplers }
-        ]
+        models: earth-scene
         frost:true
-        clear-color:vec4f[ 0.0f 0.1f 0.2f 1.0f ]
         elements: {
             main: pane {
                 elements: {
@@ -52,7 +52,6 @@ ctx {
                 elements: {
                     iris: scene {
                         models:       orbiter-scene
-                        clear-color:  vec4f[ 1.0f 0.0f 0.0f 1.0f ]
                         render-scale: 4.0f
                     }
                 }
