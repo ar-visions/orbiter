@@ -35,7 +35,7 @@ void main() {
 
     v_cloud_avg = clouds;
 
-    float scale     = 0.0044 + clouds * 0.0044;
+    float scale     = 0.0044; //0.0044 + clouds * 0.0044;
     vec3  surface   = pos + (normal * 1.0 * scale);
     gl_Position     = earth.proj * earth.view * earth.model * vec4(surface, 1.0);
 }

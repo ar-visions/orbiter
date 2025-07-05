@@ -75,37 +75,20 @@ vec4 calculatePBR(vec2 texCoords, vec3 worldPos, vec3 normal, vec3 viewPos) {
     
     vec3 rough_color = baseColor.rgb; // energyCompensation(baseColor.rgb, roughness);
 
-    // Apply normal mapping
-    vec3 N = perturbNormal(normal, V, texCoordsMapped);
-
-    // Reflection vector for environment mapping
-    vec3 R = reflect(-V, N);
-    
-    // Environment lighting
-    vec3 envColor = environmentMapping(R, roughness);
-    
-    // Ambient light
-    vec3 ambient = envColor * rough_color * ao;
-    
-    // Directional light (example light, replace with your light source)
-    vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));
+    vec3 N = perturbNormal(normal, V, texCoordsMapped);     // Apply normal mapping
+    vec3 R = reflect(-V, N);                                // Reflection vector for environment mapping
+    vec3 envColor = environmentMapping(R, roughness);       // Environment lighting
+    vec3 ambient = envColor * rough_color * ao;             // Ambient light
+    vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));         // Directional light (example light, replace with your light source)
     vec3 lightColor = vec3(1.0);
-
-    // Calculate BRDF
-    vec3 Lo = BRDF(lightDir, V, N, rough_color, ior, metallic, roughness) * lightColor;
-    
-    // Combine direct and indirect lighting
-    vec3 color = ambient + Lo + emission * intensity;
-    
-    // Convert from linear to sRGB for display
-    color = linearToSRGB(color);
+    vec3 Lo = BRDF(lightDir, V, N, rough_color, ior, metallic, roughness) * lightColor;  // Calculate BRDF
+    vec3 color = ambient + Lo + emission * intensity;       // Combine direct and indirect lighting
+    color = linearToSRGB(color);                            // Convert from linear to sRGB for display
     
     return vec4(color, baseColor.a);
 }
 
 
 void main() {
-    // Calculate PBR lighting
     fragColor = calculatePBR(v_uv, v_world_pos, normalize(v_world_normal), v_view_pos);
-    //fragColor = vec4(vec3(1.0), 1.0);
 }

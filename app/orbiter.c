@@ -24,36 +24,46 @@ object orbiter_space_update(orbiter a, background sc) {
     quatf q_spin    = quatf(&spin_axis);
     mat4f m_spin    = mat4f(&q_spin);
 
-    // final model matrix: spin after tilt
-    a->earth->model = mat4f_mul(&m_tilt, &m_spin);
-    a->ocean->model = a->earth->model;
-    a->cloud->model = a->earth->model;
+    if (a->earth && a->ocean && a->cloud) {
+        // final model matrix: spin after tilt
+        a->earth->model = mat4f_mul(&m_tilt, &m_spin);
+        a->ocean->model = a->earth->model;
+        a->cloud->model = a->earth->model;
 
-    a->earth->time = a->time;
-    a->ocean->time = a->time;
-    a->cloud->time = a->time;
+        a->earth->time = a->time;
+        a->ocean->time = a->time;
+        a->cloud->time = a->time;
+    }
 
-    a->purple->model = mat4f_mul(&m_tilt, &m_spin);
-    a->purple->time = a->time;
+    if (a->purple) {
+        a->purple->model = mat4f_mul(&m_tilt, &m_spin);
+        a->purple->time = a->time;
+    }
     return null;
 }
 
 object orbiter_iris_update(orbiter a, scene sc) {
     window w = a->w;
-    vec3f   eye         = vec3f   (0.0f,  4.0f + w->debug_value, 2.0f);
+    vec3f   eye         = vec3f   (0.0f,  4.0f, 0.0f);
     vec3f   target      = vec3f   (0.0f,  0.0f,  0.0f);
-    vec3f   up          = vec3f   (0.0f, -1.0f,  0.0f);
+    vec3f   up          = vec3f   (0.0f,  0.0f,  -1.0f);
 
     static float sequence = 0;
     sequence += 0.0022f;
     static float m_sequence = 0;
     m_sequence += 0.00022f;
 
-    vec4f v              = vec4f(0.0f, 1.0f, 0.0f, radians(30.0 + w->debug_value));
-    quatf q              = quatf(&v);
+
     Orbiter orb          = a->orbiter;
-    orb->pos             = vec4f(&eye);
-    orb->model           = mat4f_rotate     (&a->orbiter->model, &q);
+
+    vec4f v              = vec4f(0.0f, 1.0f, 0.0f, radians(30.0));
+    quatf q              = quatf(&v);
+    orb->model           = mat4f_ident();
+    orb->model           = mat4f_rotate(&orb->model, &q);
+
+    orb->pos              = vec4f(&eye);
+    //orb->pos2            = vec4f(0.22, 0.22, 0.22, 1.0);
+
     orb->proj            = mat4f_perspective(radians(40.0f), 1.0f, 0.1f, 100.0f);
     orb->view            = mat4f_look_at    (&eye, &target, &up);
     orb->moment          = m_sequence;
@@ -74,44 +84,50 @@ object orbiter_iris_update(orbiter a, scene sc) {
 
     /// move down
     vec3f tr              = vec3f(0.0f, 0.5f, 0.0f);
-    a->au->model          = mat4f_translate(&a->au->model, &tr);
-    a->au->view           = mat4f_ident();
-    a->au->proj           = mat4f_ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
-    a->au->v_model        = orb->model;
-    a->au->v_view         = orb->view;
-    a->au->v_proj         = orb->proj;
-    a->au->time           = sequence;
-    a->au->thrust         = 1.00;
-    a->au->magnitude      = 1.00;
-    a->au->colors         = 0.22;
-    a->au->halo_attenuate = 0.44;
-    a->au->halo_space     = 0.44;
-    a->au->halo_separate  = 0.11;
-    a->au->halo_thickness = 0.22;
+    if (a->au) {
+        a->au->model          = mat4f_translate(&a->au->model, &tr);
+        a->au->view           = mat4f_ident();
+        a->au->proj           = mat4f_ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
+        a->au->v_model        = orb->model;
+        a->au->v_view         = orb->view;
+        a->au->v_proj         = orb->proj;
+        a->au->time           = sequence;
+        a->au->thrust         = 1.00;
+        a->au->magnitude      = 1.00;
+        a->au->colors         = 0.22;
+        a->au->halo_attenuate = 0.44;
+        a->au->halo_space     = 0.44;
+        a->au->halo_separate  = 0.11;
+        a->au->halo_thickness = 0.22;
 
-    sk cv = a->cv;
-    clear     (cv, string("#111"));
-    static float x = 0;
-    static float y = 0;
+        sk cv = a->au->cv;
+        clear     (cv, string("#111"));
+        static float x = 0;
+        static float y = 0;
 
-    x += 1;
-    if (x > 800) { 
-        y += 1;
-        x = 0.0;
-    } 
-    
-    rect_to   (cv, x, y, 400, 400);
-    fill_color(cv, string("#0af"));
-    draw_fill (cv);
-    sk_sync();
+        x += 1;
+        if (x > 800) { 
+            y += 1;
+            x = 0.0;
+        } 
+        
+        rect_to   (cv, x, y, 400, 400);
+        fill_color(cv, string("#0af"));
+        draw_fill (cv);
+        sk_sync();
+    }
 
     return null;
 }
- 
+
+/*
+
+from .ason file:
+
 map orbiter_render(orbiter a, window arg) {
     return m(
         "space", background(
-            render_scale,   2.0f, // applies to render of this frame buffer, however not the UX elements within; those are 1:1 pixel ratio
+            render_scale,   1.0f, // applies to render of this frame buffer, however not the UX elements within; those are 1:1 pixel ratio
             models,         a->models,
             frost,          true,
             clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
@@ -123,12 +139,12 @@ map orbiter_render(orbiter a, window arg) {
                     "iris",    scene(
                         models,       a->orbiter_scene,
                         clear_color,  vec4f(0.0, 0.0, 0.0, 0.0),
-                        render_scale, 2.0f)
-                )) 
+                        render_scale, 4.0f)
+                ))
             )
         ));
 }
-
+*/
 
 object orbiter_dbg_exit(orbiter a, dbg debug) {
     print("debug exit");
@@ -190,113 +206,27 @@ none orbiter_init(orbiter a) {
         t, t, title, string("orbiter-canvas"), // space_update must be 1) registered and 2) called every frame
         width, width, height, height);
 
-    a->orbiter       = Orbiter(t, t, name, string("orbiter"));
-
-    a->cv   = sk(
-        t, t, format, Pixel_rgba8, 
-        width, width, height, height);
-
-    a->core = sk(
-        t, t, format, Pixel_rgba8, 
-        width, width, height, height);
-    
-    a->beam = sk(
-        t, t, format, Pixel_rgba8, 
-        width, width, height, height);
-
-    /// work on componentizing the render, so we may, on mount, register to the window renders
-    window  w         = a->w;
-    path cwd = path_cwd(1024);
-
-    a->earth_gltf     = read(f(path, "models/earth.gltf"), typeid(Model));
-    A earth_head      = head(a->earth_gltf);
+    /*
     a->purple_gltf    = hold(a->earth_gltf);
-
-    a->earth_res = hold(a(
-        (object)hold(image(uri, f(path, "textures/earth-color-8192x4096.png"))),
-        (object)hold(image(uri, f(path, "textures/earth-normal-8192x4096.png"))),
-        (object)hold(image(uri, f(path, "textures/earth-elevation-8192x4096.png"))),
-        (object)hold(image(uri, f(path, "textures/earth-water-8192x4096.png"))),
-        (object)hold(image(uri, f(path, "textures/earth-water-blur-8192x4096.png"))),
-        (object)hold(image(uri, f(path, "textures/earth-cloud-8192x4096.png"))),
-        (object)hold(image(uri, f(path, "textures/earth-bathymetry-8192x4096.png"))),
-        (object)hold(image(uri, f(path, "textures/earth-lights-8192x4096.png")))));
-    
 
     a->purple_res = hold(a(
         hold(image(uri, f(path, "textures/purple-color-8192x4096.png"))),
         hold(image(uri, f(path, "textures/purple-cloud-8192x4096.png")))));
-
     a->purple  = Purple  (t, t, name, string("purple"));
     a->earth   = Earth   (t, t, name, string("earth"));
     a->ocean   = Ocean   (t, t, name, string("ocean"));
     a->cloud   = Cloud   (t, t, name, string("cloud"));
     a->au      = Audrey  (t, t, name, string("audrey"));
 
-    clear     (a->core, string("#0000"));
-    
-    /// outter color
-    rect_to   (a->core, 0, 0, 800, 800);
-    fill_color(a->core, string("#f00"));
-    draw_fill (a->core);
-
-    /// inner core
-    arc       (a->core, 400.0f, 400.0f, 100.0f, 0.0f, 360.0f);
-    fill_color(a->core, string("#a0f"));
-    draw_fill (a->core);
-
-    /// core mantle!
-    arc       (a->core, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
-    fill_color(a->core, string("#aff"));
-    draw_fill (a->core);
-
-    clear     (a->beam, string("#0000"));
-    rect_to   (a->beam, 0, 0, 800, 800);
-    fill_color(a->beam, string("#00f"));
-    draw_fill (a->beam);
-    arc       (a->beam, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
-    fill_color(a->beam, string("#aff"));
-    draw_fill (a->beam);
-
-    sk_sync();
-
-    a->purple_model = model(w, w, id, a->purple_gltf, s, a->purple,
-        samplers, m(
-            "color",      a->purple_res->elements[PurpleSurface_color],
-            "cloud",      a->purple_res->elements[PurpleSurface_cloud]));
-
-    map earth_samplers = m(
-        "color",      a->earth_res->elements[EarthSurface_color],
-        "normal",     a->earth_res->elements[EarthSurface_normal],
-        "elevation",  a->earth_res->elements[EarthSurface_elevation],
-        "water",      a->earth_res->elements[EarthSurface_water],
-        "water_blur", a->earth_res->elements[EarthSurface_water_blur],
-        "cloud",      a->earth_res->elements[EarthSurface_cloud],
-        "bathymetry", a->earth_res->elements[EarthSurface_bathymetry],
-        "lights",     a->earth_res->elements[EarthSurface_lights]);
-    
-    a->earth_model = model(w, w, id, a->earth_gltf, s, a->earth, samplers, earth_samplers);
-    a->ocean_model = model(w, w, id, a->earth_gltf, s, a->ocean, samplers, earth_samplers);
-    a->cloud_model = model(w, w, id, a->earth_gltf, s, a->cloud, samplers, earth_samplers);
-
-    a->orbiter_gltf  = read(f(path, "models/flower8888.gltf"), typeid(Model));
-    
+    a->orbiter_gltf  = read(f(path, "models/flower88882.gltf"), typeid(Model), null);
     a->env           = image(uri, form(path, "images/forest.exr"), surface, Surface_environment);
     a->orbiter_scene = a(model(w, w, id, a->orbiter_gltf, s, a->orbiter, samplers, m("environment", a->env)));
 
     a->models = a(a->earth_model, a->ocean_model, a->cloud_model);
-
-    /*
-    verify this is made in the background; we then need to iterate through these targets, updating their sizes when that happens
-    their size is simply based on bounds, then we scale from there. (override wscale on target)
-    w->r_background  = target (w, w,
-        wscale,         2.0f,
-        clear_color,    vec4f(0.0f, 0.1f, 0.2f, 1.0f),
-        models,         a(a->earth_model, a->ocean_model, a->cloud_model));
     */
 
     /// create inspiring effect with au shader
-    initialize(a, w);
+    initialize(a, a->w);
 }
  
 none orbiter_dealloc(orbiter a) { }
@@ -306,9 +236,7 @@ int main(int argc, cstrs argv) {
     return run(a);
 }
 
-define_class(orbiter, app)
 
-define_class(Audrey, shader)
 
 void Earth_init(Earth w) {
     f32   fov_deg = 60.0f;
@@ -351,10 +279,58 @@ void Orbiter_init(Orbiter w) {
     w->moment_angle    = 0.0f;
 }
 
+void Audrey_init(Audrey a) {
+    trinity t = a->t;
+    int cv_size = 128;
+
+    a->cv   = sk(
+        t, t, format, Pixel_rgba8, 
+        width, cv_size, height, cv_size);
+
+    a->core = sk(
+        t, t, format, Pixel_rgba8, 
+        width, cv_size, height, cv_size);
+    
+    a->beam = sk(
+        t, t, format, Pixel_rgba8, 
+        width, cv_size, height, cv_size);
+
+    clear     (a->core, string("#0000"));
+    
+    /// outter color
+    rect_to   (a->core, 0, 0, 800, 800);
+    fill_color(a->core, string("#f00"));
+    draw_fill (a->core);
+
+    /// inner core
+    arc       (a->core, 400.0f, 400.0f, 100.0f, 0.0f, 360.0f);
+    fill_color(a->core, string("#a0f"));
+    draw_fill (a->core);
+
+    /// core mantle!
+    arc       (a->core, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
+    fill_color(a->core, string("#aff"));
+    draw_fill (a->core);
+
+    clear     (a->beam, string("#0000"));
+    rect_to   (a->beam, 0, 0, 800, 800);
+    fill_color(a->beam, string("#00f"));
+    draw_fill (a->beam);
+    arc       (a->beam, 400.0f, 400.0f, 40.0f, 0.0f, 360.0f);
+    fill_color(a->beam, string("#aff"));
+    draw_fill (a->beam);
+ 
+    sk_sync();
+}
+
+define_class(orbiter, app)
+
 define_class(Purple, shader)
 define_enum(PurpleSurface)
 
+define_class(Audrey, shader)
 define_class(Earth, shader)
+
 define_class(Ocean, Earth)
 define_class(Cloud, Earth)
 define_class(Orbiter, PBR)

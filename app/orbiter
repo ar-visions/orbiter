@@ -36,6 +36,33 @@ declare_enum(PurpleSurface)
 declare_class_2(Earth, shader)
 
 
+#define Audrey_schema(X,Y,...) \
+    i_prop   (X,Y, public,     mat4f,    model) \
+    i_prop   (X,Y, public,     mat4f,    view) \
+    i_prop   (X,Y, public,     mat4f,    proj) \
+    i_attr   (X,Y, Surface,    color, 2, rgba8) \
+    i_prop   (X,Y, public,     mat4f,    v_model) \
+    i_prop   (X,Y, public,     mat4f,    v_view) \
+    i_prop   (X,Y, public,     mat4f,    v_proj) \
+    i_prop   (X,Y, public,     f32,      time) \
+    i_prop   (X,Y, public,     f32,      thrust) \
+    i_prop   (X,Y, public,     f32,      magnitude) \
+    i_prop   (X,Y, public,     f32,      colors) \
+    i_prop   (X,Y, public,     f32,      halo_space) \
+    i_prop   (X,Y, public,     f32,      halo_separate) \
+    i_prop   (X,Y, public,     f32,      halo_attenuate) \
+    i_prop   (X,Y, public,     f32,      halo_thickness) \
+    i_prop   (X,Y, public,     f32,      pad0) \
+    i_prop   (X,Y, public,     f32,      pad1) \
+    i_prop   (X,Y, public,     f32,      pad2) \
+    i_prop   (X,Y, public,     sk,       cv,    functional) \
+    i_prop   (X,Y, public,     sk,       core,  functional) \
+    i_prop   (X,Y, public,     sk,       beam,  functional) \
+    i_override(X,Y, method, init)
+
+declare_class_2(Audrey, shader)
+
+
 #define Purple_schema(X,Y,...) \
     i_prop   (X,Y, public,     mat4f, model) \
     i_prop   (X,Y, public,     mat4f, view) \
@@ -63,28 +90,6 @@ declare_class_3(Cloud, Earth, shader)
     M   (C,S, method, override, init)
 declare_class_3(Orbiter, PBR, shader)
 
-#define Audrey_schema(X,Y,...) \
-    i_prop   (X,Y, public,     mat4f, model) \
-    i_prop   (X,Y, public,     mat4f, view) \
-    i_prop   (X,Y, public,     mat4f, proj) \
-    i_attr   (X,Y, Surface,    color,    2, rgba8) \
-    i_prop   (X,Y, public,     mat4f, v_model) \
-    i_prop   (X,Y, public,     mat4f, v_view) \
-    i_prop   (X,Y, public,     mat4f, v_proj) \
-    i_prop   (X,Y, public,     f32,   time) \
-    i_prop   (X,Y, public,     f32,   thrust) \
-    i_prop   (X,Y, public,     f32,   magnitude) \
-    i_prop   (X,Y, public,     f32,   colors) \
-    i_prop   (X,Y, public,     f32,   halo_space) \
-    i_prop   (X,Y, public,     f32,   halo_separate) \
-    i_prop   (X,Y, public,     f32,   halo_attenuate) \
-    i_prop   (X,Y, public,     f32,   halo_thickness) \
-    i_prop   (X,Y, public,     f32,   pad0) \
-    i_prop   (X,Y, public,     f32,   pad1) \
-    i_prop   (X,Y, public,     f32,   pad2)
-declare_class_2(Audrey, shader)
-
-
 #define Language_schema(E,T,Y,...) \
     enum_value(E,T,Y, C,        0) \
     enum_value(E,T,Y, python,   1) \
@@ -102,7 +107,7 @@ declare_class_2(editor, element)
     i_prop   (X,Y, public,  dbg,      debug) \
     i_prop   (X,Y, public,  i32,      width) \
     i_prop   (X,Y, public,  i32,      height) \
-    i_prop   (X,Y, public,  mdl,      model) \
+    i_prop   (X,Y, public,  llm,      model) \
     i_prop   (X,Y, public,  ctx,      context) \
     i_prop   (X,Y, public,  Model,    earth_gltf) \
     i_prop   (X,Y, public,  Model,    purple_gltf) \
@@ -118,15 +123,12 @@ declare_class_2(editor, element)
     i_prop   (X,Y, public,  Cloud,    cloud) \
     i_prop   (X,Y, public,  Audrey,   au) \
     i_prop   (X,Y, public,  Orbiter,  orbiter) \
-    i_prop   (X,Y, public,  sk,       cv) \
-    i_prop   (X,Y, public,  sk,       core) \
-    i_prop   (X,Y, public,  sk,       beam) \
     i_prop   (X,Y, public,  f32,      time) \
     i_prop   (X,Y, public,  array,    earth_res) \
     i_prop   (X,Y, public,  array,    purple_res) \
     i_prop   (X,Y, public,  image,    env) \
     i_prop   (X,Y, public,  array,    models) \
-    i_method (X,Y, public,  map,      render,       window) \
+    /*i_method (X,Y, public,  map,    render,       window)*/ \
     i_method (X,Y, public,  object,   window_mouse, event)  \
     i_method (X,Y, public,  object,   space_update, background) \
     i_method (X,Y, public,  object,   iris_update,  scene) \

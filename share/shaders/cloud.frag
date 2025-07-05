@@ -22,13 +22,27 @@ void main() {
     float cloud = texture(tx_earth_cloud, uv).x / (2.0 - v_cloud_avg);
 
     // === Edge haze ===
-    float edge = pow(1.0 - dot(normal, view_dir), 1.2) * 4.0; // fades near edge
+    //float edge = pow(1.0 - dot(normal, view_dir), 1.2) * 4.0; // fades near edge
+
+    float edge = pow(1.0 - dot(normal, view_dir), 0.5);
+
     float haze_strength = 1.0;
     float cloud_alpha = cloud + edge * haze_strength;
 
     // === Optional haze tint ===
     vec3 base_color = vec3(1.0);
     vec3 haze_color = mix(base_color, vec3(0.6, 0.8, 1.0), edge); // soft blue rim
-    outColor = vec4(haze_color, cloud_alpha);
+
+    float f = (1.0 - dot(normalize(normal), normalize(view_dir))) * 3.0;
+    float band = smoothstep(0.30, 1.00, f);
+
+    vec4 final = vec4(haze_color, cloud_alpha);
+
+    if (band > 0.0) {
+        vec4 final2 = mix(final, vec4(0.3, 0.0, 0.6, 1.0), band);
+        vec4 final3 = mix(final2, vec4(0.0, 0.1, 0.2, 1.0), band);
+        outColor = final3; // go from final, to light blue, to  0, 0.1, 0.2, 1  based on band 0 -> 1, where 0.5 is light blue
+    } else
+        outColor = final;
 }
  

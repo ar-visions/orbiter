@@ -1,0 +1,62 @@
+
+# here we may set context (if allowed by caller; may sync with its own class)
+# simple; if object is context, you are appending to the context given
+# object [ construction with typed args ], enum [ symbol ], struct [ members ] and object { k: v, k2: v2 }
+
+ctx {
+    orbiter: Orbiter { name: 'orbiter' }
+    earth:   Earth   { name: 'earth' }
+    ocean:   Ocean   { name: 'ocean' }
+    cloud:   Cloud   { name: 'cloud' }
+    au:      Audrey  { name: 'audrey' }
+
+    orbiter-gltf:   Model   [ 'models/flower88882.gltf' ]
+    earth-gltf:     Model   [ 'models/earth.gltf' ]
+
+    earth-samplers: map {
+        color:      image ['textures/earth-color-8192x4096.png']
+        normal:     image ['textures/earth-normal-8192x4096.png']
+        elevation:  image ['textures/earth-elevation-8192x4096.png']
+        water:      image ['textures/earth-water-8192x4096.png']
+        water-blur: image ['textures/earth-water-blur-8192x4096.png']
+        cloud:      image ['textures/earth-cloud-8192x4096.png']
+        bathymetry: image ['textures/earth-bathymetry-8192x4096.png']
+        lights:     image ['textures/earth-lights-8192x4096.png']
+    }
+    context-var:    'hi.'
+    orbiter-samplers: map {
+        env:        image { uri: 'images/forest.exr', surface: Surface[ environment ] }
+    }
+
+    orbiter-scene:  [ model { id:orbiter-gltf, s:orbiter, samplers:orbiter-samplers } ]
+}
+
+# and here is the actual object we are outputting
+{
+    space: background {
+        render-scale: 1.0f
+        models: [
+            model { id:earth-gltf, s:earth, samplers:earth-samplers }
+            model { id:earth-gltf, s:ocean, samplers:earth-samplers }
+            model { id:earth-gltf, s:cloud, samplers:earth-samplers }
+        ]
+        frost:true
+        clear-color:vec4f[ 0.0f 0.1f 0.2f 1.0f ]
+        elements: {
+            main: pane {
+                elements: {
+                    editor { content: 'orbiter editor.. {context-var}' }
+                }
+            }
+            debug: pane {
+                elements: {
+                    iris: scene {
+                        models:       orbiter-scene
+                        clear-color:  vec4f[ 1.0f 0.0f 0.0f 1.0f ]
+                        render-scale: 4.0f
+                    }
+                }
+            }
+        }
+    }
+}

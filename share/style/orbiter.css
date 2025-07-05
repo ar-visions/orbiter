@@ -1,6 +1,6 @@
 element.root {
     fill-canvas:        compose;
-    fill-color:         #704;
+    fill-color:         #afc;
     fill-radius-x:      0;
     fill-radius-y:      0;
 }
@@ -11,50 +11,37 @@ element.root / background.space {
 
 pane.main {
     fill-canvas:        compose;
-    fill-color:         #f08;
+    fill-color:         #f06;
     fill-radius-y:      14;
     fill-radius-x:      14;
     border-canvas:      compose;
-    border-color:       #f0af;
-    border-size:        1;
+    border-color:       #f04;
+    border-area:        l0.5 t0.5 r0.5 b0.5;
+    border-size:        2;
     border-blur:        0;
     border-radius-x:    14;
     border-radius-y:    14;
-    area:               l32 t32 r344 b32;
-}
-
-pane / element.outline {
-    area:               l0 t0 r100 b0;
-    border-area:        l0 t0 r0 b0;
-    border-canvas:      compose;
-    border-color:       #f0f;
-    border-size:        2;
-    border-blur:        0;
-    border-radius-x:    16;
-    border-radius-y:    16;
-    fill-radius-x:      16;
-    fill-radius-y:      16;
-    background:         "images/orbiter.png";
+    area:               l32 t32 r290 b32;
 }
 
 pane / editor {
-    fill-canvas:        overlay;
-    fill-color:         #fff1;
-    text-area:          l10 t44 r200 b10;
-    area:               l10 t44 r200 b10;
-    border-area:        l0.5 t0.5 r0.5 b0.5;
+    fill-canvas:        compose;
+    fill-color:         #f04;
+    text-area:          l10 t8 r8 b8;
+    area:               l10.5 t44.5 r200.5 b10.5;
+    border-area:        l0 t0 r0 b0;
     border-canvas:      compose;
-    border-color:       #f0f;
-    border-size:        1;
+    border-color:       #f04;
+    border-size:        2;
     border-radius-x:    8;
     border-radius-y:    8;
     fill-radius-x:      8;
     fill-radius-y:      8;
-    content:            "this is a string of text";
-    text-color:         #fff;
-    text-shadow-color:  #000a;
-    text-shadow-x:      1;
-    text-shadow-y:      1;
+    content:            "why cant i make a few more controls";
+    text-color:         #00f;
+    text-shadow-color:  #000;
+    text-shadow-x:      4;
+    text-shadow-y:      4;
     text-align-x:       left;
     text-align-y:       top;
 }
@@ -70,12 +57,23 @@ pane / button.button1 {
 
 pane.debug {
     fill-canvas:        compose;
-    fill-color:         #008;
-    area:               r312 t0 r0 b0;
+    fill-color:         #afc;
+    area:               r280 t0 r0 b0;
 }
 
+/* this should be a comment */
 scene.iris {
     fill-canvas:        overlay;
     fill-color:         #0000;
-    area:               l32 b132 w256 h256;
+    rotate:             [0 1 0 30deg, 1 0 0 -30deg];
+    scale:              1.44 1.44 1.44;
+    area:               l0 b256 w256 h256;
+}
+
+scene.iris:hovered {
+    rotate:             [0 1 0 30deg, 1 0 0 -40deg], 400ms;
+}
+
+scene.iris:pressed {
+    rotate:             [0 1 0 30deg, 1 0 0 0deg], 400ms;
 }
