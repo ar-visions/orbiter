@@ -126,7 +126,7 @@ from .ason file:
 
 map orbiter_render(orbiter a, window arg) {
     return m(
-        "space", background(
+        "space", stage(
             render_scale,   1.0f, // applies to render of this frame buffer, however not the UX elements within; those are 1:1 pixel ratio
             models,         a->models,
             frost,          true,

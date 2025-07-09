@@ -3,59 +3,192 @@
 # simple; if object is context, you are appending to the context given
 # object [ construction with typed args ], enum [ symbol ], struct [ members ] and object { k: v, k2: v2 }
 
-ctx {
-    orbiter: Orbiter { name: 'orbiter' }
-    earth:   Earth   { name: 'earth' }
-    ocean:   Ocean   { name: 'ocean' }
-    cloud:   Cloud   { name: 'cloud' }
-    au:      Audrey  { name: 'audrey' }
+# our language processor loads with app set on here as a member
+# our schema is what we build on top of. thats silver, its a total reflection of the stack
 
-    orbiter-gltf:   Model   [ 'models/flower88882.gltf' ]
-    earth-gltf:     Model   [ 'models/earth.gltf' ]
+# fields cannot be described twice on one line, that makes the 1 liner and L/R parts ambiguous at depth!
+# ... so theres a functional reason for that.  also it makes it simple
 
-    earth-samplers: map {
-        color:      image ['textures/earth-color-8192x4096.png']
-        normal:     image ['textures/earth-normal-8192x4096.png']
-        elevation:  image ['textures/earth-elevation-8192x4096.png']
-        water:      image ['textures/earth-water-8192x4096.png']
-        water-blur: image ['textures/earth-water-blur-8192x4096.png']
-        cloud:      image ['textures/earth-cloud-8192x4096.png']
-        bathymetry: image ['textures/earth-bathymetry-8192x4096.png']
-        lights:     image ['textures/earth-lights-8192x4096.png']
-    }
-    context-var:    'hi.'
-    orbiter-samplers: map {
-        environment: image { uri: 'images/forest.exr', surface: Surface[ environment ] }
-    }
+# the code { blocks } reset that, though.. so thats a good thing for extensibility
+# so yes, you can do the 1 liner but we're resetting in that context
 
-    earth-scene:    [
-        model { id:earth-gltf, s:earth, samplers:earth-samplers }
-        model { id:earth-gltf, s:ocean, samplers:earth-samplers }
-        model { id:earth-gltf, s:cloud, samplers:earth-samplers }
-    ]
-    orbiter-scene:  [ model { id:orbiter-gltf, s:orbiter, samplers:orbiter-samplers } ]
-}
+# when 'code' is next to a Type we are setting fields there..
 
-# and here is the actual object we are outputting
-{
-    space: background {
-        render-scale: 1.0f
-        models: earth-scene
-        frost:true
-        elements: {
-            main: pane {
-                elements: {
-                    editor { content: 'orbiter editor.. {context-var}' }
-                }
-            }
-            debug: pane {
-                elements: {
-                    iris: scene {
-                        models:       orbiter-scene
+# here orbiter is effectively a map, so we must be distinct with our types
+
+au:           Audrey  [ 'audrey'  ]
+orbiter:      Orbiter [ 'orbiter' ]
+earth:        Earth   [ 'earth'   ]
+ocean:        Ocean   [ 'ocean'   ]
+cloud:        Cloud   [ 'cloud'   ] # { resets the field parser state, because its a new one }
+orbiter-gltf: Model   [ 'models/flower88882.gltf' ]
+earth-gltf:   Model   [ 'models/earth.gltf'       ]
+
+# when we indent by default, we are committing another code map.
+# understand maps are code and code is maps..
+# they enumerate like fifos effectively
+earth-samplers:
+    color:      image ['textures/earth-color-8192x4096.png']
+    normal:     image ['textures/earth-normal-8192x4096.png']
+    elevation:  image ['textures/earth-elevation-8192x4096.png']
+    water:      image ['textures/earth-water-8192x4096.png']
+    water-blur: image ['textures/earth-water-blur-8192x4096.png']
+    cloud:      image ['textures/earth-cloud-8192x4096.png']
+    bathymetry: image ['textures/earth-bathymetry-8192x4096.png']
+    lights:     image ['textures/earth-lights-8192x4096.png']
+
+context-var: 'hi.'
+
+orbiter-samplers:
+    # we may effectively which object gets the block
+    #  below here; it will only set to 1!.. here its map.
+    environment: image [ uri: 'images/forest.exr', surface: Surface[ environment ] ]
+
+# we didnt get into arrays much, but this is initializing one here on this new map type
+# its object-based, but we may effectively set its meta data entry at teh design-level if criteria is satisfied
+earth-scene [
+    Instance [ model:earth-gltf s:earth samplers:earth-samplers ]
+    Instance [ model:earth-gltf s:ocean samplers:earth-samplers ]
+    Instance [ earth-gltf  cloud  samplers:earth-samplers ]
+]
+
+# unit classes are a L-data-type with an associated R-enum [ maximum 2 dimensions to define ]
+a-type: class speed -> f128, enum etype[ mph kts kph c ]
+    # we merely define a map of scales, so that we may perform operations
+    mph  : 0.7 * this
+    kts  : this / 0.78
+    kph  : this * 1.0
+    c    : 122000000000.0 / this
+    # we normally define types with sub-classes as speed[ base ], so this data operator lets us design this
+
+enum temp-type [
+    celsius,    C
+    fahrenheit, F
+    kelvin,     K
+    rankine,    Rk
+]
+
+a-type: class temp -> f128, temp-type
+    # temperature conversions with offsets
+    celsius    : this * 1.0
+    fahrenheit : this * 9/5 + 32
+    kelvin     : this + 273.15
+    rankine    : (this + 273.15) * 9/5
+
+
+orbiter-scene: array [ model ] : model[ id:orbiter-gltf  s:orbiter  samplers:orbiter-samplers ]
+
+# and here we have another map entry, not much different; 
+# our context was set above
+render:
+    space:  background:
+        render-scale:   1.0f
+        models:         earth-scene
+        frost:          true
+        elements:
+            main: pane:: editor [ 'orbiter editor.. {context-var}' ]
+            debug: pane:: iris: scene:
+                        models:       orbiter-scene # lol.. compact!
                         render-scale: 4.0f
-                    }
-                }
-            }
-        }
-    }
-}
+
+/* we should make this all in one, so ason has the app ctx, its rendering code, and its styling code */
+
+style:
+    element.root: compose #afc radius[ 0 0 ]
+
+    element.root / background.space:
+        l0 t0 r0 b0
+
+    pane.main:
+        l32 t32 r290 b32
+
+        fill:
+            compose #f06
+            radius [ 14 14 10 10 ]
+            blur   [ 0 ]
+
+        // might be useful to have as a default init on border
+        // or something that adjusts based on the stroke size effective
+
+        border:
+            compose
+            region  [ 0.5 ] 
+            radius  [ 14 14 10 10 ]
+            size    [  2  ]
+            blur    [  0  ]
+            radius  [ 14  ]
+
+    pane / editor:
+        # set 'area' members on this element (the schema in question here is set by the processor)
+        l10 t10 r1 b20
+
+        border:
+            area:    -1   // offset is a field name, but next char of [ indicates we are constructing with the args, its short-hand ]
+            region:   0   // error: same field set twice (if we only have 1 region that is)
+            size:     2
+            #fff /* members in a class may have a meta descriptor for character hints, so color has meta hint_hash == choose me. */
+        
+        // one liner for fill, described more below
+        fill: #fff glow [ 2px #00f ]
+
+        border:
+            color:  0 0 0 0.5     # multiple args are converted into string input when inside [ ]
+            offset: 1             # this however we may try to match against singular constructor with numeric type
+            style:  0.5 2
+            shadow [ inner outter ]
+
+        # here is the only actual way  you can set sub-fields, so we are pushing a member onto the stack called label
+        # and it is constructed with these set of fields to bind to before its initialized
+
+        # kind of intersting, the only way to assign now is the = ... so we've got a problem with constants now.
+        # it is the case that this is a constant, though.. and perhaps many other cases.. we may work in consts
+        # differently if needed.. because if we must mute the variable or redesign lots of syntax, then const goes as keyword
+        // this is basically making use of full expansion here
+        // field setters allow for an inline, along with a block.  this is silver parsing, and its how we define a data-class
+        edit: text:
+            'a super string theory'
+            underline     # this is a property
+            center center # field bits are set as we go along, so that changes what we do as read
+
+    // field processor may read the states and any possible code block
+    pane / editor, hovered || pressed:
+
+        l10.5 t44.5 r200.5 b10.5
+
+        // pushes to another expression at this level; expression has a ->next for this 
+        fill:   compose #f04 radius[ 8 ]
+
+
+        # since no expression can make use of a top level of , ... this works
+        # it works in that the expression parser you describe may split the two expressions
+        # one is formed into ether code for an object allocation
+        # this is all emitted in the module initializer; perhaps also an 'update' for style properties in a different initialization scope
+        gadget: 'ill get you gadget!', 300ms cubic
+
+        text:   l10 t8 r8 b8 shadow[ #000 2 4 4 ] left top
+            "why cant i make a few more controls"
+        
+        border:
+            compose #f08 radius[ 8 ] size[ 1 ] region[ 0.5 ]
+
+    pane / button1:
+        l8 t8 r8 b8   text['a button']   fill[overlay]  border[overlay 4 #ffff]
+
+    debug:
+        r280 t0 r0 b0
+        fill[ compose #afc ]
+
+    /* i think overlay is a suitable default for layer */
+    /* deg is a unit type of f32 data, with suffix handers to 'degrees' and 'radians'
+       here the short-hand is selecting it because its not ambiguous */
+    iris:
+        fill:               [ overlay #0000 ]
+        rotate:             [0 1 0 30deg, 1 0 0 -30deg]
+        scale:              1.44 1.44 1.44
+        area:               0l 256b 256w 256h
+
+    iris & hovered:
+        rotate:             [0 1 0 30deg, 1 0 0 -40deg], 400ms
+
+    iris & pressed:
+        rotate:             [0 1 0 30deg, 1 0 0 0deg], 400ms

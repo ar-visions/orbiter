@@ -24,15 +24,46 @@ pane.main {
     area:               l32 t32 r290 b32;
 }
 
-pane / editor {
+/ pane / editor {
+    region [ l10 t10 r1 b20 ]
+
+    border {
+        region [ -1 ] // offset is a field name, but next char of [ indicates we are constructing with the args, its short-hand ]
+        offset [ -1 ] // same thing.
+        size   [ 2  ]
+        #fff         /* members in a class may have a meta descriptor for character hints, so color has meta hint_hash == choose me. */
+    }
+
+    fill { color[ #fff ] glow [ 2px #00f ] }
+
+    border {
+        color  [ 0 0 0 0.5    ] # multiple args are converted into string input when inside [ ]
+        offset [ 1            ] # this however we may try to match against singular constructor with numeric type
+        style  [ 0.5 2        ]
+        shadow [ inner outter ]
+    }
+
+    label {
+        id:gadget
+           decor[ underline ]
+          'a string.. probably goes into a string holder called text, without saying text'
+           vec2f[ 1 ]
+    }
+}
+
+pane / editor : hovered, pressed {
+
+    gadget: { 'ill get you gadget!' }, 300ms cubic
+
+
     fill-canvas:        compose;
     fill-color:         #f04;
     text-area:          l10 t8 r8 b8;
     area:               l10.5 t44.5 r200.5 b10.5;
     border-area:        l0 t0 r0 b0;
     border-canvas:      compose;
-    border-color:       #f04;
-    border-size:        2;
+    border-color:       #f08;
+    border-size:        1;
     border-radius-x:    8;
     border-radius-y:    8;
     fill-radius-x:      8;
