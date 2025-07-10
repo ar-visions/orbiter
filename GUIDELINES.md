@@ -75,4 +75,4 @@ Orbiter is a design-first development platform for building rich, spatially-awar
 
 ## Summation
 
-Orbiter isn't trying to be a web browser, or let you try to develop like an app for one of them. It's a native-first, code-centered system built to empower how developers *actually* build, not how frameworks expect them to.  We use tapestry, so any git-url that installs to lib/bin/include/share is a package.
+Orbiter isn't trying to be a web browser, or let you try to develop like an app for one of them. It's a native-first, code-centered system built to empower how developers *actually* build, not how frameworks expect them to.  We use import, so any git-url that installs to lib/bin/include/share is a package.
