@@ -1,0 +1,133 @@
+
+# this is all we need to import trinity base module, and its class info (silver loads this)
+import [ git@github.com:ar-visions/trinity ]
+
+enum EarthSurface
+    color                   : 0
+    normal                  : 1
+    elevation               : 2
+    water                   : 3
+    water_blur              : 4
+    cloud                   : 5
+    bathymetry              : 6
+    lights                  : 7
+
+enum PurpleSurface
+    color                   : 0
+    cloud                   : 1
+
+class attribute
+    public   type       : AType 
+    public   enumerable : i32
+    public   value      : any
+    public   meta       : AType
+
+shader Earth
+    public   model          : mat4f
+    public   view           : mat4f
+    public   proj           : mat4f
+    public   time           : f32
+
+    attrib EarthSurface[ color      ] : 1, rgba8
+    attrib EarthSurface[ normal     ] : 1, rgba8
+    attrib EarthSurface[ elevation  ] : 1, rgba8
+    attrib EarthSurface[ water      ] : 1, rgba8
+    attrib EarthSurface[ water_blur ] : 1, rgba8
+    attrib EarthSurface[ cloud      ] : 1, rgba8
+    attrib EarthSurface[ bathymetry ] : 1, rgba8
+    attrib EarthSurface[ lights     ] : 1, rgba8
+
+    override init
+
+shader Audrey
+    public   model          : mat4f       
+    public   view           : mat4f       
+    public   proj           : mat4f       
+    public   v_model        : mat4f       
+    public   v_view         : mat4f       
+    public   v_proj         : mat4f       
+    public   time           : f32         
+    public   thrust         : f32         
+    public   magnitude      : f32         
+    public   colors         : f32         
+    public   halo_space     : f32         
+    public   halo_separate  : f32         
+    public   halo_attenuate : f32         
+    public   halo_thickness : f32         
+    public   pad0           : f32         
+    public   pad1           : f32         
+    public   pad2           : f32         
+    public   cv             : sk,  functional
+    public   core           : sk,  functional
+    public   beam           : sk,  functional
+    attrib   Surface.color  : 2,   rgba8
+    override init
+
+shader Purple
+    public   model          : mat4f
+    public   view           : mat4f
+    public   proj           : mat4f
+    public   time           : f32
+    attrib   PurpleSurface.color : 1, rgba8
+    attrib   PurpleSurface.cloud : 1, rgba8
+    override init
+
+export Earth Ocean
+
+export Earth Cloud
+
+export PBR Orbiter
+    public pos_radius       : vec4f    
+    public normal_falloff   : vec4f        
+    public color_intensity  : vec4f        
+    public moment           : f32          
+    public moment_amount    : f32          
+    public moment_angle     : f32          
+    override init
+
+export enum Language
+    C                       : 0
+    python                  : 1
+    CSharp                  : 2
+    VBasic                  : 3
+
+export element editor
+    public lang             : Language
+    public time             : f32
+
+export app orbiter
+    public debug            : dbg
+    public width            : i32, meta-info
+    public height           : i32
+    public model            : llm
+    public context          : ctx
+    public earth_gltf       : gltf
+    public purple_gltf      : gltf
+    public orbiter_gltf     : gltf
+    public earth_model      : model
+    public ocean_model      : model
+    public cloud_model      : model
+    public purple_model     : model
+
+    public earth            : Earth
+    public purple           : Purple
+    public ocean            : Ocean
+    public cloud            : Cloud
+    public au               : Audrey
+    public orbiter          : Orbiter
+    public time             : f32
+    public earth_res        : array, image
+    public purple_res       : array, image
+    public env              : image
+    public models           : array, model
+
+    public fn window_mouse [ event      ] -> object    
+    public fn space_update [ background ] -> object        
+    public fn iris_update  [ scene      ] -> object    
+    public fn dbg_crash    [ cursor     ] -> object    
+    public fn dbg_exit     [ dbg        ] -> object    
+    public fn dbg_break    [ cursor     ] -> object    
+    public fn dbg_stdout   [ iobuffer   ] -> object    
+    public fn dbg_stderr   [ iobuffer   ] -> object        
+    override init
+    override dealloc
