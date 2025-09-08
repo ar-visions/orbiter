@@ -161,7 +161,7 @@ style:
 
         # since no expression can make use of a top level of , ... this works
         # it works in that the expression parser you describe may split the two expressions
-        # one is formed into ether code for an object allocation
+        # one is formed into aether code for an object allocation
         # this is all emitted in the module initializer; perhaps also an 'update' for style properties in a different initialization scope
         gadget: 'ill get you gadget!', 300ms cubic
 
