@@ -17,10 +17,10 @@ enum PurpleSurface
     cloud                   : 1
 
 class attribute
-    public   type       : AType 
+    public   type       : Au_t 
     public   enumerable : i32
     public   value      : any
-    public   meta       : AType
+    public   meta       : Au_t
 
 shader Earth
     public   model          : mat4f
